@@ -45,12 +45,12 @@ jobs:
       - name: Create project structure
         run: |
           mkdir -p app/src/main/java/com/nexus/browser
+          mkdir -p app/src/main/java/com/nexus/browser/adblock
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
-          mkdir -p app/src/main/jniLibs
-          mkdir -p app/src/main/rust
+          mkdir -p app/src/main/rust/src
           mkdir -p app/src/main/assets
 
       - name: Write settings.gradle
@@ -657,7 +657,6 @@ jobs:
                   progressBar = findViewById(R.id.progressBar)
                   incognitoBadge = findViewById(R.id.incognitoBadge)
 
-                  // Initialize the Rust-based adblock engine
                   try {
                       adBlockEngine = AdBlockEngine()
                   } catch (e: Exception) {
@@ -712,25 +711,19 @@ jobs:
                           if (prefs.getBoolean("adblock", true)) {
                               totalCount.incrementAndGet()
 
-                              // Layer 1: Rust-based adblock engine (Brave's engine)
                               try {
                                   if (adBlockEngine?.isAd(url) == true) {
                                       blockedCount.incrementAndGet()
                                       return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                                   }
-                              } catch (e: Exception) {
-                                  // Fallback to library if Rust engine fails
-                              }
+                              } catch (e: Exception) {}
 
-                              // Layer 2: WebViewAdblock library fallback
                               try {
                                   if (com.nexus.browser.adblock.WebViewAdblock.blockAds(view, url)) {
                                       blockedCount.incrementAndGet()
                                       return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                                   }
-                              } catch (e: Exception) {
-                                  // Ignore fallback errors
-                              }
+                              } catch (e: Exception) {}
                           }
                           return super.shouldInterceptRequest(view, request)
                       }
@@ -768,7 +761,6 @@ jobs:
                           if (!incognito && url != null) saveHistory(url, view?.title ?: url)
                           updateBookmarkIcon()
 
-                          // Layer 3: Inject YouTube-specific ad blocking scripts (from NouTube)
                           if (prefs.getBoolean("adblock", true)) {
                               injectNouTubeAdBlockScripts()
                               if (url?.contains("youtube.com") == true) {
@@ -823,11 +815,9 @@ jobs:
                   }
               }
 
-              // Injects NouTube's ad blocking scripts (YouTube specific)
               private fun injectNouTubeAdBlockScripts() {
                   val js = """
                       javascript:(function() {
-                          // Remove ad placements from YouTube's initial data
                           const originalParse = JSON.parse;
                           JSON.parse = function(text, reviver) {
                               const result = originalParse(text, reviver);
@@ -839,7 +829,6 @@ jobs:
                               return result;
                           };
 
-                          // Remove ad containers from DOM
                           const style = document.createElement('style');
                           style.type = 'text/css';
                           style.innerHTML = `
@@ -867,24 +856,20 @@ jobs:
                   webView.evaluateJavascript(js, null)
               }
 
-              // YouTube specific ad skipper (NouTube approach)
               private fun injectYouTubeAdSkipper() {
                   val js = """
                       javascript:(function() {
                           function skipYouTubeAds() {
-                              // Click skip button if present
                               const skipButton = document.querySelector(
                                   '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button'
                               );
                               if (skipButton) skipButton.click();
 
-                              // Fast-forward video ads
                               const video = document.querySelector('video');
                               if (video && document.querySelector('.ad-showing')) {
                                   video.currentTime = video.duration;
                               }
 
-                              // Remove ad overlays
                               document.querySelectorAll(
                                   '.ytp-ad-overlay-container, .ytp-ad-text-overlay, .ytp-ad-image-overlay'
                               ).forEach(el => el.style.display = 'none');
