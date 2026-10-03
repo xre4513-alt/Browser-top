@@ -29,13 +29,8 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "ndk;25.2.9519653"
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-
-      - name: Set up Rust for Android
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Set up Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
@@ -45,13 +40,10 @@ jobs:
       - name: Create project structure
         run: |
           mkdir -p app/src/main/java/com/nexus/browser
-          mkdir -p app/src/main/java/com/nexus/browser/adblock
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
-          mkdir -p app/src/main/rust/src
-          mkdir -p app/src/main/assets
 
       - name: Write settings.gradle
         run: |
@@ -68,7 +60,6 @@ jobs:
               repositories {
                   google()
                   mavenCentral()
-                  maven { url 'https://jitpack.io' }
               }
           }
           rootProject.name = "NexusBrowser"
@@ -81,7 +72,6 @@ jobs:
           plugins {
               id 'com.android.application' version '8.2.2' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
-              id 'org.mozilla.rust-android-gradle.rust-android' version '0.9.5' apply false
           }
           EOF
 
@@ -91,10 +81,9 @@ jobs:
           android.useAndroidX=true
           android.enableJetifier=true
           kotlin.code.style=official
-          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
           org.gradle.parallel=true
           org.gradle.caching=true
-          android.ndkVersion=25.2.9519653
           EOF
 
       - name: Write app/build.gradle
@@ -103,14 +92,10 @@ jobs:
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
-              id 'org.mozilla.rust-android-gradle.rust-android'
           }
-
           android {
               namespace 'com.nexus.browser'
               compileSdk 34
-              ndkVersion "25.2.9519653"
-
               defaultConfig {
                   applicationId "com.nexus.browser"
                   minSdk 24
@@ -118,7 +103,6 @@ jobs:
                   versionCode 1
                   versionName "1.0.0"
               }
-
               buildTypes {
                   release {
                       minifyEnabled false
@@ -128,27 +112,16 @@ jobs:
                       applicationIdSuffix ".debug"
                   }
               }
-
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-
               kotlinOptions { jvmTarget = '17' }
               buildFeatures { viewBinding true }
-
               packagingOptions {
                   resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
               }
           }
-
-          cargo {
-              module = "../app/src/main/rust"
-              libname = "adblock_jni"
-              targets = ["arm64", "arm", "x86", "x86_64"]
-              profile = "release"
-          }
-
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
@@ -157,13 +130,6 @@ jobs:
               implementation 'androidx.webkit:webkit:1.10.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-              implementation 'com.github.MonsterTechnoGits:WebViewAdblock-Library:1.1'
-          }
-
-          tasks.whenTaskAdded { task ->
-              if (task.name == 'mergeDebugJniLibFolders' || task.name == 'mergeReleaseJniLibFolders') {
-                  task.dependsOn 'cargoBuild'
-              }
           }
           EOF
 
@@ -174,75 +140,7 @@ jobs:
           -keepclassmembers class * {
               @android.webkit.JavascriptInterface <methods>;
           }
-          -keep class com.nexus.browser.adblock.** { *; }
-          -keep class com.monstertechno.adblocker.** { *; }
-          -dontwarn com.monstertechno.adblocker.**
           EOF
-
-      - name: Write Rust Cargo.toml
-        run: |
-          cat > app/src/main/rust/Cargo.toml << 'EOF'
-          [package]
-          name = "adblock_jni"
-          version = "0.1.0"
-          edition = "2021"
-
-          [lib]
-          crate-type = ["cdylib"]
-
-          [dependencies]
-          jni = "0.21"
-          adblock = "0.8"
-          once_cell = "1.19"
-          EOF
-
-      - name: Write Rust lib.rs (JNI Bridge)
-        run: |
-          cat > app/src/main/rust/src/lib.rs << 'EOF'
-          use jni::objects::{JClass, JString};
-          use jni::sys::jboolean;
-          use jni::JNIEnv;
-          use once_cell::sync::Lazy;
-          use std::sync::Mutex;
-
-          static ENGINE: Lazy<Mutex<adblock::Engine>> = Lazy::new(|| {
-              let mut engine = adblock::Engine::from_rules(
-                  adblock::lists::parse_filters(
-                      include_str!("easylist.txt"),
-                      adblock::lists::FilterFormat::Standard,
-                  ).unwrap(),
-                  adblock::lists::ParseOptions::default(),
-              );
-              Mutex::new(engine)
-          });
-
-          #[no_mangle]
-          pub extern "system" fn Java_com_nexus_browser_adblock_AdBlockEngine_isAd(
-              mut env: JNIEnv,
-              _class: JClass,
-              url: JString,
-          ) -> jboolean {
-              let url_str: String = match env.get_string(&url) {
-                  Ok(s) => s.into(),
-                  Err(_) => return 0,
-              };
-
-              let mut engine = ENGINE.lock().unwrap();
-              let request = adblock::request::Request::new(&url_str, "", "").unwrap();
-              let result = engine.check_network_request(&request, true);
-
-              if result.matched {
-                  1
-              } else {
-                  0
-              }
-          }
-          EOF
-
-      - name: Download EasyList filter list
-        run: |
-          curl -sL https://easylist.to/easylist/easylist.txt -o app/src/main/rust/src/easylist.txt
-          echo "Filter list downloaded: $(wc -l < app/src/main/rust/src/easylist.txt) lines"
 
       - name: Write AndroidManifest.xml
         run: |
@@ -621,11 +519,8 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
-          import com.nexus.browser.adblock.AdBlockEngine
-          import com.nexus.browser.adblock.WebViewAdblock
           import java.io.ByteArrayInputStream
           import java.net.URLEncoder
-          import java.util.UUID
 
           class MainActivity : AppCompatActivity() {
 
@@ -637,7 +532,64 @@ jobs:
 
               private var incognito = false
               private var desktopMode = false
-              private var adBlockEngine: AdBlockEngine? = null
+
+              // ====== BIG AD DOMAIN LIST (100+ hosts) ======
+              private val adDomains = setOf(
+                  // Google ads
+                  "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+                  "adservice.google.com", "ads.google.com", "pagead2.googlesyndication.com",
+                  "partner.googleadservices.com", "tpc.googlesyndication.com",
+                  // Major ad networks
+                  "adnxs.com", "ads.yahoo.com", "advertising.com", "outbrain.com",
+                  "taboola.com", "popads.net", "popcash.net", "propellerads.com",
+                  "adcolony.com", "applovin.com", "unityads.unity3d.com",
+                  "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
+                  "mopub.com", "flurry.com", "adjust.com", "appsflyer.com",
+                  "branch.io", "kochava.com", "mixpanel.com", "amplitude.com",
+                  // Analytics + tracking
+                  "scorecardresearch.com", "quantserve.com", "comscore.com",
+                  "criteo.com", "criteo.net", "rubiconproject.com", "pubmatic.com",
+                  "openx.net", "indexexchange.com", "casalemedia.com", "sharethrough.com",
+                  "teads.tv", "spotxchange.com", "smartadserver.com", "adform.net",
+                  "smaato.net", "mobfox.com", "yieldmo.com", "sonobi.com",
+                  "gumgum.com", "undertone.com", "adroll.com", "bidswitch.net",
+                  "adsrvr.org", "bidr.io", "liveintent.com", "liveramp.com",
+                  "mathtag.com", "simpli.fi", "tapad.com", "thetradedesk.com",
+                  "turn.com", "zemanta.com", "yieldlab.net", "yieldmanager.com",
+                  // More trackers
+                  "googletagmanager.com", "google-analytics.com", "googletagservices.com",
+                  "facebook.net", "connect.facebook.net", "pixel.facebook.com",
+                  "hotjar.com", "fullstory.com", "mouseflow.com", "crazyegg.com",
+                  "optimizely.com", "vwo.com", "kissmetrics.com", "segment.com",
+                  "segment.io", "heapanalytics.com", "newrelic.com", "bugsnag.com",
+                  // Ad servers
+                  "adzerk.net", "advertising.microsoft.com", "ads.linkedin.com",
+                  "ads.pinterest.com", "ads.reddit.com", "ads.twitter.com",
+                  "ads.tiktok.com", "business.tiktok.com", "analytics.tiktok.com"
+              )
+
+              // Ad keywords in URL path
+              private val adKeywords = listOf(
+                  "/ads/", "/ad/", "/advert", "/banner/", "/popup", "/pop-under",
+                  "/sponsor", "/promoted", "/affiliate", "/track?", "/pixel?",
+                  "/beacon?", "adsense", "adserver", "adtech", "/pagead/",
+                  "/adservice/", "/adframe/", "/adloader/", "googleads",
+                  "/advertisement/", "/sponsored/", "?adid=", "&adid=",
+                  "?adtest=", "&adtest=", "utm_source=ad"
+              )
+
+              // YouTube specific ad patterns
+              private val ytAdPatterns = listOf(
+                  "youtube.com/api/stats/ads",
+                  "youtube.com/pagead",
+                  "youtube.com/ptracking",
+                  "googleads.g.doubleclick.net",
+                  "youtube.com/pcs/activeview",
+                  "youtube.com/youtubei/v1/player/ad",
+                  "youtube.com/youtubei/v1/next/ad",
+                  "youtube.com/youtubei/v1/browse/ad",
+                  "youtube.com/youtubei/v1/log_event?alt=json&key=AIza"
+              )
 
               private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
               private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
@@ -659,12 +611,6 @@ jobs:
                   addressBar = findViewById(R.id.addressBar)
                   progressBar = findViewById(R.id.progressBar)
                   incognitoBadge = findViewById(R.id.incognitoBadge)
-
-                  try {
-                      adBlockEngine = AdBlockEngine()
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Adblock engine failed to load: ${e.message}", Toast.LENGTH_LONG).show()
-                  }
 
                   setupWebView()
                   setupButtons()
@@ -709,24 +655,18 @@ jobs:
                           view: WebView?,
                           request: WebResourceRequest?
                       ): WebResourceResponse? {
-                          val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                          val url = request?.url?.toString()
+                              ?: return super.shouldInterceptRequest(view, request)
 
                           if (prefs.getBoolean("adblock", true)) {
                               totalCount.incrementAndGet()
-
-                              try {
-                                  if (adBlockEngine?.isAd(url) == true) {
-                                      blockedCount.incrementAndGet()
-                                      return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
-                                  }
-                              } catch (e: Exception) {}
-
-                              try {
-                                  if (WebViewAdblock.blockAds(view, url)) {
-                                      blockedCount.incrementAndGet()
-                                      return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
-                                  }
-                              } catch (e: Exception) {}
+                              if (isAdUrl(url)) {
+                                  blockedCount.incrementAndGet()
+                                  return WebResourceResponse(
+                                      "text/plain", "utf-8",
+                                      ByteArrayInputStream(ByteArray(0))
+                                  )
+                              }
                           }
                           return super.shouldInterceptRequest(view, request)
                       }
@@ -736,10 +676,8 @@ jobs:
                       ): Boolean {
                           val url = request?.url?.toString() ?: return false
 
-                          if (prefs.getBoolean("adblock", true)) {
-                              if (adBlockEngine?.isAd(url) == true) {
-                                  return true
-                              }
+                          if (prefs.getBoolean("adblock", true) && isAdUrl(url)) {
+                              return true
                           }
 
                           if (url.startsWith("intent://")) {
@@ -749,7 +687,6 @@ jobs:
                                   return true
                               } catch (e: Exception) { return false }
                           }
-
                           return false
                       }
 
@@ -765,9 +702,10 @@ jobs:
                           updateBookmarkIcon()
 
                           if (prefs.getBoolean("adblock", true)) {
-                              injectNouTubeAdBlockScripts()
-                              if (url?.contains("youtube.com") == true) {
-                                  injectYouTubeAdSkipper()
+                              injectUniversalAdBlock()
+                              if (url?.contains("youtube.com") == true ||
+                                  url?.contains("youtu.be") == true) {
+                                  injectYouTubeAdBlock()
                               }
                           }
                       }
@@ -778,10 +716,6 @@ jobs:
                           progressBar.progress = newProgress
                           progressBar.visibility = if (newProgress in 1..99)
                               View.VISIBLE else View.GONE
-                      }
-
-                      override fun onReceivedTitle(view: WebView?, title: String?) {
-                          super.onReceivedTitle(view, title)
                       }
                   }
 
@@ -818,70 +752,214 @@ jobs:
                   }
               }
 
-              private fun injectNouTubeAdBlockScripts() {
+              private fun isAdUrl(url: String): Boolean {
+                  val lowerUrl = url.lowercase()
+                  val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
+
+                  // Domain check
+                  if (adDomains.any { host == it || host.endsWith(".$it") }) return true
+
+                  // YouTube specific
+                  if (ytAdPatterns.any { lowerUrl.contains(it) }) return true
+
+                  // Keyword check (only if not a main video/image)
+                  if (adKeywords.any { lowerUrl.contains(it) }) {
+                      if (!lowerUrl.contains("youtube.com/watch") &&
+                          !lowerUrl.contains("googlevideo.com/videoplayback") &&
+                          !lowerUrl.contains("facebook.com/watch") &&
+                          !lowerUrl.contains("instagram.com/p/")
+                      ) {
+                          return true
+                      }
+                  }
+                  return false
+              }
+
+              // ===== UNIVERSAL AD BLOCKER (all sites) =====
+              private fun injectUniversalAdBlock() {
                   val js = """
                       javascript:(function() {
-                          const originalParse = JSON.parse;
-                          JSON.parse = function(text, reviver) {
-                              const result = originalParse(text, reviver);
-                              try {
-                                  if (result && result.adPlacements) delete result.adPlacements;
-                                  if (result && result.playerAds) delete result.playerAds;
-                                  if (result && result.adSlots) delete result.adSlots;
-                              } catch (e) {}
-                              return result;
-                          };
+                          if (window.__nexusAdBlockLoaded) return;
+                          window.__nexusAdBlockLoaded = true;
 
-                          const style = document.createElement('style');
-                          style.type = 'text/css';
-                          style.innerHTML = `
-                              .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
-                              .ytp-ad-progress-list, #player-ads, #masthead-ad,
-                              ytd-promoted-sparkles-web-renderer, ytd-display-ad-renderer,
-                              ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer,
-                              .ytp-ad-image-overlay, .ytp-ad-text-overlay,
-                              .ytp-ad-overlay-slot, .ytp-ad-player-overlay,
-                              ytd-action-companion-ad-renderer,
-                              ytd-promoted-video-renderer,
-                              ytd-compact-promoted-video-renderer,
+                          var css = `
                               .ad, .ads, .adsbygoogle, .ad-container, .ad-wrapper,
-                              .ad-banner, .advertisement, .sponsored, .promoted,
-                              [class*="ad-"], [class*="-ad"], [id*="google_ads"],
-                              [id*="ad-slot"], [class*="banner"], .popup, .pop-under,
-                              [class*="advert"], [id*="advert"], [class*="sponsor"],
-                              [id*="sponsor"], [class*="promo"], [id*="promo"] {
+                              .ad-banner, .advertisement, .advertisements,
+                              .sponsored, .sponsored-content, .promoted,
+                              [class*=" ad-"], [class^="ad-"], [class*="-ad "],
+                              [id*="google_ads"], [id^="google_ads"],
+                              [id*="ad-slot"], [id*="ad_slot"],
+                              [class*="banner"], [id*="banner"],
+                              .popup, .pop-under, .interstitial,
+                              [class*="advert"], [id*="advert"],
+                              [class*="sponsor"], [id*="sponsor"],
+                              [class*="promo"], [id*="promo"],
+                              iframe[src*="doubleclick"],
+                              iframe[src*="googlesyndication"],
+                              iframe[src*="googleadservices"],
+                              iframe[src*="/ads/"],
+                              iframe[id*="google_ads"] {
                                   display: none !important;
+                                  visibility: hidden !important;
+                                  height: 0 !important;
+                                  width: 0 !important;
                               }
                           `;
-                          document.head.appendChild(style);
+                          var style = document.createElement('style');
+                          style.type = 'text/css';
+                          style.appendChild(document.createTextNode(css));
+                          (document.head || document.documentElement).appendChild(style);
+
+                          // Remove ad iframes by src
+                          var removeAds = function() {
+                              var iframes = document.querySelectorAll('iframe');
+                              for (var i = 0; i < iframes.length; i++) {
+                                  var src = iframes[i].src || '';
+                                  if (src.indexOf('doubleclick') > -1 ||
+                                      src.indexOf('googlesyndication') > -1 ||
+                                      src.indexOf('googleadservices') > -1 ||
+                                      src.indexOf('/ads/') > -1 ||
+                                      src.indexOf('adservice') > -1) {
+                                      iframes[i].remove();
+                                  }
+                              }
+                          };
+                          removeAds();
+                          setInterval(removeAds, 2000);
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
               }
 
-              private fun injectYouTubeAdSkipper() {
+              // ===== YOUTUBE-SPECIFIC AD BLOCKER (NouTube style) =====
+              private fun injectYouTubeAdBlock() {
                   val js = """
                       javascript:(function() {
-                          function skipYouTubeAds() {
-                              const skipButton = document.querySelector(
-                                  '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button'
-                              );
-                              if (skipButton) skipButton.click();
+                          if (window.__nexusYtBlockLoaded) return;
+                          window.__nexusYtBlockLoaded = true;
 
-                              const video = document.querySelector('video');
+                          // ===== 1. Override JSON.parse to remove ad data =====
+                          var originalParse = JSON.parse;
+                          JSON.parse = function(text, reviver) {
+                              var result = originalParse(text, reviver);
+                              try {
+                                  if (result) {
+                                      if (result.adPlacements) delete result.adPlacements;
+                                      if (result.playerAds) delete result.playerAds;
+                                      if (result.adSlots) delete result.adSlots;
+                                      if (result.adBreakHeartbeatParams) delete result.adBreakHeartbeatParams;
+                                      if (result.playerResponse) {
+                                          if (result.playerResponse.adPlacements) delete result.playerResponse.adPlacements;
+                                          if (result.playerResponse.playerAds) delete result.playerResponse.playerAds;
+                                          if (result.playerResponse.adSlots) delete result.playerResponse.adSlots;
+                                          if (result.playerResponse.adBreakHeartbeatParams) delete result.playerResponse.adBreakHeartbeatParams;
+                                      }
+                                  }
+                              } catch (e) {}
+                              return result;
+                          };
+
+                          // ===== 2. Inject CSS to hide ad containers =====
+                          var css = `
+                              .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
+                              .ytp-ad-progress-list, .ytp-ad-progress,
+                              #player-ads, #masthead-ad,
+                              ytd-promoted-sparkles-web-renderer,
+                              ytd-display-ad-renderer,
+                              ytd-ad-slot-renderer,
+                              ytd-in-feed-ad-layout-renderer,
+                              ytd-action-companion-ad-renderer,
+                              ytd-promoted-video-renderer,
+                              ytd-compact-promoted-video-renderer,
+                              ytd-banner-promo-renderer,
+                              ytd-statement-banner-renderer,
+                              ytd-in-feed-ad-layout-renderer,
+                              .ytp-ad-image-overlay,
+                              .ytp-ad-text-overlay,
+                              .ytp-ad-overlay-slot,
+                              .ytp-ad-player-overlay,
+                              .ytp-ad-player-overlay-instream-info,
+                              .ytp-ad-survey,
+                              .ytp-ad-survey-questions,
+                              .ytp-ad-survey-question,
+                              .ytp-ad-survey-answer,
+                              .ytp-featured-product,
+                              .ytp-suggested-action,
+                              tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),
+                              ytd-enforcement-message-view-model {
+                                  display: none !important;
+                                  visibility: hidden !important;
+                                  height: 0 !important;
+                                  width: 0 !important;
+                                  opacity: 0 !important;
+                                  pointer-events: none !important;
+                              }
+                          `;
+                          var style = document.createElement('style');
+                          style.type = 'text/css';
+                          style.appendChild(document.createTextNode(css));
+                          (document.head || document.documentElement).appendChild(style);
+
+                          // ===== 3. Auto-click skip & fast-forward ads =====
+                          function skipYouTubeAds() {
+                              // Click skip button
+                              var skipBtns = document.querySelectorAll(
+                                  '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
+                                  '.ytp-skip-ad-button, .ytp-ad-skip-button-slot button'
+                              );
+                              skipBtns.forEach(function(b) { try { b.click(); } catch(e){} });
+
+                              // Fast-forward ad video
+                              var video = document.querySelector('video');
                               if (video && document.querySelector('.ad-showing')) {
-                                  video.currentTime = video.duration;
+                                  try {
+                                      video.currentTime = video.duration;
+                                      video.playbackRate = 16;
+                                  } catch(e){}
                               }
 
+                              // Mute ads while playing
+                              var adModule = document.querySelector('.ytp-ad-module');
+                              if (adModule) {
+                                  try { video.muted = true; } catch(e){}
+                              }
+
+                              // Remove ad overlays
                               document.querySelectorAll(
-                                  '.ytp-ad-overlay-container, .ytp-ad-text-overlay, .ytp-ad-image-overlay'
-                              ).forEach(el => el.style.display = 'none');
+                                  '.ytp-ad-overlay-container, .ytp-ad-text-overlay, ' +
+                                  '.ytp-ad-image-overlay, .ytp-ad-player-overlay'
+                              ).forEach(function(el) {
+                                  try { el.remove(); } catch(e){}
+                              });
                           }
 
-                          setInterval(skipYouTubeAds, 500);
+                          setInterval(skipYouTubeAds, 250);
 
-                          const observer = new MutationObserver(skipYouTubeAds);
-                          observer.observe(document.body, { childList: true, subtree: true });
+                          // MutationObserver for instant detection
+                          try {
+                              var observer = new MutationObserver(skipYouTubeAds);
+                              observer.observe(document.body || document.documentElement, {
+                                  childList: true, subtree: true, attributes: true
+                              });
+                          } catch(e){}
+
+                          // ===== 4. Block YouTube's anti-adblock popup =====
+                          var blockPopup = function() {
+                              var popups = document.querySelectorAll(
+                                  'tp-yt-paper-dialog, ytd-enforcement-message-view-model, ' +
+                                  'ytd-popup-container'
+                              );
+                              popups.forEach(function(p) {
+                                  if (p.innerText && (
+                                      p.innerText.includes('Ad blockers') ||
+                                      p.innerText.includes('ad blocker') ||
+                                      p.innerText.includes('violate') ||
+                                      p.innerText.includes('not allowed'))) {
+                                      try { p.remove(); } catch(e){}
+                                  }
+                              });
+                          };
+                          setInterval(blockPopup, 1000);
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
@@ -963,7 +1041,9 @@ jobs:
                       ?: mutableSetOf()
                   history.add("${System.currentTimeMillis()}|$title|$url")
                   if (history.size > 500) {
-                      val sorted = history.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
+                      val sorted = history.sortedByDescending {
+                          it.substringBefore("|").toLongOrNull() ?: 0L
+                      }
                       val trimmed = sorted.take(300).toMutableSet()
                       prefs.edit().putStringSet("history_set", trimmed).apply()
                   } else {
@@ -1015,7 +1095,7 @@ jobs:
                   val percentage = if (total > 0) (blocked * 100 / total) else 0
                   AlertDialog.Builder(this)
                       .setTitle("Ad Block Stats")
-                      .setMessage("Total requests: $total\nBlocked ads: $blocked\nSuccess rate: $percentage%\n\nEngine: Brave adblock-rust + NouTube scripts + WebViewAdblock\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
+                      .setMessage("Total requests: $total\nBlocked ads: $blocked\nSuccess rate: $percentage%\n\nEngine: Nexus 3-Layer AdBlock\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
                       .setPositiveButton("OK", null)
                       .setNeutralButton("Reset") { _, _ ->
                           blockedCount.set(0)
@@ -1108,9 +1188,8 @@ jobs:
                           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
                               "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                       else
-                          webView.settings.userAgentString.replace(
-                              "Mozilla/5.0 (X11; Linux x86_64)", "Mozilla/5.0 (Linux; Android 12)"
-                          )
+                          "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 " +
+                              "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                   webView.reload()
                   Toast.makeText(this,
                       if (desktopMode) "Desktop mode" else "Mobile mode",
@@ -1210,48 +1289,6 @@ jobs:
               override fun onBackPressed() {
                   if (webView.canGoBack()) webView.goBack()
                   else super.onBackPressed()
-              }
-          }
-          KOTEOF
-
-      - name: Write AdBlockEngine.kt (JNI wrapper for Rust)
-        run: |
-          cat > app/src/main/java/com/nexus/browser/adblock/AdBlockEngine.kt << 'KOTEOF'
-          package com.nexus.browser.adblock
-
-          class AdBlockEngine {
-              companion object {
-                  init {
-                      System.loadLibrary("adblock_jni")
-                  }
-              }
-
-              external fun isAd(url: String): Boolean
-          }
-          KOTEOF
-
-      - name: Write WebViewAdblock.kt
-        run: |
-          cat > app/src/main/java/com/nexus/browser/adblock/WebViewAdblock.kt << 'KOTEOF'
-          package com.nexus.browser.adblock
-
-          import android.webkit.WebView
-
-          object WebViewAdblock {
-              private val adDomains = setOf(
-                  "doubleclick.net", "googlesyndication.com", "googleadservices.com",
-                  "adservice.google.com", "ads.google.com", "adnxs.com",
-                  "ads.yahoo.com", "advertising.com", "outbrain.com",
-                  "taboola.com", "popads.net", "popcash.net", "propellerads.com",
-                  "adcolony.com", "applovin.com", "unityads.unity3d.com",
-                  "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
-                  "mopub.com", "flurry.com", "adjust.com", "appsflyer.com"
-              )
-
-              fun blockAds(view: WebView?, url: String?): Boolean {
-                  url ?: return false
-                  val host = try { java.net.URI(url).host ?: "" } catch (e: Exception) { "" }
-                  return adDomains.any { host.endsWith(it) }
               }
           }
           KOTEOF
