@@ -44,6 +44,7 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/assets
 
       - name: Write settings.gradle
         run: |
@@ -152,11 +153,11 @@ jobs:
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-                  android:maxSdkVersion="32" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-                  android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
               <application
                   android:allowBackup="true"
@@ -188,6 +189,15 @@ jobs:
                       </intent-filter>
                   </activity>
 
+                  <service
+                      android:name=".NexusVpnService"
+                      android:permission="android.permission.BIND_VPN_SERVICE"
+                      android:exported="false">
+                      <intent-filter>
+                          <action android:name="android.net.VpnService" />
+                      </intent-filter>
+                  </service>
+
                   <provider
                       android:name="androidx.core.content.FileProvider"
                       android:authorities="${applicationId}.fileprovider"
@@ -218,6 +228,7 @@ jobs:
           <resources>
               <string name="app_name">Nexus Browser</string>
               <string name="search_hint">Search or type URL</string>
+              <string name="home_search_hint">Search the web</string>
               <string name="menu">Menu</string>
               <string name="back">Back</string>
               <string name="forward">Forward</string>
@@ -255,6 +266,8 @@ jobs:
               <color name="incognito_color">#311B92</color>
               <color name="white">#FFFFFF</color>
               <color name="black">#000000</color>
+              <color name="home_bg">#0F1A2E</color>
+              <color name="home_bg_light">#F0F4F8</color>
           </resources>
           EOF
 
@@ -281,18 +294,10 @@ jobs:
               android:height="108dp"
               android:viewportWidth="108"
               android:viewportHeight="108">
-              <path
-                  android:fillColor="#1565C0"
-                  android:pathData="M0,0h108v108h-108z"/>
-              <path
-                  android:fillColor="#FFFFFF"
-                  android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
-              <path
-                  android:fillColor="#00BFA5"
-                  android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
-              <path
-                  android:fillColor="#FFFFFF"
-                  android:pathData="M50,44 L50,64 L66,54 Z"/>
+              <path android:fillColor="#1565C0" android:pathData="M0,0h108v108h-108z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
+              <path android:fillColor="#00BFA5" android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M50,44 L50,64 L66,54 Z"/>
           </vector>
           EOF
 
@@ -306,19 +311,22 @@ jobs:
               android:orientation="vertical"
               android:background="?android:attr/colorBackground">
 
+              <!-- Row 1: Navigation icons -->
               <LinearLayout
-                  android:id="@+id/topBar"
+                  android:id="@+id/navBar"
                   android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
+                  android:layout_height="44dp"
                   android:orientation="horizontal"
                   android:background="@color/primary"
-                  android:padding="6dp"
-                  android:gravity="center_vertical">
+                  android:gravity="center_vertical"
+                  android:paddingStart="4dp"
+                  android:paddingEnd="4dp">
 
                   <ImageButton
                       android:id="@+id/btnBack"
-                      android:layout_width="40dp"
+                      android:layout_width="0dp"
                       android:layout_height="40dp"
+                      android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless"
                       android:src="@android:drawable/ic_media_previous"
                       android:contentDescription="@string/back"
@@ -327,36 +335,20 @@ jobs:
 
                   <ImageButton
                       android:id="@+id/btnForward"
-                      android:layout_width="40dp"
+                      android:layout_width="0dp"
                       android:layout_height="40dp"
+                      android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless"
                       android:src="@android:drawable/ic_media_next"
                       android:contentDescription="@string/forward"
                       android:scaleType="centerInside"
                       android:tint="@color/white" />
 
-                  <EditText
-                      android:id="@+id/addressBar"
-                      android:layout_width="0dp"
-                      android:layout_height="42dp"
-                      android:layout_weight="1"
-                      android:background="@drawable/address_bar_bg"
-                      android:hint="@string/search_hint"
-                      android:textColorHint="@color/text_secondary"
-                      android:textColor="@color/text_primary"
-                      android:paddingStart="14dp"
-                      android:paddingEnd="14dp"
-                      android:imeOptions="actionGo"
-                      android:inputType="textUri"
-                      android:maxLines="1"
-                      android:textSize="14sp"
-                      android:layout_marginStart="4dp"
-                      android:layout_marginEnd="4dp" />
-
                   <ImageButton
                       android:id="@+id/btnRefresh"
-                      android:layout_width="40dp"
+                      android:layout_width="0dp"
                       android:layout_height="40dp"
+                      android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless"
                       android:src="@android:drawable/ic_menu_rotate"
                       android:contentDescription="@string/refresh"
@@ -365,13 +357,41 @@ jobs:
 
                   <ImageButton
                       android:id="@+id/btnMenu"
-                      android:layout_width="40dp"
+                      android:layout_width="0dp"
                       android:layout_height="40dp"
+                      android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless"
                       android:src="@android:drawable/ic_menu_more"
                       android:contentDescription="@string/menu"
                       android:scaleType="centerInside"
                       android:tint="@color/white" />
+              </LinearLayout>
+
+              <!-- Row 2: Centered URL bar -->
+              <LinearLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:orientation="horizontal"
+                  android:background="@color/primary"
+                  android:paddingStart="48dp"
+                  android:paddingEnd="48dp"
+                  android:paddingBottom="6dp"
+                  android:gravity="center">
+
+                  <EditText
+                      android:id="@+id/addressBar"
+                      android:layout_width="match_parent"
+                      android:layout_height="40dp"
+                      android:background="@drawable/address_bar_bg"
+                      android:hint="@string/search_hint"
+                      android:textColorHint="@color/text_secondary"
+                      android:textColor="@color/text_primary"
+                      android:paddingStart="16dp"
+                      android:paddingEnd="16dp"
+                      android:imeOptions="actionGo"
+                      android:inputType="textUri"
+                      android:maxLines="1"
+                      android:textSize="14sp" />
               </LinearLayout>
 
               <ProgressBar
@@ -392,6 +412,61 @@ jobs:
                       android:id="@+id/webView"
                       android:layout_width="match_parent"
                       android:layout_height="match_parent" />
+
+                  <!-- Home overlay with centered search bar -->
+                  <LinearLayout
+                      android:id="@+id/homeOverlay"
+                      android:layout_width="match_parent"
+                      android:layout_height="match_parent"
+                      android:orientation="vertical"
+                      android:gravity="center"
+                      android:background="@color/home_bg_light"
+                      android:visibility="gone">
+
+                      <TextView
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="Nexus"
+                          android:textColor="@color/primary"
+                          android:textSize="42sp"
+                          android:textStyle="bold"
+                          android:layout_marginBottom="8dp" />
+
+                      <TextView
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="Private • Fast • Secure"
+                          android:textColor="@color/text_secondary"
+                          android:textSize="13sp"
+                          android:layout_marginBottom="32dp" />
+
+                      <EditText
+                          android:id="@+id/homeSearchBar"
+                          android:layout_width="match_parent"
+                          android:layout_height="52dp"
+                          android:layout_marginStart="24dp"
+                          android:layout_marginEnd="24dp"
+                          android:background="@drawable/home_search_bg"
+                          android:hint="@string/home_search_hint"
+                          android:textColorHint="@color/text_secondary"
+                          android:textColor="@color/text_primary"
+                          android:paddingStart="20dp"
+                          android:paddingEnd="20dp"
+                          android:imeOptions="actionGo"
+                          android:inputType="textUri"
+                          android:maxLines="1"
+                          android:textSize="15sp"
+                          android:elevation="4dp" />
+
+                      <TextView
+                          android:id="@+id/vpnStatusText"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:layout_marginTop="24dp"
+                          android:text="VPN: OFF"
+                          android:textColor="@color/text_secondary"
+                          android:textSize="12sp" />
+                  </LinearLayout>
 
                   <TextView
                       android:id="@+id/incognitoBadge"
@@ -485,6 +560,17 @@ jobs:
           </shape>
           EOF
 
+      - name: Write home_search_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/home_search_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="26dp" />
+              <stroke android:width="1dp" android:color="#E0E0E0" />
+          </shape>
+          EOF
+
       - name: Write MainActivity.kt
         run: |
           cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
@@ -519,34 +605,41 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
+          import androidx.webkit.ProxyConfig
+          import androidx.webkit.ProxyController
+          import androidx.webkit.WebViewFeature
           import java.io.ByteArrayInputStream
           import java.net.URLEncoder
+          import java.util.concurrent.Executors
 
           class MainActivity : AppCompatActivity() {
 
               private lateinit var webView: WebView
               private lateinit var addressBar: EditText
+              private lateinit var homeSearchBar: EditText
               private lateinit var progressBar: ProgressBar
               private lateinit var incognitoBadge: TextView
+              private lateinit var homeOverlay: View
+              private lateinit var vpnStatusText: TextView
               private lateinit var prefs: SharedPreferences
 
               private var incognito = false
               private var desktopMode = false
+              private var isHomeVisible = true
 
-              // ====== BIG AD DOMAIN LIST (100+ hosts) ======
+              private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
+              private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
+
               private val adDomains = setOf(
-                  // Google ads
                   "doubleclick.net", "googlesyndication.com", "googleadservices.com",
                   "adservice.google.com", "ads.google.com", "pagead2.googlesyndication.com",
                   "partner.googleadservices.com", "tpc.googlesyndication.com",
-                  // Major ad networks
                   "adnxs.com", "ads.yahoo.com", "advertising.com", "outbrain.com",
                   "taboola.com", "popads.net", "popcash.net", "propellerads.com",
                   "adcolony.com", "applovin.com", "unityads.unity3d.com",
                   "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
                   "mopub.com", "flurry.com", "adjust.com", "appsflyer.com",
                   "branch.io", "kochava.com", "mixpanel.com", "amplitude.com",
-                  // Analytics + tracking
                   "scorecardresearch.com", "quantserve.com", "comscore.com",
                   "criteo.com", "criteo.net", "rubiconproject.com", "pubmatic.com",
                   "openx.net", "indexexchange.com", "casalemedia.com", "sharethrough.com",
@@ -556,29 +649,23 @@ jobs:
                   "adsrvr.org", "bidr.io", "liveintent.com", "liveramp.com",
                   "mathtag.com", "simpli.fi", "tapad.com", "thetradedesk.com",
                   "turn.com", "zemanta.com", "yieldlab.net", "yieldmanager.com",
-                  // More trackers
                   "googletagmanager.com", "google-analytics.com", "googletagservices.com",
-                  "facebook.net", "connect.facebook.net", "pixel.facebook.com",
                   "hotjar.com", "fullstory.com", "mouseflow.com", "crazyegg.com",
                   "optimizely.com", "vwo.com", "kissmetrics.com", "segment.com",
                   "segment.io", "heapanalytics.com", "newrelic.com", "bugsnag.com",
-                  // Ad servers
-                  "adzerk.net", "advertising.microsoft.com", "ads.linkedin.com",
-                  "ads.pinterest.com", "ads.reddit.com", "ads.twitter.com",
-                  "ads.tiktok.com", "business.tiktok.com", "analytics.tiktok.com"
+                  "adzerk.net", "ads.linkedin.com", "ads.pinterest.com",
+                  "ads.reddit.com", "ads.twitter.com", "ads.tiktok.com",
+                  "analytics.tiktok.com"
               )
 
-              // Ad keywords in URL path
               private val adKeywords = listOf(
-                  "/ads/", "/ad/", "/advert", "/banner/", "/popup", "/pop-under",
-                  "/sponsor", "/promoted", "/affiliate", "/track?", "/pixel?",
+                  "/ads/", "/advert", "/banner/", "/popup", "/pop-under",
+                  "/sponsor", "/promoted", "/affiliate", "/pixel?",
                   "/beacon?", "adsense", "adserver", "adtech", "/pagead/",
-                  "/adservice/", "/adframe/", "/adloader/", "googleads",
-                  "/advertisement/", "/sponsored/", "?adid=", "&adid=",
-                  "?adtest=", "&adtest=", "utm_source=ad"
+                  "/adservice/", "/adframe/", "googleads",
+                  "/advertisement/", "/sponsored/", "?adid=", "&adid="
               )
 
-              // YouTube specific ad patterns
               private val ytAdPatterns = listOf(
                   "youtube.com/api/stats/ads",
                   "youtube.com/pagead",
@@ -587,12 +674,8 @@ jobs:
                   "youtube.com/pcs/activeview",
                   "youtube.com/youtubei/v1/player/ad",
                   "youtube.com/youtubei/v1/next/ad",
-                  "youtube.com/youtubei/v1/browse/ad",
-                  "youtube.com/youtubei/v1/log_event?alt=json&key=AIza"
+                  "youtube.com/youtubei/v1/browse/ad"
               )
-
-              private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
-              private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
 
               @SuppressLint("SetJavaScriptEnabled")
               override fun onCreate(savedInstanceState: Bundle?) {
@@ -609,28 +692,39 @@ jobs:
 
                   webView = findViewById(R.id.webView)
                   addressBar = findViewById(R.id.addressBar)
+                  homeSearchBar = findViewById(R.id.homeSearchBar)
                   progressBar = findViewById(R.id.progressBar)
                   incognitoBadge = findViewById(R.id.incognitoBadge)
+                  homeOverlay = findViewById(R.id.homeOverlay)
+                  vpnStatusText = findViewById(R.id.vpnStatusText)
 
                   setupWebView()
                   setupButtons()
+                  showHomePage()
 
-                  val homeUrl = prefs.getString("home_url", "https://www.google.com")
-                      ?: "https://www.google.com"
-
-                  if (savedInstanceState != null) {
-                      webView.restoreState(savedInstanceState)
-                  } else {
-                      val intentUrl = intent?.data?.toString()
-                      if (!intentUrl.isNullOrEmpty()) webView.loadUrl(intentUrl)
-                      else webView.loadUrl(homeUrl)
+                  // Apply proxy if VPN was ON previously
+                  if (prefs.getBoolean("vpn_enabled", false)) {
+                      applyProxy()
                   }
+                  updateVpnStatus()
+              }
+
+              private fun showHomePage() {
+                  isHomeVisible = true
+                  homeOverlay.visibility = View.VISIBLE
+                  addressBar.setText("")
+                  webView.loadUrl("about:blank")
+              }
+
+              private fun hideHomePage() {
+                  isHomeVisible = false
+                  homeOverlay.visibility = View.GONE
               }
 
               @SuppressLint("SetJavaScriptEnabled")
               private fun setupWebView() {
                   val s = webView.settings
-                  s.javaScriptEnabled = true
+                  s.javaScriptEnabled = prefs.getBoolean("javascript", true)
                   s.domStorageEnabled = true
                   s.databaseEnabled = true
                   s.loadWithOverviewMode = true
@@ -650,14 +744,11 @@ jobs:
                   CookieManager.getInstance().setAcceptThirdPartyCookies(webView, !incognito)
 
                   webView.webViewClient = object : WebViewClient() {
-
                       override fun shouldInterceptRequest(
-                          view: WebView?,
-                          request: WebResourceRequest?
+                          view: WebView?, request: WebResourceRequest?
                       ): WebResourceResponse? {
                           val url = request?.url?.toString()
                               ?: return super.shouldInterceptRequest(view, request)
-
                           if (prefs.getBoolean("adblock", true)) {
                               totalCount.incrementAndGet()
                               if (isAdUrl(url)) {
@@ -675,11 +766,7 @@ jobs:
                           view: WebView?, request: WebResourceRequest?
                       ): Boolean {
                           val url = request?.url?.toString() ?: return false
-
-                          if (prefs.getBoolean("adblock", true) && isAdUrl(url)) {
-                              return true
-                          }
-
+                          if (prefs.getBoolean("adblock", true) && isAdUrl(url)) return true
                           if (url.startsWith("intent://")) {
                               try {
                                   val intent2 = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
@@ -692,21 +779,29 @@ jobs:
 
                       override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                           super.onPageStarted(view, url, favicon)
-                          addressBar.setText(url ?: "")
-                          if (!incognito) saveHistory(url ?: "", view?.title ?: "")
+                          if (url != null && url != "about:blank") {
+                              addressBar.setText(url)
+                              if (!incognito) saveHistory(url, view?.title ?: "")
+                          }
                       }
 
                       override fun onPageFinished(view: WebView?, url: String?) {
                           super.onPageFinished(view, url)
-                          if (!incognito && url != null) saveHistory(url, view?.title ?: url)
+                          if (!incognito && url != null && url != "about:blank")
+                              saveHistory(url, view?.title ?: url)
                           updateBookmarkIcon()
 
+                          if (url == null || url == "about:blank") return
+
+                          // Fix: NO 'javascript:' prefix here
                           if (prefs.getBoolean("adblock", true)) {
                               injectUniversalAdBlock()
-                              if (url?.contains("youtube.com") == true ||
-                                  url?.contains("youtu.be") == true) {
+                              if (url.contains("youtube.com") || url.contains("youtu.be")) {
                                   injectYouTubeAdBlock()
                               }
+                          }
+                          if (prefs.getBoolean("hide_identity", false)) {
+                              injectHideIdentity()
                           }
                       }
                   }
@@ -744,9 +839,20 @@ jobs:
                   })
 
                   addressBar.setOnEditorActionListener { _, actionId, event ->
-                      if (actionId == EditorInfo.IME_ACTION_GO ||
-                          event?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                      if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           navigate(addressBar.text.toString())
+                          true
+                      } else false
+                  }
+
+                  homeSearchBar.setOnEditorActionListener { _, actionId, event ->
+                      if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                          val q = homeSearchBar.text.toString()
+                          if (q.isNotEmpty()) {
+                              hideHomePage()
+                              navigate(q)
+                              homeSearchBar.text.clear()
+                          }
                           true
                       } else false
                   }
@@ -755,90 +861,165 @@ jobs:
               private fun isAdUrl(url: String): Boolean {
                   val lowerUrl = url.lowercase()
                   val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
-
-                  // Domain check
                   if (adDomains.any { host == it || host.endsWith(".$it") }) return true
-
-                  // YouTube specific
                   if (ytAdPatterns.any { lowerUrl.contains(it) }) return true
-
-                  // Keyword check (only if not a main video/image)
                   if (adKeywords.any { lowerUrl.contains(it) }) {
                       if (!lowerUrl.contains("youtube.com/watch") &&
                           !lowerUrl.contains("googlevideo.com/videoplayback") &&
                           !lowerUrl.contains("facebook.com/watch") &&
                           !lowerUrl.contains("instagram.com/p/")
-                      ) {
-                          return true
-                      }
+                      ) return true
                   }
                   return false
               }
 
-              // ===== UNIVERSAL AD BLOCKER (all sites) =====
+              // ===== Hide Identity (Fingerprint protection) =====
+              private fun injectHideIdentity() {
+                  val js = """
+                      (function() {
+                          if (window.__nexusHideIdLoaded) return;
+                          window.__nexusHideIdLoaded = true;
+
+                          // ===== Navigator spoofing =====
+                          try { Object.defineProperty(navigator, 'platform', {get: function(){return 'Linux x86_64';}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'vendor', {get: function(){return 'Google Inc.';}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'hardwareConcurrency', {get: function(){return 4;}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'deviceMemory', {get: function(){return 8;}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'languages', {get: function(){return ['en-US','en'];}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'language', {get: function(){return 'en-US';}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'maxTouchPoints', {get: function(){return 0;}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'doNotTrack', {get: function(){return '1';}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'plugins', {get: function(){return [];}}); } catch(e){}
+                          try { Object.defineProperty(navigator, 'mimeTypes', {get: function(){return [];}}); } catch(e){}
+
+                          // ===== Block WebRTC (prevents local IP leak) =====
+                          try {
+                              if (window.RTCPeerConnection) window.RTCPeerConnection = undefined;
+                              if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = undefined;
+                              if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = undefined;
+                          } catch(e){}
+
+                          // ===== Block MediaDevices (device enumeration) =====
+                          try {
+                              if (navigator.mediaDevices) {
+                                  navigator.mediaDevices.enumerateDevices = function(){
+                                      return Promise.resolve([]);
+                                  };
+                                  navigator.mediaDevices.getUserMedia = function(){
+                                      return Promise.reject(new Error('Blocked'));
+                                  };
+                              }
+                          } catch(e){}
+
+                          // ===== Block Battery API =====
+                          try {
+                              if (navigator.getBattery) {
+                                  navigator.getBattery = function(){
+                                      return Promise.reject(new Error('Blocked'));
+                                  };
+                              }
+                          } catch(e){}
+
+                          // ===== Block Geolocation =====
+                          try {
+                              if (navigator.geolocation) {
+                                  navigator.geolocation.getCurrentPosition = function(){};
+                                  navigator.geolocation.watchPosition = function(){return 0;};
+                              }
+                          } catch(e){}
+
+                          // ===== Block Canvas fingerprinting =====
+                          try {
+                              var origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+                              CanvasRenderingContext2D.prototype.getImageData = function(){
+                                  var d = origGetImageData.apply(this, arguments);
+                                  for (var i = 0; i < d.data.length; i += 100) {
+                                      d.data[i] = d.data[i] ^ 1;
+                                  }
+                                  return d;
+                              };
+                              var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                              HTMLCanvasElement.prototype.toDataURL = function(){
+                                  return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+                              };
+                              var origToBlob = HTMLCanvasElement.prototype.toBlob;
+                              HTMLCanvasElement.prototype.toBlob = function(cb){ cb(null); };
+                          } catch(e){}
+
+                          // ===== Block WebGL fingerprinting =====
+                          try {
+                              var getParameter = WebGLRenderingContext.prototype.getParameter;
+                              WebGLRenderingContext.prototype.getParameter = function(p){
+                                  if (p === 37445) return 'Intel Inc.';
+                                  if (p === 37446) return 'Intel Iris OpenGL Engine';
+                                  return getParameter.apply(this, arguments);
+                              };
+                          } catch(e){}
+
+                          // ===== Block AudioContext fingerprinting =====
+                          try {
+                              var origGetChannelData = AudioBuffer.prototype.getChannelData;
+                              AudioBuffer.prototype.getChannelData = function(){
+                                  var d = origGetChannelData.apply(this, arguments);
+                                  for (var i = 0; i < d.length; i += 100) {
+                                      d[i] = d[i] + 0.0000001;
+                                  }
+                                  return d;
+                              };
+                          } catch(e){}
+
+                          // ===== Block screen fingerprinting =====
+                          try {
+                              Object.defineProperty(screen, 'colorDepth', {get: function(){return 24;}});
+                              Object.defineProperty(screen, 'pixelDepth', {get: function(){return 24;}});
+                          } catch(e){}
+
+                          // ===== Block timezone fingerprinting =====
+                          try {
+                              var origResolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
+                              Intl.DateTimeFormat.prototype.resolvedOptions = function(){
+                                  var opts = origResolvedOptions.apply(this, arguments);
+                                  opts.timeZone = 'UTC';
+                                  return opts;
+                              };
+                          } catch(e){}
+
+                          // ===== Block performance fingerprinting =====
+                          try {
+                              if (window.performance && performance.now) {
+                                  var origNow = performance.now.bind(performance);
+                                  performance.now = function(){
+                                      return Math.round(origNow() * 100) / 100;
+                                  };
+                              }
+                          } catch(e){}
+                      })();
+                  """.trimIndent()
+                  webView.evaluateJavascript(js, null)
+                  Toast.makeText(this, "🛡 Identity Protected", Toast.LENGTH_SHORT).show()
+              }
+
               private fun injectUniversalAdBlock() {
                   val js = """
-                      javascript:(function() {
+                      (function() {
                           if (window.__nexusAdBlockLoaded) return;
                           window.__nexusAdBlockLoaded = true;
-
-                          var css = `
-                              .ad, .ads, .adsbygoogle, .ad-container, .ad-wrapper,
-                              .ad-banner, .advertisement, .advertisements,
-                              .sponsored, .sponsored-content, .promoted,
-                              [class*=" ad-"], [class^="ad-"], [class*="-ad "],
-                              [id*="google_ads"], [id^="google_ads"],
-                              [id*="ad-slot"], [id*="ad_slot"],
-                              [class*="banner"], [id*="banner"],
-                              .popup, .pop-under, .interstitial,
-                              [class*="advert"], [id*="advert"],
-                              [class*="sponsor"], [id*="sponsor"],
-                              [class*="promo"], [id*="promo"],
-                              iframe[src*="doubleclick"],
-                              iframe[src*="googlesyndication"],
-                              iframe[src*="googleadservices"],
-                              iframe[src*="/ads/"],
-                              iframe[id*="google_ads"] {
-                                  display: none !important;
-                                  visibility: hidden !important;
-                                  height: 0 !important;
-                                  width: 0 !important;
-                              }
-                          `;
+                          var css = '.adsbygoogle,.ad-container,.ad-wrapper,.advertisement,.sponsored,.promoted,[id^="google_ads_"],[id*="ad-slot"],iframe[src*="doubleclick"],iframe[src*="googlesyndication"],iframe[src*="googleadservices"]{display:none !important;height:0 !important;}';
                           var style = document.createElement('style');
                           style.type = 'text/css';
                           style.appendChild(document.createTextNode(css));
                           (document.head || document.documentElement).appendChild(style);
-
-                          // Remove ad iframes by src
-                          var removeAds = function() {
-                              var iframes = document.querySelectorAll('iframe');
-                              for (var i = 0; i < iframes.length; i++) {
-                                  var src = iframes[i].src || '';
-                                  if (src.indexOf('doubleclick') > -1 ||
-                                      src.indexOf('googlesyndication') > -1 ||
-                                      src.indexOf('googleadservices') > -1 ||
-                                      src.indexOf('/ads/') > -1 ||
-                                      src.indexOf('adservice') > -1) {
-                                      iframes[i].remove();
-                                  }
-                              }
-                          };
-                          removeAds();
-                          setInterval(removeAds, 2000);
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
               }
 
-              // ===== YOUTUBE-SPECIFIC AD BLOCKER (NouTube style) =====
               private fun injectYouTubeAdBlock() {
                   val js = """
-                      javascript:(function() {
+                      (function() {
                           if (window.__nexusYtBlockLoaded) return;
                           window.__nexusYtBlockLoaded = true;
 
-                          // ===== 1. Override JSON.parse to remove ad data =====
                           var originalParse = JSON.parse;
                           JSON.parse = function(text, reviver) {
                               var result = originalParse(text, reviver);
@@ -852,114 +1033,29 @@ jobs:
                                           if (result.playerResponse.adPlacements) delete result.playerResponse.adPlacements;
                                           if (result.playerResponse.playerAds) delete result.playerResponse.playerAds;
                                           if (result.playerResponse.adSlots) delete result.playerResponse.adSlots;
-                                          if (result.playerResponse.adBreakHeartbeatParams) delete result.playerResponse.adBreakHeartbeatParams;
                                       }
                                   }
                               } catch (e) {}
                               return result;
                           };
 
-                          // ===== 2. Inject CSS to hide ad containers =====
-                          var css = `
-                              .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
-                              .ytp-ad-progress-list, .ytp-ad-progress,
-                              #player-ads, #masthead-ad,
-                              ytd-promoted-sparkles-web-renderer,
-                              ytd-display-ad-renderer,
-                              ytd-ad-slot-renderer,
-                              ytd-in-feed-ad-layout-renderer,
-                              ytd-action-companion-ad-renderer,
-                              ytd-promoted-video-renderer,
-                              ytd-compact-promoted-video-renderer,
-                              ytd-banner-promo-renderer,
-                              ytd-statement-banner-renderer,
-                              ytd-in-feed-ad-layout-renderer,
-                              .ytp-ad-image-overlay,
-                              .ytp-ad-text-overlay,
-                              .ytp-ad-overlay-slot,
-                              .ytp-ad-player-overlay,
-                              .ytp-ad-player-overlay-instream-info,
-                              .ytp-ad-survey,
-                              .ytp-ad-survey-questions,
-                              .ytp-ad-survey-question,
-                              .ytp-ad-survey-answer,
-                              .ytp-featured-product,
-                              .ytp-suggested-action,
-                              tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),
-                              ytd-enforcement-message-view-model {
-                                  display: none !important;
-                                  visibility: hidden !important;
-                                  height: 0 !important;
-                                  width: 0 !important;
-                                  opacity: 0 !important;
-                                  pointer-events: none !important;
-                              }
-                          `;
+                          var css = '.video-ads,.ytp-ad-module,.ytp-ad-overlay-container,.ytp-ad-progress-list,#player-ads,#masthead-ad,ytd-promoted-sparkles-web-renderer,ytd-display-ad-renderer,ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-compact-promoted-video-renderer,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytp-ad-overlay-slot,.ytp-ad-player-overlay,.ytp-featured-product,.ytp-suggested-action,ytd-enforcement-message-view-model{display:none !important;height:0 !important;}';
                           var style = document.createElement('style');
                           style.type = 'text/css';
                           style.appendChild(document.createTextNode(css));
                           (document.head || document.documentElement).appendChild(style);
 
-                          // ===== 3. Auto-click skip & fast-forward ads =====
-                          function skipYouTubeAds() {
-                              // Click skip button
-                              var skipBtns = document.querySelectorAll(
-                                  '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
-                                  '.ytp-skip-ad-button, .ytp-ad-skip-button-slot button'
-                              );
-                              skipBtns.forEach(function(b) { try { b.click(); } catch(e){} });
-
-                              // Fast-forward ad video
-                              var video = document.querySelector('video');
-                              if (video && document.querySelector('.ad-showing')) {
-                                  try {
-                                      video.currentTime = video.duration;
-                                      video.playbackRate = 16;
-                                  } catch(e){}
+                          function skip() {
+                              document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad-button').forEach(function(b){try{b.click();}catch(e){}});
+                              var v = document.querySelector('video');
+                              if (v && document.querySelector('.ad-showing')) {
+                                  try { v.currentTime = v.duration; v.playbackRate = 16; } catch(e){}
                               }
-
-                              // Mute ads while playing
-                              var adModule = document.querySelector('.ytp-ad-module');
-                              if (adModule) {
-                                  try { video.muted = true; } catch(e){}
-                              }
-
-                              // Remove ad overlays
-                              document.querySelectorAll(
-                                  '.ytp-ad-overlay-container, .ytp-ad-text-overlay, ' +
-                                  '.ytp-ad-image-overlay, .ytp-ad-player-overlay'
-                              ).forEach(function(el) {
-                                  try { el.remove(); } catch(e){}
-                              });
                           }
-
-                          setInterval(skipYouTubeAds, 250);
-
-                          // MutationObserver for instant detection
+                          setInterval(skip, 250);
                           try {
-                              var observer = new MutationObserver(skipYouTubeAds);
-                              observer.observe(document.body || document.documentElement, {
-                                  childList: true, subtree: true, attributes: true
-                              });
+                              new MutationObserver(skip).observe(document.body || document.documentElement, {childList:true,subtree:true});
                           } catch(e){}
-
-                          // ===== 4. Block YouTube's anti-adblock popup =====
-                          var blockPopup = function() {
-                              var popups = document.querySelectorAll(
-                                  'tp-yt-paper-dialog, ytd-enforcement-message-view-model, ' +
-                                  'ytd-popup-container'
-                              );
-                              popups.forEach(function(p) {
-                                  if (p.innerText && (
-                                      p.innerText.includes('Ad blockers') ||
-                                      p.innerText.includes('ad blocker') ||
-                                      p.innerText.includes('violate') ||
-                                      p.innerText.includes('not allowed'))) {
-                                      try { p.remove(); } catch(e){}
-                                  }
-                              });
-                          };
-                          setInterval(blockPopup, 1000);
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
@@ -982,7 +1078,50 @@ jobs:
                           }
                       }
                   }
+                  hideHomePage()
                   webView.loadUrl(url)
+              }
+
+              // ===== Proxy (VPN-like IP routing) =====
+              private fun applyProxy() {
+                  val proxyHost = prefs.getString("proxy_host", "") ?: ""
+                  val proxyPort = prefs.getString("proxy_port", "") ?: ""
+                  if (proxyHost.isEmpty() || proxyPort.isEmpty()) return
+                  try {
+                      if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+                          val proxyConfig = ProxyConfig.Builder()
+                              .addProxyRule("$proxyHost:$proxyPort")
+                              .addDirect()
+                              .build()
+                          ProxyController.getInstance().setProxyOverride(
+                              proxyConfig,
+                              Executors.newSingleThreadExecutor()
+                          ) {
+                              runOnUiThread { Toast.makeText(this, "VPN active via $proxyHost:$proxyPort", Toast.LENGTH_SHORT).show() }
+                          }
+                      }
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Proxy failed: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
+              }
+
+              private fun clearProxy() {
+                  try {
+                      if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+                          ProxyController.getInstance().clearProxyOverride(
+                              Executors.newSingleThreadExecutor()
+                          ) { }
+                      }
+                  } catch (e: Exception) {}
+              }
+
+              private fun updateVpnStatus() {
+                  val on = prefs.getBoolean("vpn_enabled", false)
+                  vpnStatusText.text = if (on) {
+                      val h = prefs.getString("proxy_host", "")
+                      val p = prefs.getString("proxy_port", "")
+                      if (h.isNullOrEmpty()) "VPN: ON (no proxy set)" else "VPN: ON ($h:$p)"
+                  } else "VPN: OFF"
               }
 
               private fun setupButtons() {
@@ -992,15 +1131,10 @@ jobs:
                   findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
                       if (webView.canGoForward()) webView.goForward()
                   }
-                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener {
-                      webView.reload()
-                  }
-                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener {
-                      val home = prefs.getString("home_url", "https://www.google.com")
-                      webView.loadUrl(home ?: "https://www.google.com")
-                  }
+                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener { webView.reload() }
+                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHomePage() }
                   findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBookmark() }
-                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { showTabsDialog() }
+                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { showHomePage() }
                   findViewById<ImageButton>(R.id.btnIncognito).setOnClickListener { toggleIncognito() }
                   findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettings() }
                   findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
@@ -1008,9 +1142,9 @@ jobs:
 
               private fun toggleBookmark() {
                   val url = webView.url ?: return
+                  if (url == "about:blank") return
                   val title = webView.title ?: url
-                  val bookmarks = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet()
-                      ?: mutableSetOf()
+                  val bookmarks = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
                   val entry = "$title|$url"
                   val existing = bookmarks.firstOrNull { it.endsWith("|$url") }
                   if (existing != null) {
@@ -1037,15 +1171,11 @@ jobs:
 
               private fun saveHistory(url: String, title: String) {
                   if (url.startsWith("about:") || url.startsWith("data:")) return
-                  val history = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet()
-                      ?: mutableSetOf()
+                  val history = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
                   history.add("${System.currentTimeMillis()}|$title|$url")
                   if (history.size > 500) {
-                      val sorted = history.sortedByDescending {
-                          it.substringBefore("|").toLongOrNull() ?: 0L
-                      }
-                      val trimmed = sorted.take(300).toMutableSet()
-                      prefs.edit().putStringSet("history_set", trimmed).apply()
+                      val sorted = history.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
+                      prefs.edit().putStringSet("history_set", sorted.take(300).toMutableSet()).apply()
                   } else {
                       prefs.edit().putStringSet("history_set", history).apply()
                   }
@@ -1055,15 +1185,11 @@ jobs:
                   incognito = !incognito
                   incognitoBadge.visibility = if (incognito) View.VISIBLE else View.GONE
                   CookieManager.getInstance().setAcceptCookie(!incognito)
-                  webView.settings.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE
-                                               else WebSettings.LOAD_DEFAULT
+                  webView.settings.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
                   webView.clearCache(incognito)
                   webView.clearHistory()
-                  val home = prefs.getString("home_url", "https://www.google.com")
-                  webView.loadUrl(home ?: "https://www.google.com")
-                  Toast.makeText(this,
-                      if (incognito) "Incognito ON" else "Incognito OFF",
-                      Toast.LENGTH_SHORT).show()
+                  showHomePage()
+                  Toast.makeText(this, if (incognito) "Incognito ON" else "Incognito OFF", Toast.LENGTH_SHORT).show()
               }
 
               private fun showMainMenu() {
@@ -1075,7 +1201,7 @@ jobs:
                       .setTitle("Menu")
                       .setItems(options) { _, which ->
                           when (which) {
-                              0 -> { webView.loadUrl("https://www.google.com") }
+                              0 -> showHomePage()
                               1 -> showBookmarksDialog()
                               2 -> showHistoryDialog()
                               3 -> findOnPage()
@@ -1095,33 +1221,18 @@ jobs:
                   val percentage = if (total > 0) (blocked * 100 / total) else 0
                   AlertDialog.Builder(this)
                       .setTitle("Ad Block Stats")
-                      .setMessage("Total requests: $total\nBlocked ads: $blocked\nSuccess rate: $percentage%\n\nEngine: Nexus 3-Layer AdBlock\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
+                      .setMessage("Total requests: $total\nBlocked ads: $blocked\nSuccess rate: $percentage%\n\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
                       .setPositiveButton("OK", null)
                       .setNeutralButton("Reset") { _, _ ->
-                          blockedCount.set(0)
-                          totalCount.set(0)
+                          blockedCount.set(0); totalCount.set(0)
                           Toast.makeText(this, "Stats reset", Toast.LENGTH_SHORT).show()
                       }
                       .show()
               }
 
-              private fun showTabsDialog() {
-                  AlertDialog.Builder(this)
-                      .setTitle("New Tab")
-                      .setMessage("Open a new tab?")
-                      .setPositiveButton("Yes") { _, _ ->
-                          webView.loadUrl(prefs.getString("home_url", "https://www.google.com")!!)
-                      }
-                      .setNegativeButton("Cancel", null)
-                      .show()
-              }
-
               private fun showBookmarksDialog() {
                   val set = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  if (set.isEmpty()) {
-                      Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show()
-                      return
-                  }
+                  if (set.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
                   val items = set.map {
                       val p = it.split("|", limit = 2)
                       (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "")
@@ -1129,7 +1240,7 @@ jobs:
                   val titles = items.map { it.first }.toTypedArray()
                   AlertDialog.Builder(this)
                       .setTitle("Bookmarks")
-                      .setItems(titles) { _, w -> webView.loadUrl(items[w].second) }
+                      .setItems(titles) { _, w -> hideHomePage(); webView.loadUrl(items[w].second) }
                       .setNeutralButton("Clear") { _, _ ->
                           prefs.edit().remove("bookmarks_set").apply()
                           updateBookmarkIcon()
@@ -1139,13 +1250,8 @@ jobs:
 
               private fun showHistoryDialog() {
                   val set = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
-                  if (set.isEmpty()) {
-                      Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show()
-                      return
-                  }
-                  val sorted = set.sortedByDescending {
-                      it.substringBefore("|").toLongOrNull() ?: 0L
-                  }.take(50)
+                  if (set.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
+                  val sorted = set.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
                   val entries = sorted.map {
                       val p = it.split("|", limit = 3)
                       (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "")
@@ -1153,10 +1259,8 @@ jobs:
                   val titles = entries.map { it.first }.toTypedArray()
                   AlertDialog.Builder(this)
                       .setTitle("History")
-                      .setItems(titles) { _, w -> webView.loadUrl(entries[w].second) }
-                      .setNeutralButton("Clear") { _, _ ->
-                          prefs.edit().remove("history_set").apply()
-                      }
+                      .setItems(titles) { _, w -> hideHomePage(); webView.loadUrl(entries[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }
                       .show()
               }
 
@@ -1166,9 +1270,7 @@ jobs:
                   AlertDialog.Builder(this)
                       .setTitle("Find on page")
                       .setView(input)
-                      .setPositiveButton("Find") { _, _ ->
-                          webView.findAllAsync(input.text.toString())
-                      }
+                      .setPositiveButton("Find") { _, _ -> webView.findAllAsync(input.text.toString()) }
                       .setNegativeButton("Cancel", null)
                       .show()
               }
@@ -1183,33 +1285,31 @@ jobs:
 
               private fun toggleDesktopMode() {
                   desktopMode = !desktopMode
-                  webView.settings.userAgentString =
-                      if (desktopMode)
-                          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-                              "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                      else
-                          "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 " +
-                              "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                  webView.settings.userAgentString = if (desktopMode)
+                      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                  else
+                      "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                   webView.reload()
-                  Toast.makeText(this,
-                      if (desktopMode) "Desktop mode" else "Mobile mode",
-                      Toast.LENGTH_SHORT).show()
+                  Toast.makeText(this, if (desktopMode) "Desktop mode" else "Mobile mode", Toast.LENGTH_SHORT).show()
               }
 
               private fun openDownloads() {
-                  try {
-                      startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS))
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Downloads unavailable", Toast.LENGTH_SHORT).show()
-                  }
+                  try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
+                  catch (e: Exception) { Toast.makeText(this, "Downloads unavailable", Toast.LENGTH_SHORT).show() }
               }
 
               private fun showSettings() {
+                  val hideId = prefs.getBoolean("hide_identity", false)
+                  val js = prefs.getBoolean("javascript", true)
+                  val vpn = prefs.getBoolean("vpn_enabled", false)
                   val options = arrayOf(
                       "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
                       "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
+                      "🛡 Hide Identity: ${if (hideId) "ON" else "OFF"}",
+                      "🔒 JavaScript: ${if (js) "ON" else "OFF"}",
+                      "🌐 VPN: ${if (vpn) "ON" else "OFF"}",
+                      "VPN Proxy: ${prefs.getString("proxy_host", "not set")}:${prefs.getString("proxy_port", "")}",
                       "Search engine: ${prefs.getString("search_engine", "google")}",
-                      "Homepage: ${prefs.getString("home_url", "https://www.google.com")}",
                       "Clear cache", "Clear cookies", "Reset all"
                   )
                   AlertDialog.Builder(this)
@@ -1220,29 +1320,82 @@ jobs:
                                   val d = !prefs.getBoolean("dark_mode", false)
                                   prefs.edit().putBoolean("dark_mode", d).apply()
                                   AppCompatDelegate.setDefaultNightMode(
-                                      if (d) AppCompatDelegate.MODE_NIGHT_YES
-                                      else AppCompatDelegate.MODE_NIGHT_NO
-                                  )
+                                      if (d) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
                                   recreate()
                               }
                               1 -> {
                                   val a = !prefs.getBoolean("adblock", true)
                                   prefs.edit().putBoolean("adblock", a).apply()
-                                  Toast.makeText(this,
-                                      if (a) "Ad blocker ON" else "Ad blocker OFF",
-                                      Toast.LENGTH_SHORT).show()
+                                  Toast.makeText(this, if (a) "Ad blocker ON" else "Ad blocker OFF", Toast.LENGTH_SHORT).show()
                               }
-                              2 -> chooseSearchEngine()
-                              3 -> setHomepage()
-                              4 -> { webView.clearCache(true); Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show() }
-                              5 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cookies cleared", Toast.LENGTH_SHORT).show() }
-                              6 -> {
+                              2 -> {
+                                  val h = !prefs.getBoolean("hide_identity", false)
+                                  prefs.edit().putBoolean("hide_identity", h).apply()
+                                  if (h) {
+                                      Toast.makeText(this, "🛡 Hide Identity ON — reload page", Toast.LENGTH_SHORT).show()
+                                      webView.reload()
+                                  } else {
+                                      Toast.makeText(this, "Hide Identity OFF", Toast.LENGTH_SHORT).show()
+                                  }
+                              }
+                              3 -> {
+                                  val j = !prefs.getBoolean("javascript", true)
+                                  prefs.edit().putBoolean("javascript", j).apply()
+                                  webView.settings.javaScriptEnabled = j
+                                  Toast.makeText(this, if (j) "JavaScript ON" else "JavaScript OFF", Toast.LENGTH_SHORT).show()
+                                  webView.reload()
+                              }
+                              4 -> {
+                                  val v = !prefs.getBoolean("vpn_enabled", false)
+                                  prefs.edit().putBoolean("vpn_enabled", v).apply()
+                                  if (v) {
+                                      if (prefs.getString("proxy_host", "").isNullOrEmpty()) {
+                                          Toast.makeText(this, "Set proxy first (option below)", Toast.LENGTH_LONG).show()
+                                      } else applyProxy()
+                                  } else clearProxy()
+                                  updateVpnStatus()
+                              }
+                              5 -> setProxyDialog()
+                              6 -> chooseSearchEngine()
+                              7 -> { webView.clearCache(true); Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show() }
+                              8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cookies cleared", Toast.LENGTH_SHORT).show() }
+                              9 -> {
                                   prefs.edit().clear().apply()
+                                  clearProxy()
                                   Toast.makeText(this, "Reset done", Toast.LENGTH_SHORT).show()
                                   recreate()
                               }
                           }
                       }
+                      .show()
+              }
+
+              private fun setProxyDialog() {
+                  val layout = android.widget.LinearLayout(this)
+                  layout.orientation = android.widget.LinearLayout.VERTICAL
+                  layout.setPadding(40, 20, 40, 20)
+                  val hostInput = EditText(this)
+                  hostInput.hint = "Proxy host (e.g. 1.2.3.4)"
+                  hostInput.setText(prefs.getString("proxy_host", ""))
+                  val portInput = EditText(this)
+                  portInput.hint = "Proxy port (e.g. 8080)"
+                  portInput.setText(prefs.getString("proxy_port", ""))
+                  layout.addView(hostInput)
+                  layout.addView(portInput)
+                  AlertDialog.Builder(this)
+                      .setTitle("Set VPN Proxy")
+                      .setMessage("Enter a SOCKS/HTTP proxy. IP will route through it.")
+                      .setView(layout)
+                      .setPositiveButton("Save") { _, _ ->
+                          prefs.edit()
+                              .putString("proxy_host", hostInput.text.toString().trim())
+                              .putString("proxy_port", portInput.text.toString().trim())
+                              .apply()
+                          if (prefs.getBoolean("vpn_enabled", false)) applyProxy()
+                          updateVpnStatus()
+                          Toast.makeText(this, "Proxy saved", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNegativeButton("Cancel", null)
                       .show()
               }
 
@@ -1257,25 +1410,6 @@ jobs:
                       .show()
               }
 
-              private fun setHomepage() {
-                  val input = EditText(this)
-                  input.hint = "https://example.com"
-                  input.setText(prefs.getString("home_url", "https://www.google.com"))
-                  AlertDialog.Builder(this)
-                      .setTitle("Homepage URL")
-                      .setView(input)
-                      .setPositiveButton("Save") { _, _ ->
-                          val u = input.text.toString().trim()
-                          if (u.isNotEmpty()) {
-                              val url = if (u.startsWith("http")) u else "https://$u"
-                              prefs.edit().putString("home_url", url).apply()
-                              Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
-                          }
-                      }
-                      .setNegativeButton("Cancel", null)
-                      .show()
-              }
-
               override fun onSaveInstanceState(outState: Bundle) {
                   super.onSaveInstanceState(outState)
                   webView.saveState(outState)
@@ -1283,12 +1417,35 @@ jobs:
 
               override fun onNewIntent(intent: Intent) {
                   super.onNewIntent(intent)
-                  intent.data?.let { webView.loadUrl(it.toString()) }
+                  intent.data?.let { hideHomePage(); webView.loadUrl(it.toString()) }
               }
 
               override fun onBackPressed() {
-                  if (webView.canGoBack()) webView.goBack()
-                  else super.onBackPressed()
+                  if (!isHomeVisible && webView.canGoBack() && webView.url != "about:blank") {
+                      webView.goBack()
+                  } else if (!isHomeVisible) {
+                      showHomePage()
+                  } else {
+                      super.onBackPressed()
+                  }
+              }
+          }
+          KOTEOF
+
+      - name: Write NexusVpnService.kt
+        run: |
+          cat > app/src/main/java/com/nexus/browser/NexusVpnService.kt << 'KOTEOF'
+          package com.nexus.browser
+
+          import android.content.Intent
+          import android.net.VpnService
+
+          class NexusVpnService : VpnService() {
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  return START_STICKY
+              }
+              override fun onDestroy() {
+                  super.onDestroy()
               }
           }
           KOTEOF
