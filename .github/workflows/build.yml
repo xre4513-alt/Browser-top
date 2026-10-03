@@ -1,0 +1,1002 @@
+name: Build Nexus Browser APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Set up Gradle 8.5
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Create project structure
+        run: |
+          mkdir -p app/src/main/java/com/nexus/browser
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/xml
+
+      - name: Write settings.gradle
+        run: |
+          cat > settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "NexusBrowser"
+          include ':app'
+          EOF
+
+      - name: Write root build.gradle
+        run: |
+          cat > build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+          }
+          EOF
+
+      - name: Write gradle.properties
+        run: |
+          cat > gradle.properties << 'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          kotlin.code.style=official
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          EOF
+
+      - name: Write app/build.gradle
+        run: |
+          cat > app/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+          }
+          android {
+              namespace 'com.nexus.browser'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.nexus.browser"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+                  debug {
+                      applicationIdSuffix ".debug"
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = '17' }
+              buildFeatures { viewBinding true }
+              packagingOptions {
+                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              implementation 'androidx.core:core-ktx:1.12.0'
+              implementation 'androidx.webkit:webkit:1.10.0'
+              implementation 'androidx.recyclerview:recyclerview:1.3.2'
+              implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+          }
+          EOF
+
+      - name: Write proguard-rules.pro
+        run: |
+          cat > app/proguard-rules.pro << 'EOF'
+          -keep class com.nexus.browser.** { *; }
+          -keepclassmembers class * {
+              @android.webkit.JavascriptInterface <methods>;
+          }
+          EOF
+
+      - name: Write AndroidManifest.xml
+        run: |
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@drawable/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@drawable/ic_launcher"
+                  android:supportsRtl="true"
+                  android:hardwareAccelerated="true"
+                  android:usesCleartextTraffic="true"
+                  android:theme="@style/Theme.NexusBrowser"
+                  tools:targetApi="34">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="http" />
+                          <data android:scheme="https" />
+                      </intent-filter>
+                  </activity>
+
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="${applicationId}.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths" />
+                  </provider>
+              </application>
+          </manifest>
+          EOF
+
+      - name: Write xml/file_paths.xml
+        run: |
+          cat > app/src/main/res/xml/file_paths.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths>
+              <external-path name="external_files" path="." />
+              <cache-path name="cache" path="." />
+              <files-path name="files" path="." />
+          </paths>
+          EOF
+
+      - name: Write strings.xml
+        run: |
+          cat > app/src/main/res/values/strings.xml << 'EOF'
+          <resources>
+              <string name="app_name">Nexus Browser</string>
+              <string name="search_hint">Search or type URL</string>
+              <string name="menu">Menu</string>
+              <string name="back">Back</string>
+              <string name="forward">Forward</string>
+              <string name="refresh">Refresh</string>
+              <string name="home">Home</string>
+              <string name="bookmarks">Bookmarks</string>
+              <string name="history">History</string>
+              <string name="incognito">Incognito</string>
+              <string name="settings">Settings</string>
+              <string name="new_tab">New Tab</string>
+              <string name="close">Close</string>
+              <string name="add_bookmark">Add Bookmark</string>
+              <string name="remove_bookmark">Remove Bookmark</string>
+              <string name="download_started">Download started</string>
+              <string name="ad_blocked">Ad blocked</string>
+          </resources>
+          EOF
+
+      - name: Write colors.xml
+        run: |
+          cat > app/src/main/res/values/colors.xml << 'EOF'
+          <resources>
+              <color name="primary">#1565C0</color>
+              <color name="primary_dark">#0D47A1</color>
+              <color name="primary_light">#42A5F5</color>
+              <color name="accent">#00BFA5</color>
+              <color name="background">#F5F5F5</color>
+              <color name="background_dark">#121212</color>
+              <color name="surface">#FFFFFF</color>
+              <color name="surface_dark">#1E1E1E</color>
+              <color name="text_primary">#212121</color>
+              <color name="text_primary_dark">#FFFFFF</color>
+              <color name="text_secondary">#757575</color>
+              <color name="divider">#E0E0E0</color>
+              <color name="incognito_color">#311B92</color>
+              <color name="white">#FFFFFF</color>
+              <color name="black">#000000</color>
+          </resources>
+          EOF
+
+      - name: Write themes.xml
+        run: |
+          cat > app/src/main/res/values/themes.xml << 'EOF'
+          <resources xmlns:tools="http://schemas.android.com/tools">
+              <style name="Theme.NexusBrowser" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+                  <item name="colorPrimary">@color/primary</item>
+                  <item name="colorPrimaryDark">@color/primary_dark</item>
+                  <item name="colorAccent">@color/accent</item>
+                  <item name="android:statusBarColor">@color/primary_dark</item>
+                  <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+                  <item name="android:navigationBarColor">@color/primary_dark</item>
+              </style>
+          </resources>
+          EOF
+
+      - name: Write ic_launcher.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_launcher.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path
+                  android:fillColor="#1565C0"
+                  android:pathData="M0,0h108v108h-108z"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
+              <path
+                  android:fillColor="#00BFA5"
+                  android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M50,44 L50,64 L66,54 Z"/>
+          </vector>
+          EOF
+
+      - name: Write activity_main.xml
+        run: |
+          cat > app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical"
+              android:background="?android:attr/colorBackground">
+
+              <LinearLayout
+                  android:id="@+id/topBar"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:orientation="horizontal"
+                  android:background="@color/primary"
+                  android:padding="6dp"
+                  android:gravity="center_vertical">
+
+                  <ImageButton
+                      android:id="@+id/btnBack"
+                      android:layout_width="40dp"
+                      android:layout_height="40dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_media_previous"
+                      android:contentDescription="@string/back"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <ImageButton
+                      android:id="@+id/btnForward"
+                      android:layout_width="40dp"
+                      android:layout_height="40dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_media_next"
+                      android:contentDescription="@string/forward"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <EditText
+                      android:id="@+id/addressBar"
+                      android:layout_width="0dp"
+                      android:layout_height="42dp"
+                      android:layout_weight="1"
+                      android:background="@drawable/address_bar_bg"
+                      android:hint="@string/search_hint"
+                      android:textColorHint="@color/text_secondary"
+                      android:textColor="@color/text_primary"
+                      android:paddingStart="14dp"
+                      android:paddingEnd="14dp"
+                      android:imeOptions="actionGo"
+                      android:inputType="textUri"
+                      android:maxLines="1"
+                      android:textSize="14sp"
+                      android:layout_marginStart="4dp"
+                      android:layout_marginEnd="4dp" />
+
+                  <ImageButton
+                      android:id="@+id/btnRefresh"
+                      android:layout_width="40dp"
+                      android:layout_height="40dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_rotate"
+                      android:contentDescription="@string/refresh"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <ImageButton
+                      android:id="@+id/btnMenu"
+                      android:layout_width="40dp"
+                      android:layout_height="40dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_more"
+                      android:contentDescription="@string/menu"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+              </LinearLayout>
+
+              <ProgressBar
+                  android:id="@+id/progressBar"
+                  style="?android:attr/progressBarStyleHorizontal"
+                  android:layout_width="match_parent"
+                  android:layout_height="3dp"
+                  android:max="100"
+                  android:progressTint="@color/accent"
+                  android:visibility="gone" />
+
+              <FrameLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_weight="1">
+
+                  <WebView
+                      android:id="@+id/webView"
+                      android:layout_width="match_parent"
+                      android:layout_height="match_parent" />
+
+                  <TextView
+                      android:id="@+id/incognitoBadge"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:layout_gravity="top|end"
+                      android:layout_margin="8dp"
+                      android:background="@color/incognito_color"
+                      android:paddingHorizontal="10dp"
+                      android:paddingVertical="4dp"
+                      android:text="INCOGNITO"
+                      android:textColor="@color/white"
+                      android:textSize="10sp"
+                      android:textStyle="bold"
+                      android:visibility="gone" />
+              </FrameLayout>
+
+              <LinearLayout
+                  android:id="@+id/bottomBar"
+                  android:layout_width="match_parent"
+                  android:layout_height="52dp"
+                  android:orientation="horizontal"
+                  android:background="@color/primary_dark"
+                  android:gravity="center_vertical">
+
+                  <ImageButton
+                      android:id="@+id/btnHome"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_view"
+                      android:contentDescription="@string/home"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <ImageButton
+                      android:id="@+id/btnBookmark"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/btn_star_big_off"
+                      android:contentDescription="@string/bookmarks"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <ImageButton
+                      android:id="@+id/btnTabs"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_agenda"
+                      android:contentDescription="@string/new_tab"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <ImageButton
+                      android:id="@+id/btnIncognito"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_crop"
+                      android:contentDescription="@string/incognito"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+
+                  <ImageButton
+                      android:id="@+id/btnSettings"
+                      android:layout_width="0dp"
+                      android:layout_height="match_parent"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_preferences"
+                      android:contentDescription="@string/settings"
+                      android:scaleType="centerInside"
+                      android:tint="@color/white" />
+              </LinearLayout>
+          </LinearLayout>
+          EOF
+
+      - name: Write address_bar_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/address_bar_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="20dp" />
+          </shape>
+          EOF
+
+      - name: Write MainActivity.kt
+        run: |
+          cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
+          package com.nexus.browser
+
+          import android.annotation.SuppressLint
+          import android.app.AlertDialog
+          import android.app.DownloadManager
+          import android.content.Context
+          import android.content.Intent
+          import android.content.SharedPreferences
+          import android.graphics.Bitmap
+          import android.net.Uri
+          import android.os.Bundle
+          import android.os.Environment
+          import android.view.KeyEvent
+          import android.view.View
+          import android.view.inputmethod.EditorInfo
+          import android.webkit.CookieManager
+          import android.webkit.DownloadListener
+          import android.webkit.URLUtil
+          import android.webkit.WebChromeClient
+          import android.webkit.WebResourceRequest
+          import android.webkit.WebSettings
+          import android.webkit.WebView
+          import android.webkit.WebViewClient
+          import android.widget.EditText
+          import android.widget.ImageButton
+          import android.widget.ProgressBar
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.appcompat.app.AppCompatDelegate
+          import java.net.URLEncoder
+          import java.util.UUID
+
+          class MainActivity : AppCompatActivity() {
+
+              private lateinit var webView: WebView
+              private lateinit var addressBar: EditText
+              private lateinit var progressBar: ProgressBar
+              private lateinit var incognitoBadge: TextView
+              private lateinit var prefs: SharedPreferences
+
+              private var incognito = false
+              private var desktopMode = false
+
+              private val adHosts = setOf(
+                  "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+                  "adservice.google.com", "ads.google.com", "adnxs.com",
+                  "ads.yahoo.com", "advertising.com", "outbrain.com",
+                  "taboola.com", "popads.net", "popcash.net", "propellerads.com"
+              )
+
+              @SuppressLint("SetJavaScriptEnabled")
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  prefs = getSharedPreferences("nexus_browser", Context.MODE_PRIVATE)
+
+                  AppCompatDelegate.setDefaultNightMode(
+                      if (prefs.getBoolean("dark_mode", false))
+                          AppCompatDelegate.MODE_NIGHT_YES
+                      else AppCompatDelegate.MODE_NIGHT_NO
+                  )
+
+                  setContentView(R.layout.activity_main)
+
+                  webView = findViewById(R.id.webView)
+                  addressBar = findViewById(R.id.addressBar)
+                  progressBar = findViewById(R.id.progressBar)
+                  incognitoBadge = findViewById(R.id.incognitoBadge)
+
+                  setupWebView()
+                  setupButtons()
+
+                  val homeUrl = prefs.getString("home_url", "https://www.google.com")
+                      ?: "https://www.google.com"
+
+                  if (savedInstanceState != null) {
+                      webView.restoreState(savedInstanceState)
+                  } else {
+                      val intentUrl = intent?.data?.toString()
+                      if (!intentUrl.isNullOrEmpty()) webView.loadUrl(intentUrl)
+                      else webView.loadUrl(homeUrl)
+                  }
+              }
+
+              @SuppressLint("SetJavaScriptEnabled")
+              private fun setupWebView() {
+                  val s = webView.settings
+                  s.javaScriptEnabled = true
+                  s.domStorageEnabled = true
+                  s.databaseEnabled = true
+                  s.loadWithOverviewMode = true
+                  s.useWideViewPort = true
+                  s.builtInZoomControls = true
+                  s.displayZoomControls = false
+                  s.setSupportZoom(true)
+                  s.allowFileAccess = true
+                  s.allowContentAccess = true
+                  s.javaScriptCanOpenWindowsAutomatically = true
+                  s.mediaPlaybackRequiresUserGesture = false
+                  s.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE
+                                else WebSettings.LOAD_DEFAULT
+                  s.userAgentString = s.userAgentString + " NexusBrowser/1.0"
+
+                  CookieManager.getInstance().setAcceptCookie(!incognito)
+                  CookieManager.getInstance().setAcceptThirdPartyCookies(webView, !incognito)
+
+                  webView.webViewClient = object : WebViewClient() {
+                      override fun shouldOverrideUrlLoading(
+                          view: WebView?, request: WebResourceRequest?
+                      ): Boolean {
+                          val url = request?.url?.toString() ?: return false
+
+                          if (prefs.getBoolean("adblock", true)) {
+                              val host = try { Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+                              if (adHosts.any { host.endsWith(it) }) {
+                                  return true
+                              }
+                          }
+
+                          if (url.startsWith("intent://")) {
+                              try {
+                                  val intent2 = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                                  startActivity(intent2)
+                                  return true
+                              } catch (e: Exception) { return false }
+                          }
+
+                          return false
+                      }
+
+                      override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                          super.onPageStarted(view, url, favicon)
+                          addressBar.setText(url ?: "")
+                          if (!incognito) saveHistory(url ?: "", view?.title ?: "")
+                      }
+
+                      override fun onPageFinished(view: WebView?, url: String?) {
+                          super.onPageFinished(view, url)
+                          if (!incognito && url != null) saveHistory(url, view?.title ?: url)
+                          updateBookmarkIcon()
+                      }
+                  }
+
+                  webView.webChromeClient = object : WebChromeClient() {
+                      override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                          progressBar.progress = newProgress
+                          progressBar.visibility = if (newProgress in 1..99)
+                              View.VISIBLE else View.GONE
+                      }
+
+                      override fun onReceivedTitle(view: WebView?, title: String?) {
+                          super.onReceivedTitle(view, title)
+                      }
+                  }
+
+                  webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                      try {
+                          val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                          val request = DownloadManager.Request(Uri.parse(url))
+                          request.setMimeType(mimeType)
+                          request.addRequestHeader("User-Agent", userAgent)
+                          request.addRequestHeader("cookie", CookieManager.getInstance().getCookie(url))
+                          request.setDescription("Downloading...")
+                          request.setTitle(filename)
+                          request.allowScanningByMediaScanner()
+                          request.setNotificationVisibility(
+                              DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                          )
+                          request.setDestinationInExternalPublicDir(
+                              Environment.DIRECTORY_DOWNLOADS, filename
+                          )
+                          val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                          dm.enqueue(request)
+                          Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
+                      } catch (e: Exception) {
+                          Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                      }
+                  })
+
+                  addressBar.setOnEditorActionListener { _, actionId, event ->
+                      if (actionId == EditorInfo.IME_ACTION_GO ||
+                          event?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                          navigate(addressBar.text.toString())
+                          true
+                      } else false
+                  }
+              }
+
+              private fun navigate(input: String) {
+                  val text = input.trim()
+                  if (text.isEmpty()) return
+                  val url = when {
+                      text.startsWith("http://") || text.startsWith("https://") -> text
+                      text.contains(".") && !text.contains(" ") -> "https://$text"
+                      else -> {
+                          val engine = prefs.getString("search_engine", "google") ?: "google"
+                          val query = URLEncoder.encode(text, "UTF-8")
+                          when (engine) {
+                              "duckduckgo" -> "https://duckduckgo.com/?q=$query"
+                              "bing" -> "https://www.bing.com/search?q=$query"
+                              "brave" -> "https://search.brave.com/search?q=$query"
+                              else -> "https://www.google.com/search?q=$query"
+                          }
+                      }
+                  }
+                  webView.loadUrl(url)
+              }
+
+              private fun setupButtons() {
+                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener {
+                      if (webView.canGoBack()) webView.goBack()
+                  }
+                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
+                      if (webView.canGoForward()) webView.goForward()
+                  }
+                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener {
+                      webView.reload()
+                  }
+                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener {
+                      val home = prefs.getString("home_url", "https://www.google.com")
+                      webView.loadUrl(home ?: "https://www.google.com")
+                  }
+                  findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBookmark() }
+                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { showTabsDialog() }
+                  findViewById<ImageButton>(R.id.btnIncognito).setOnClickListener { toggleIncognito() }
+                  findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettings() }
+                  findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
+              }
+
+              private fun toggleBookmark() {
+                  val url = webView.url ?: return
+                  val title = webView.title ?: url
+                  val bookmarks = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet()
+                      ?: mutableSetOf()
+                  val entry = "$title|$url"
+                  val existing = bookmarks.firstOrNull { it.endsWith("|$url") }
+                  if (existing != null) {
+                      bookmarks.remove(existing)
+                      Toast.makeText(this, R.string.remove_bookmark, Toast.LENGTH_SHORT).show()
+                  } else {
+                      bookmarks.add(entry)
+                      Toast.makeText(this, R.string.add_bookmark, Toast.LENGTH_SHORT).show()
+                  }
+                  prefs.edit().putStringSet("bookmarks_set", bookmarks).apply()
+                  updateBookmarkIcon()
+              }
+
+              private fun updateBookmarkIcon() {
+                  val url = webView.url ?: return
+                  val bookmarks = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
+                  val isBookmarked = bookmarks.any { it.endsWith("|$url") }
+                  val btn = findViewById<ImageButton>(R.id.btnBookmark)
+                  btn.setImageResource(
+                      if (isBookmarked) android.R.drawable.btn_star_big_on
+                      else android.R.drawable.btn_star_big_off
+                  )
+              }
+
+              private fun saveHistory(url: String, title: String) {
+                  if (url.startsWith("about:") || url.startsWith("data:")) return
+                  val history = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet()
+                      ?: mutableSetOf()
+                  history.add("${System.currentTimeMillis()}|$title|$url")
+                  if (history.size > 500) {
+                      val sorted = history.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
+                      val trimmed = sorted.take(300).toMutableSet()
+                      prefs.edit().putStringSet("history_set", trimmed).apply()
+                  } else {
+                      prefs.edit().putStringSet("history_set", history).apply()
+                  }
+              }
+
+              private fun toggleIncognito() {
+                  incognito = !incognito
+                  incognitoBadge.visibility = if (incognito) View.VISIBLE else View.GONE
+                  CookieManager.getInstance().setAcceptCookie(!incognito)
+                  webView.settings.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE
+                                               else WebSettings.LOAD_DEFAULT
+                  webView.clearCache(incognito)
+                  webView.clearHistory()
+                  val home = prefs.getString("home_url", "https://www.google.com")
+                  webView.loadUrl(home ?: "https://www.google.com")
+                  Toast.makeText(this,
+                      if (incognito) "Incognito ON" else "Incognito OFF",
+                      Toast.LENGTH_SHORT).show()
+              }
+
+              private fun showMainMenu() {
+                  val options = arrayOf(
+                      "New Tab", "Bookmarks", "History", "Find on page",
+                      "Share page", "Desktop site", "Downloads", "Exit"
+                  )
+                  AlertDialog.Builder(this)
+                      .setTitle("Menu")
+                      .setItems(options) { _, which ->
+                          when (which) {
+                              0 -> { webView.loadUrl("https://www.google.com") }
+                              1 -> showBookmarksDialog()
+                              2 -> showHistoryDialog()
+                              3 -> findOnPage()
+                              4 -> sharePage()
+                              5 -> toggleDesktopMode()
+                              6 -> openDownloads()
+                              7 -> finish()
+                          }
+                      }
+                      .show()
+              }
+
+              private fun showTabsDialog() {
+                  AlertDialog.Builder(this)
+                      .setTitle("New Tab")
+                      .setMessage("Open a new tab?")
+                      .setPositiveButton("Yes") { _, _ ->
+                          webView.loadUrl(prefs.getString("home_url", "https://www.google.com")!!)
+                      }
+                      .setNegativeButton("Cancel", null)
+                      .show()
+              }
+
+              private fun showBookmarksDialog() {
+                  val set = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
+                  if (set.isEmpty()) {
+                      Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show()
+                      return
+                  }
+                  val items = set.map {
+                      val p = it.split("|", limit = 2)
+                      (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "")
+                  }
+                  val titles = items.map { it.first }.toTypedArray()
+                  AlertDialog.Builder(this)
+                      .setTitle("Bookmarks")
+                      .setItems(titles) { _, w -> webView.loadUrl(items[w].second) }
+                      .setNeutralButton("Clear") { _, _ ->
+                          prefs.edit().remove("bookmarks_set").apply()
+                          updateBookmarkIcon()
+                      }
+                      .show()
+              }
+
+              private fun showHistoryDialog() {
+                  val set = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
+                  if (set.isEmpty()) {
+                      Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show()
+                      return
+                  }
+                  val sorted = set.sortedByDescending {
+                      it.substringBefore("|").toLongOrNull() ?: 0L
+                  }.take(50)
+                  val entries = sorted.map {
+                      val p = it.split("|", limit = 3)
+                      (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "")
+                  }
+                  val titles = entries.map { it.first }.toTypedArray()
+                  AlertDialog.Builder(this)
+                      .setTitle("History")
+                      .setItems(titles) { _, w -> webView.loadUrl(entries[w].second) }
+                      .setNeutralButton("Clear") { _, _ ->
+                          prefs.edit().remove("history_set").apply()
+                      }
+                      .show()
+              }
+
+              private fun findOnPage() {
+                  val input = EditText(this)
+                  input.hint = "Find text"
+                  AlertDialog.Builder(this)
+                      .setTitle("Find on page")
+                      .setView(input)
+                      .setPositiveButton("Find") { _, _ ->
+                          webView.findAllAsync(input.text.toString())
+                      }
+                      .setNegativeButton("Cancel", null)
+                      .show()
+              }
+
+              private fun sharePage() {
+                  val url = webView.url ?: return
+                  val i = Intent(Intent.ACTION_SEND)
+                  i.type = "text/plain"
+                  i.putExtra(Intent.EXTRA_TEXT, url)
+                  startActivity(Intent.createChooser(i, "Share via"))
+              }
+
+              private fun toggleDesktopMode() {
+                  desktopMode = !desktopMode
+                  webView.settings.userAgentString =
+                      if (desktopMode)
+                          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
+                              "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                      else
+                          webView.settings.userAgentString.replace(
+                              "Mozilla/5.0 (X11; Linux x86_64)", "Mozilla/5.0 (Linux; Android 12)"
+                          )
+                  webView.reload()
+                  Toast.makeText(this,
+                      if (desktopMode) "Desktop mode" else "Mobile mode",
+                      Toast.LENGTH_SHORT).show()
+              }
+
+              private fun openDownloads() {
+                  try {
+                      startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS))
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Downloads unavailable", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun showSettings() {
+                  val options = arrayOf(
+                      "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
+                      "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
+                      "Search engine: ${prefs.getString("search_engine", "google")}",
+                      "Homepage: ${prefs.getString("home_url", "https://www.google.com")}",
+                      "Clear cache", "Clear cookies", "Reset all"
+                  )
+                  AlertDialog.Builder(this)
+                      .setTitle("Settings")
+                      .setItems(options) { _, which ->
+                          when (which) {
+                              0 -> {
+                                  val d = !prefs.getBoolean("dark_mode", false)
+                                  prefs.edit().putBoolean("dark_mode", d).apply()
+                                  AppCompatDelegate.setDefaultNightMode(
+                                      if (d) AppCompatDelegate.MODE_NIGHT_YES
+                                      else AppCompatDelegate.MODE_NIGHT_NO
+                                  )
+                                  recreate()
+                              }
+                              1 -> {
+                                  val a = !prefs.getBoolean("adblock", true)
+                                  prefs.edit().putBoolean("adblock", a).apply()
+                                  Toast.makeText(this,
+                                      if (a) "Ad blocker ON" else "Ad blocker OFF",
+                                      Toast.LENGTH_SHORT).show()
+                              }
+                              2 -> chooseSearchEngine()
+                              3 -> setHomepage()
+                              4 -> { webView.clearCache(true); Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show() }
+                              5 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cookies cleared", Toast.LENGTH_SHORT).show() }
+                              6 -> {
+                                  prefs.edit().clear().apply()
+                                  Toast.makeText(this, "Reset done", Toast.LENGTH_SHORT).show()
+                                  recreate()
+                              }
+                          }
+                      }
+                      .show()
+              }
+
+              private fun chooseSearchEngine() {
+                  val engines = arrayOf("google", "duckduckgo", "bing", "brave")
+                  AlertDialog.Builder(this)
+                      .setTitle("Search engine")
+                      .setItems(engines) { _, w ->
+                          prefs.edit().putString("search_engine", engines[w]).apply()
+                          Toast.makeText(this, "Set to ${engines[w]}", Toast.LENGTH_SHORT).show()
+                      }
+                      .show()
+              }
+
+              private fun setHomepage() {
+                  val input = EditText(this)
+                  input.hint = "https://example.com"
+                  input.setText(prefs.getString("home_url", "https://www.google.com"))
+                  AlertDialog.Builder(this)
+                      .setTitle("Homepage URL")
+                      .setView(input)
+                      .setPositiveButton("Save") { _, _ ->
+                          val u = input.text.toString().trim()
+                          if (u.isNotEmpty()) {
+                              val url = if (u.startsWith("http")) u else "https://$u"
+                              prefs.edit().putString("home_url", url).apply()
+                              Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+                          }
+                      }
+                      .setNegativeButton("Cancel", null)
+                      .show()
+              }
+
+              override fun onSaveInstanceState(outState: Bundle) {
+                  super.onSaveInstanceState(outState)
+                  webView.saveState(outState)
+              }
+
+              override fun onNewIntent(intent: Intent) {
+                  super.onNewIntent(intent)
+                  intent.data?.let { webView.loadUrl(it.toString()) }
+              }
+
+              override fun onBackPressed() {
+                  if (webView.canGoBack()) webView.goBack()
+                  else super.onBackPressed()
+              }
+          }
+          KOTEOF
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --stacktrace --no-daemon
+
+      - name: Find APK
+        run: |
+          echo "=== APK Files ==="
+          find . -name "*.apk" -type f
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusBrowser-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
