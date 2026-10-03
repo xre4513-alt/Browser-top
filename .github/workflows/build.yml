@@ -44,6 +44,14 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
+          mkdir -p app/libs
+
+      - name: Download WireGuard tunnel AAR (bundled locally)
+        run: |
+          curl -L -f -o app/libs/wireguard-tunnel.aar \
+            https://repo1.maven.org/maven2/com/wireguard/android/tunnel/1.0.20230706/tunnel-1.0.20230706.aar
+          ls -lh app/libs/wireguard-tunnel.aar
+          file app/libs/wireguard-tunnel.aar
 
       - name: Write settings.gradle
         run: |
@@ -56,10 +64,11 @@ jobs:
               }
           }
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
               repositories {
                   google()
                   mavenCentral()
+                  flatDir { dirs 'app/libs' }
               }
           }
           rootProject.name = "NexusBrowser"
@@ -84,6 +93,7 @@ jobs:
           org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
           org.gradle.parallel=true
           org.gradle.caching=true
+          android.nonTransitiveRClass=false
           EOF
 
       - name: Write app/build.gradle
@@ -102,6 +112,7 @@ jobs:
                   targetSdk 34
                   versionCode 1
                   versionName "1.0.0"
+                  multiDexEnabled true
               }
               buildTypes {
                   release {
@@ -119,7 +130,8 @@ jobs:
               kotlinOptions { jvmTarget = '17' }
               buildFeatures { viewBinding true }
               packagingOptions {
-                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
+                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1,DEPENDENCIES,LICENSE,LICENSE.txt,NOTICE,NOTICE.txt}'
+                  jniLibs.useLegacyPackaging = false
               }
           }
           dependencies {
@@ -130,6 +142,8 @@ jobs:
               implementation 'androidx.webkit:webkit:1.10.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+              // WireGuard tunnel library (locally bundled AAR)
+              implementation files('libs/wireguard-tunnel.aar')
           }
           EOF
 
@@ -140,6 +154,12 @@ jobs:
           -keepclassmembers class * {
               @android.webkit.JavascriptInterface <methods>;
           }
+          -keep class com.wireguard.** { *; }
+          -keepclassmembers class com.wireguard.** { *; }
+          -dontwarn com.wireguard.**
+          -dontwarn org.jetbrains.annotations.**
+          -keep class go.** { *; }
+          -dontwarn go.**
           EOF
 
       - name: Write AndroidManifest.xml
@@ -155,14 +175,9 @@ jobs:
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
-
-              <queries>
-                  <package android:name="com.cloudflare.onedotonedotonedotone" />
-                  <package android:name="com.cloudflare.app" />
-                  <intent>
-                      <action android:name="android.net.VpnService" />
-                  </intent>
-              </queries>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
               <application
                   android:allowBackup="true"
@@ -193,6 +208,19 @@ jobs:
                           <data android:scheme="https" />
                       </intent-filter>
                   </activity>
+
+                  <service
+                      android:name=".NexusVpnService"
+                      android:permission="android.permission.BIND_VPN_SERVICE"
+                      android:exported="false"
+                      android:foregroundServiceType="specialUse">
+                      <intent-filter>
+                          <action android:name="android.net.VpnService" />
+                      </intent-filter>
+                      <property
+                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                          android:value="vpn" />
+                  </service>
 
                   <provider
                       android:name="androidx.core.content.FileProvider"
@@ -359,11 +387,42 @@ jobs:
                           android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
                           android:inputType="textUri" android:maxLines="1" android:textSize="15sp" android:elevation="4dp" />
 
-                      <TextView android:id="@+id/vpnStatusText"
+                      <!-- VPN BUTTON -->
+                      <LinearLayout
+                          android:id="@+id/vpnButton"
                           android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="24dp" android:text="VPN: OFF"
-                          android:textColor="@color/vpn_off" android:textSize="12sp" android:textStyle="bold"
-                          android:padding="8dp" android:background="?android:attr/selectableItemBackground" />
+                          android:layout_marginTop="32dp"
+                          android:orientation="horizontal"
+                          android:gravity="center_vertical"
+                          android:paddingStart="20dp" android:paddingEnd="20dp"
+                          android:paddingTop="12dp" android:paddingBottom="12dp"
+                          android:background="@drawable/vpn_button_bg"
+                          android:clickable="true" android:focusable="true"
+                          android:elevation="4dp">
+
+                          <TextView
+                              android:id="@+id/vpnShield"
+                              android:layout_width="wrap_content" android:layout_height="wrap_content"
+                              android:text="🛡"
+                              android:textSize="20sp"
+                              android:layout_marginEnd="10dp" />
+
+                          <TextView
+                              android:id="@+id/vpnStatusText"
+                              android:layout_width="wrap_content" android:layout_height="wrap_content"
+                              android:text="TAP TO START VPN"
+                              android:textColor="@color/white"
+                              android:textSize="13sp"
+                              android:textStyle="bold" />
+                      </LinearLayout>
+
+                      <TextView
+                          android:id="@+id/vpnInfoText"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:layout_marginTop="8dp"
+                          android:text="Cloudflare WARP • Free &amp; Unlimited"
+                          android:textColor="@color/text_secondary"
+                          android:textSize="11sp" />
                   </LinearLayout>
 
                   <TextView android:id="@+id/incognitoBadge"
@@ -416,6 +475,15 @@ jobs:
           </shape>
           EOF
 
+      - name: Write vpn_button_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/vpn_button_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1565C0" />
+              <corners android:radius="26dp" />
+          </shape>
+          EOF
+
       - name: Write MainActivity.kt
         run: |
           cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
@@ -428,11 +496,12 @@ jobs:
           import android.content.Intent
           import android.content.SharedPreferences
           import android.graphics.Bitmap
-          import android.net.ConnectivityManager
-          import android.net.NetworkCapabilities
           import android.net.Uri
+          import android.net.VpnService
           import android.os.Bundle
           import android.os.Environment
+          import android.os.Handler
+          import android.os.Looper
           import android.view.KeyEvent
           import android.view.View
           import android.view.inputmethod.EditorInfo
@@ -452,7 +521,12 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
+          import com.wireguard.android.backend.Backend
+          import com.wireguard.android.backend.GoBackend
+          import com.wireguard.android.backend.Tunnel
+          import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
+          import java.io.StringReader
           import java.net.URLEncoder
 
           class MainActivity : AppCompatActivity() {
@@ -464,11 +538,33 @@ jobs:
               private lateinit var incognitoBadge: TextView
               private lateinit var homeOverlay: View
               private lateinit var vpnStatusText: TextView
+              private lateinit var vpnShield: TextView
+              private lateinit var vpnButton: View
+              private lateinit var vpnInfoText: TextView
               private lateinit var prefs: SharedPreferences
 
               private var incognito = false
               private var desktopMode = false
               private var isHomeVisible = true
+
+              private var wgBackend: Backend? = null
+              private var wgTunnel: NexusTunnel? = null
+
+              private val handler = Handler(Looper.getMainLooper())
+
+              // Pre-loaded Cloudflare WARP WireGuard config
+              private val DEFAULT_WG_CONFIG = """
+          [Interface]
+          PrivateKey = gGC/SHTnBPGo6rKBOegyMaVfEujbO5ZhS7aq+46ktUM=
+          Address = 172.16.0.2/32, 2606:4700:110:88eb:eee9:3b5c:e06e:dbee/128
+          DNS = 1.1.1.1, 1.0.0.1
+          MTU = 1280
+
+          [Peer]
+          PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+          AllowedIPs = 0.0.0.0/0, ::/0
+          Endpoint = engage.cloudflareclient.com:2408
+          """.trimIndent()
 
               private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
               private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
@@ -511,6 +607,10 @@ jobs:
                   super.onCreate(savedInstanceState)
                   prefs = getSharedPreferences("nexus_browser", Context.MODE_PRIVATE)
 
+                  if (!prefs.contains("wg_config")) {
+                      prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
+                  }
+
                   AppCompatDelegate.setDefaultNightMode(
                       if (prefs.getBoolean("dark_mode", false)) AppCompatDelegate.MODE_NIGHT_YES
                       else AppCompatDelegate.MODE_NIGHT_NO
@@ -525,20 +625,20 @@ jobs:
                   incognitoBadge = findViewById(R.id.incognitoBadge)
                   homeOverlay = findViewById(R.id.homeOverlay)
                   vpnStatusText = findViewById(R.id.vpnStatusText)
+                  vpnShield = findViewById(R.id.vpnShield)
+                  vpnButton = findViewById(R.id.vpnButton)
+                  vpnInfoText = findViewById(R.id.vpnInfoText)
 
                   setupWebView()
                   setupButtons()
                   showHomePage()
-                  updateVpnStatus()
 
-                  vpnStatusText.setOnClickListener {
-                      showVpnDialog()
-                  }
+                  vpnButton.setOnClickListener { toggleVpn() }
               }
 
               override fun onResume() {
                   super.onResume()
-                  updateVpnStatus()
+                  updateVpnUi()
               }
 
               private fun showHomePage() {
@@ -546,12 +646,117 @@ jobs:
                   homeOverlay.visibility = View.VISIBLE
                   addressBar.setText("")
                   webView.loadUrl("about:blank")
-                  updateVpnStatus()
+                  updateVpnUi()
               }
 
               private fun hideHomePage() {
                   isHomeVisible = false
                   homeOverlay.visibility = View.GONE
+              }
+
+              // ============ VPN: One-tap toggle ============
+              private fun toggleVpn() {
+                  if (isVpnUp()) {
+                      stopVpn()
+                  } else {
+                      startVpn()
+                  }
+              }
+
+              private fun isVpnUp(): Boolean {
+                  return try {
+                      wgTunnel != null && wgBackend?.getState(wgTunnel!!) == Tunnel.State.UP
+                  } catch (e: Exception) { false }
+              }
+
+              private fun startVpn() {
+                  val configText = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
+                  try {
+                      val prepare = VpnService.prepare(this)
+                      if (prepare != null) {
+                          startActivityForResult(prepare, 1001)
+                      } else {
+                          connectVpn(configText)
+                      }
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "VPN start error: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
+              }
+
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (requestCode == 1001) {
+                      if (resultCode == RESULT_OK) {
+                          val configText = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
+                          connectVpn(configText)
+                      } else {
+                          Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
+                      }
+                  }
+              }
+
+              private fun connectVpn(configText: String) {
+                  Thread {
+                      try {
+                          val config = Config.parse(StringReader(configText))
+                          val tunnel = NexusTunnel("nexus-warp")
+                          val backend = GoBackend(applicationContext)
+                          val state = backend.setState(tunnel, Tunnel.State.UP, config)
+                          handler.post {
+                              if (state == Tunnel.State.UP) {
+                                  wgBackend = backend
+                                  wgTunnel = tunnel
+                                  prefs.edit().putBoolean("vpn_enabled", true).apply()
+                                  updateVpnUi()
+                                  Toast.makeText(this, "🛡 VPN Connected!", Toast.LENGTH_SHORT).show()
+                              } else {
+                                  Toast.makeText(this, "VPN state: $state", Toast.LENGTH_LONG).show()
+                              }
+                          }
+                      } catch (e: Exception) {
+                          handler.post {
+                              Toast.makeText(this, "VPN failed: ${e.message}", Toast.LENGTH_LONG).show()
+                          }
+                      }
+                  }.start()
+              }
+
+              private fun stopVpn() {
+                  Thread {
+                      try {
+                          val tunnel = wgTunnel
+                          val backend = wgBackend
+                          if (tunnel != null && backend != null) {
+                              backend.setState(tunnel, Tunnel.State.DOWN, null)
+                          }
+                          handler.post {
+                              wgTunnel = null
+                              wgBackend = null
+                              prefs.edit().putBoolean("vpn_enabled", false).apply()
+                              updateVpnUi()
+                              Toast.makeText(this, "VPN Disconnected", Toast.LENGTH_SHORT).show()
+                          }
+                      } catch (e: Exception) {
+                          handler.post {
+                              Toast.makeText(this, "VPN stop failed: ${e.message}", Toast.LENGTH_LONG).show()
+                          }
+                      }
+                  }.start()
+              }
+
+              private fun updateVpnUi() {
+                  val up = isVpnUp()
+                  if (up) {
+                      vpnShield.text = "🛡"
+                      vpnStatusText.text = "VPN CONNECTED"
+                      vpnButton.setBackgroundColor(getColor(R.color.vpn_on))
+                      vpnInfoText.text = "IP masked • Tap to disconnect"
+                  } else {
+                      vpnShield.text = "🛡"
+                      vpnStatusText.text = "TAP TO START VPN"
+                      vpnButton.setBackgroundColor(getColor(R.color.primary))
+                      vpnInfoText.text = "Cloudflare WARP • Free & Unlimited"
+                  }
               }
 
               @SuppressLint("SetJavaScriptEnabled")
@@ -806,79 +1011,6 @@ jobs:
                   webView.loadUrl(url)
               }
 
-              // ====== VPN Integration via System WARP App ======
-              private fun isSystemVpnActive(): Boolean {
-                  return try {
-                      val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-                      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                          val network = cm.activeNetwork ?: return false
-                          val caps = cm.getNetworkCapabilities(network) ?: return false
-                          caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-                      } else {
-                          @Suppress("DEPRECATION")
-                          cm.allNetworks.any { n ->
-                              @Suppress("DEPRECATION")
-                              (cm.getNetworkCapabilities(n)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true)
-                          }
-                      }
-                  } catch (e: Exception) { false }
-              }
-
-              private fun updateVpnStatus() {
-                  if (isSystemVpnActive()) {
-                      vpnStatusText.text = "🛡 VPN: CONNECTED (System)"
-                      vpnStatusText.setTextColor(getColor(R.color.vpn_on))
-                  } else {
-                      vpnStatusText.text = "VPN: OFF (Tap to enable)"
-                      vpnStatusText.setTextColor(getColor(R.color.vpn_off))
-                  }
-              }
-
-              private fun showVpnDialog() {
-                  val active = isSystemVpnActive()
-                  AlertDialog.Builder(this)
-                      .setTitle("VPN Status")
-                      .setMessage(
-                          if (active) "✅ System VPN is active. All your traffic (including this browser) is routed through Cloudflare WARP."
-                          else "❌ VPN is OFF.\n\nNexus Browser uses Cloudflare WARP (free, unlimited) for IP masking.\n\nTap 'Open WARP' to install/open it, then turn it ON. The browser will automatically detect it."
-                      )
-                      .setPositiveButton(if (active) "OK" else "Open WARP") { _, _ ->
-                          if (!active) openWarpApp()
-                      }
-                      .setNeutralButton("Test IP") { _, _ ->
-                          hideHomePage()
-                          webView.loadUrl("https://tembrica.com/en/vpn-checker")
-                      }
-                      .setNegativeButton("Close", null)
-                      .show()
-              }
-
-              private fun openWarpApp() {
-                  // Try Cloudflare WARP (1.1.1.1)
-                  val packages = listOf(
-                      "com.cloudflare.onedotonedotonedotone",
-                      "com.cloudflare.app"
-                  )
-                  for (pkg in packages) {
-                      val i = packageManager.getLaunchIntentForPackage(pkg)
-                      if (i != null) {
-                          try { startActivity(i); return } catch (e: Exception) {}
-                      }
-                  }
-                  // Not installed - open Play Store
-                  try {
-                      startActivity(Intent(Intent.ACTION_VIEW,
-                          Uri.parse("market://details?id=com.cloudflare.onedotonedotonedotone")))
-                  } catch (e: Exception) {
-                      try {
-                          startActivity(Intent(Intent.ACTION_VIEW,
-                              Uri.parse("https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone")))
-                      } catch (e2: Exception) {
-                          Toast.makeText(this, "Cannot open Play Store", Toast.LENGTH_SHORT).show()
-                      }
-                  }
-              }
-
               private fun setupButtons() {
                   findViewById<ImageButton>(R.id.btnBack).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
                   findViewById<ImageButton>(R.id.btnForward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
@@ -1006,14 +1138,14 @@ jobs:
               private fun showSettings() {
                   val hideId = prefs.getBoolean("hide_identity", false)
                   val js = prefs.getBoolean("javascript", true)
-                  val vpn = isSystemVpnActive()
+                  val vpn = isVpnUp()
                   val opts = arrayOf(
                       "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
                       "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
                       "🛡 Hide Identity: ${if (hideId) "ON" else "OFF"}",
                       "🔒 JavaScript: ${if (js) "ON" else "OFF"}",
-                      "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"}",
-                      "🌐 Open Cloudflare WARP (VPN)",
+                      "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"} (tap to toggle)",
+                      "🔧 Edit WireGuard Config",
                       "Search engine: ${prefs.getString("search_engine", "google")}",
                       "Clear cache", "Clear cookies", "Reset all"
                   )
@@ -1043,14 +1175,40 @@ jobs:
                               Toast.makeText(this, if (j) "JS ON" else "JS OFF", Toast.LENGTH_SHORT).show()
                               webView.reload()
                           }
-                          4 -> showVpnDialog()
-                          5 -> openWarpApp()
+                          4 -> toggleVpn()
+                          5 -> editWgConfigDialog()
                           6 -> chooseSearchEngine()
                           7 -> { webView.clearCache(true); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          9 -> { prefs.edit().clear().apply(); Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show(); recreate() }
+                          9 -> {
+                              prefs.edit().clear().apply()
+                              prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
+                              Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show()
+                              recreate()
+                          }
                       }
                   }.show()
+              }
+
+              private fun editWgConfigDialog() {
+                  val input = EditText(this)
+                  input.setText(prefs.getString("wg_config", DEFAULT_WG_CONFIG))
+                  input.minLines = 6; input.maxLines = 14
+                  input.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                  input.setPadding(30, 30, 30, 30)
+                  AlertDialog.Builder(this)
+                      .setTitle("WireGuard Config")
+                      .setMessage("Default Cloudflare WARP config is loaded. You can paste a different config.")
+                      .setView(input)
+                      .setPositiveButton("Save") { _, _ ->
+                          prefs.edit().putString("wg_config", input.text.toString().trim()).apply()
+                          Toast.makeText(this, "Config saved", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNeutralButton("Reset WARP") { _, _ ->
+                          prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
+                          Toast.makeText(this, "WARP config restored", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNegativeButton("Cancel", null).show()
               }
 
               private fun chooseSearchEngine() {
@@ -1073,6 +1231,35 @@ jobs:
                   if (!isHomeVisible && webView.canGoBack() && webView.url != "about:blank") webView.goBack()
                   else if (!isHomeVisible) showHomePage()
                   else super.onBackPressed()
+              }
+          }
+          KOTEOF
+
+      - name: Write NexusTunnel.kt
+        run: |
+          cat > app/src/main/java/com/nexus/browser/NexusTunnel.kt << 'KOTEOF'
+          package com.nexus.browser
+
+          import com.wireguard.android.backend.Tunnel
+
+          class NexusTunnel(private val tunnelName: String) : Tunnel {
+              override fun getName(): String = tunnelName
+              override fun onStateChange(newState: Tunnel.State) { }
+          }
+          KOTEOF
+
+      - name: Write NexusVpnService.kt
+        run: |
+          cat > app/src/main/java/com/nexus/browser/NexusVpnService.kt << 'KOTEOF'
+          package com.nexus.browser
+
+          import android.content.Intent
+          import com.wireguard.android.backend.GoBackend
+          import com.wireguard.android.backend.Tunnel
+
+          class NexusVpnService : GoBackend.VpnService() {
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  return super.onStartCommand(intent, flags, startId)
               }
           }
           KOTEOF
