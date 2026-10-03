@@ -60,7 +60,6 @@ jobs:
               repositories {
                   google()
                   mavenCentral()
-                  maven { url 'https://jitpack.io' }
               }
           }
           rootProject.name = "NexusBrowser"
@@ -120,7 +119,7 @@ jobs:
               kotlinOptions { jvmTarget = '17' }
               buildFeatures { viewBinding true }
               packagingOptions {
-                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1,LICENSE,NOTICE,DEPENDENCIES,LICENSE.txt}'
+                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
               }
           }
           dependencies {
@@ -131,7 +130,6 @@ jobs:
               implementation 'androidx.webkit:webkit:1.10.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-              implementation 'com.wireguard.android:tunnel:1.0.20230706'
           }
           EOF
 
@@ -142,9 +140,6 @@ jobs:
           -keepclassmembers class * {
               @android.webkit.JavascriptInterface <methods>;
           }
-          -keep class com.wireguard.** { *; }
-          -dontwarn com.wireguard.**
-          -dontwarn org.jetbrains.annotations.**
           EOF
 
       - name: Write AndroidManifest.xml
@@ -160,9 +155,14 @@ jobs:
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+              <queries>
+                  <package android:name="com.cloudflare.onedotonedotonedotone" />
+                  <package android:name="com.cloudflare.app" />
+                  <intent>
+                      <action android:name="android.net.VpnService" />
+                  </intent>
+              </queries>
 
               <application
                   android:allowBackup="true"
@@ -193,19 +193,6 @@ jobs:
                           <data android:scheme="https" />
                       </intent-filter>
                   </activity>
-
-                  <service
-                      android:name=".NexusVpnService"
-                      android:permission="android.permission.BIND_VPN_SERVICE"
-                      android:exported="false"
-                      android:foregroundServiceType="specialUse">
-                      <intent-filter>
-                          <action android:name="android.net.VpnService" />
-                      </intent-filter>
-                      <property
-                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                          android:value="vpn" />
-                  </service>
 
                   <provider
                       android:name="androidx.core.content.FileProvider"
@@ -275,7 +262,6 @@ jobs:
               <color name="incognito_color">#311B92</color>
               <color name="white">#FFFFFF</color>
               <color name="black">#000000</color>
-              <color name="home_bg">#0F1A2E</color>
               <color name="home_bg_light">#F0F4F8</color>
               <color name="vpn_on">#00C853</color>
               <color name="vpn_off">#F44336</color>
@@ -301,10 +287,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_launcher.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
-              android:viewportWidth="108"
-              android:viewportHeight="108">
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
               <path android:fillColor="#1565C0" android:pathData="M0,0h108v108h-108z"/>
               <path android:fillColor="#FFFFFF" android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
               <path android:fillColor="#00BFA5" android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
@@ -317,20 +301,13 @@ jobs:
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:background="?android:attr/colorBackground">
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:orientation="vertical" android:background="?android:attr/colorBackground">
 
-              <LinearLayout
-                  android:id="@+id/navBar"
-                  android:layout_width="match_parent"
-                  android:layout_height="44dp"
-                  android:orientation="horizontal"
-                  android:background="@color/primary"
-                  android:gravity="center_vertical"
-                  android:paddingStart="4dp"
-                  android:paddingEnd="4dp">
+              <LinearLayout android:id="@+id/navBar"
+                  android:layout_width="match_parent" android:layout_height="44dp"
+                  android:orientation="horizontal" android:background="@color/primary"
+                  android:gravity="center_vertical" android:paddingStart="4dp" android:paddingEnd="4dp">
 
                   <ImageButton android:id="@+id/btnBack" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_previous"
@@ -346,19 +323,14 @@ jobs:
                       android:contentDescription="@string/menu" android:scaleType="centerInside" android:tint="@color/white" />
               </LinearLayout>
 
-              <LinearLayout
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:orientation="horizontal"
-                  android:background="@color/primary"
-                  android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp"
-                  android:gravity="center">
-                  <EditText android:id="@+id/addressBar"
-                      android:layout_width="match_parent" android:layout_height="40dp"
-                      android:background="@drawable/address_bar_bg"
-                      android:hint="@string/search_hint" android:textColorHint="@color/text_secondary"
-                      android:textColor="@color/text_primary" android:paddingStart="16dp" android:paddingEnd="16dp"
-                      android:imeOptions="actionGo" android:inputType="textUri" android:maxLines="1" android:textSize="14sp" />
+              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:orientation="horizontal" android:background="@color/primary"
+                  android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp" android:gravity="center">
+                  <EditText android:id="@+id/addressBar" android:layout_width="match_parent" android:layout_height="40dp"
+                      android:background="@drawable/address_bar_bg" android:hint="@string/search_hint"
+                      android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
+                      android:paddingStart="16dp" android:paddingEnd="16dp" android:imeOptions="actionGo"
+                      android:inputType="textUri" android:maxLines="1" android:textSize="14sp" />
               </LinearLayout>
 
               <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
@@ -366,7 +338,6 @@ jobs:
                   android:progressTint="@color/accent" android:visibility="gone" />
 
               <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-
                   <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" />
 
                   <LinearLayout android:id="@+id/homeOverlay"
@@ -381,20 +352,18 @@ jobs:
                           android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
                           android:textSize="13sp" android:layout_marginBottom="32dp" />
 
-                      <EditText android:id="@+id/homeSearchBar"
-                          android:layout_width="match_parent" android:layout_height="52dp"
+                      <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="52dp"
                           android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
-                          android:background="@drawable/home_search_bg"
-                          android:hint="@string/home_search_hint" android:textColorHint="@color/text_secondary"
-                          android:textColor="@color/text_primary" android:paddingStart="20dp" android:paddingEnd="20dp"
-                          android:imeOptions="actionGo" android:inputType="textUri" android:maxLines="1"
-                          android:textSize="15sp" android:elevation="4dp" />
+                          android:background="@drawable/home_search_bg" android:hint="@string/home_search_hint"
+                          android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
+                          android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
+                          android:inputType="textUri" android:maxLines="1" android:textSize="15sp" android:elevation="4dp" />
 
                       <TextView android:id="@+id/vpnStatusText"
                           android:layout_width="wrap_content" android:layout_height="wrap_content"
                           android:layout_marginTop="24dp" android:text="VPN: OFF"
-                          android:textColor="@color/vpn_off" android:textSize="12sp"
-                          android:textStyle="bold" />
+                          android:textColor="@color/vpn_off" android:textSize="12sp" android:textStyle="bold"
+                          android:padding="8dp" android:background="?android:attr/selectableItemBackground" />
                   </LinearLayout>
 
                   <TextView android:id="@+id/incognitoBadge"
@@ -459,6 +428,8 @@ jobs:
           import android.content.Intent
           import android.content.SharedPreferences
           import android.graphics.Bitmap
+          import android.net.ConnectivityManager
+          import android.net.NetworkCapabilities
           import android.net.Uri
           import android.os.Bundle
           import android.os.Environment
@@ -481,11 +452,7 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
-          import com.wireguard.android.backend.GoBackend
-          import com.wireguard.android.backend.Tunnel
-          import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
-          import java.io.StringReader
           import java.net.URLEncoder
 
           class MainActivity : AppCompatActivity() {
@@ -502,70 +469,40 @@ jobs:
               private var incognito = false
               private var desktopMode = false
               private var isHomeVisible = true
-              private var vpnBackend: GoBackend? = null
-              private var vpnTunnel: NexusTunnel? = null
-
-              // ============ DEFAULT CLOUDFLARE WARP CONFIG ============
-              private val DEFAULT_WG_CONFIG = """
-          [Interface]
-          PrivateKey = gGC/SHTnBPGo6rKBOegyMaVfEujbO5ZhS7aq+46ktUM=
-          Address = 172.16.0.2/32, 2606:4700:110:88eb:eee9:3b5c:e06e:dbee/128
-          DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001
-          MTU = 1280
-
-          [Peer]
-          PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
-          AllowedIPs = 0.0.0.0/0, ::/0
-          Endpoint = engage.cloudflareclient.com:2408
-          """.trimIndent()
 
               private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
               private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
 
               private val adDomains = setOf(
-                  "doubleclick.net", "googlesyndication.com", "googleadservices.com",
-                  "adservice.google.com", "ads.google.com", "pagead2.googlesyndication.com",
-                  "partner.googleadservices.com", "tpc.googlesyndication.com",
-                  "adnxs.com", "ads.yahoo.com", "advertising.com", "outbrain.com",
-                  "taboola.com", "popads.net", "popcash.net", "propellerads.com",
-                  "adcolony.com", "applovin.com", "unityads.unity3d.com",
-                  "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
-                  "mopub.com", "flurry.com", "adjust.com", "appsflyer.com",
-                  "branch.io", "kochava.com", "mixpanel.com", "amplitude.com",
-                  "scorecardresearch.com", "quantserve.com", "comscore.com",
-                  "criteo.com", "criteo.net", "rubiconproject.com", "pubmatic.com",
-                  "openx.net", "indexexchange.com", "casalemedia.com", "sharethrough.com",
-                  "teads.tv", "spotxchange.com", "smartadserver.com", "adform.net",
-                  "smaato.net", "mobfox.com", "yieldmo.com", "sonobi.com",
-                  "gumgum.com", "undertone.com", "adroll.com", "bidswitch.net",
-                  "adsrvr.org", "bidr.io", "liveintent.com", "liveramp.com",
-                  "mathtag.com", "simpli.fi", "tapad.com", "thetradedesk.com",
-                  "turn.com", "zemanta.com", "yieldlab.net", "yieldmanager.com",
-                  "googletagmanager.com", "google-analytics.com", "googletagservices.com",
-                  "hotjar.com", "fullstory.com", "mouseflow.com", "crazyegg.com",
-                  "optimizely.com", "vwo.com", "kissmetrics.com", "segment.com",
-                  "segment.io", "heapanalytics.com", "newrelic.com", "bugsnag.com",
-                  "adzerk.net", "ads.linkedin.com", "ads.pinterest.com",
-                  "ads.reddit.com", "ads.twitter.com", "ads.tiktok.com",
-                  "analytics.tiktok.com"
+                  "doubleclick.net","googlesyndication.com","googleadservices.com","adservice.google.com",
+                  "ads.google.com","pagead2.googlesyndication.com","partner.googleadservices.com",
+                  "tpc.googlesyndication.com","adnxs.com","ads.yahoo.com","advertising.com","outbrain.com",
+                  "taboola.com","popads.net","popcash.net","propellerads.com","adcolony.com","applovin.com",
+                  "unityads.unity3d.com","chartboost.com","vungle.com","inmobi.com","startapp.com",
+                  "mopub.com","flurry.com","adjust.com","appsflyer.com","branch.io","kochava.com",
+                  "mixpanel.com","amplitude.com","scorecardresearch.com","quantserve.com","comscore.com",
+                  "criteo.com","criteo.net","rubiconproject.com","pubmatic.com","openx.net","indexexchange.com",
+                  "casalemedia.com","sharethrough.com","teads.tv","spotxchange.com","smartadserver.com",
+                  "adform.net","smaato.net","mobfox.com","yieldmo.com","sonobi.com","gumgum.com",
+                  "undertone.com","adroll.com","bidswitch.net","adsrvr.org","bidr.io","liveintent.com",
+                  "liveramp.com","mathtag.com","simpli.fi","tapad.com","thetradedesk.com","turn.com",
+                  "zemanta.com","yieldlab.net","yieldmanager.com","googletagmanager.com","google-analytics.com",
+                  "googletagservices.com","hotjar.com","fullstory.com","mouseflow.com","crazyegg.com",
+                  "optimizely.com","vwo.com","kissmetrics.com","segment.com","segment.io","heapanalytics.com",
+                  "newrelic.com","bugsnag.com","adzerk.net","ads.linkedin.com","ads.pinterest.com",
+                  "ads.reddit.com","ads.twitter.com","ads.tiktok.com","analytics.tiktok.com"
               )
 
               private val adKeywords = listOf(
-                  "/ads/", "/advert", "/banner/", "/popup", "/pop-under",
-                  "/sponsor", "/promoted", "/affiliate", "/pixel?",
-                  "/beacon?", "adsense", "adserver", "adtech", "/pagead/",
-                  "/adservice/", "/adframe/", "googleads",
-                  "/advertisement/", "/sponsored/", "?adid=", "&adid="
+                  "/ads/","/advert","/banner/","/popup","/pop-under","/sponsor","/promoted","/affiliate",
+                  "/pixel?","/beacon?","adsense","adserver","adtech","/pagead/","/adservice/","/adframe/",
+                  "googleads","/advertisement/","/sponsored/","?adid=","&adid="
               )
 
               private val ytAdPatterns = listOf(
-                  "youtube.com/api/stats/ads",
-                  "youtube.com/pagead",
-                  "youtube.com/ptracking",
-                  "googleads.g.doubleclick.net",
-                  "youtube.com/pcs/activeview",
-                  "youtube.com/youtubei/v1/player/ad",
-                  "youtube.com/youtubei/v1/next/ad",
+                  "youtube.com/api/stats/ads","youtube.com/pagead","youtube.com/ptracking",
+                  "googleads.g.doubleclick.net","youtube.com/pcs/activeview",
+                  "youtube.com/youtubei/v1/player/ad","youtube.com/youtubei/v1/next/ad",
                   "youtube.com/youtubei/v1/browse/ad"
               )
 
@@ -574,17 +511,8 @@ jobs:
                   super.onCreate(savedInstanceState)
                   prefs = getSharedPreferences("nexus_browser", Context.MODE_PRIVATE)
 
-                  // First-time: seed default WARP config
-                  if (!prefs.contains("wg_config_initialized")) {
-                      prefs.edit()
-                          .putString("wg_config", DEFAULT_WG_CONFIG)
-                          .putBoolean("wg_config_initialized", true)
-                          .apply()
-                  }
-
                   AppCompatDelegate.setDefaultNightMode(
-                      if (prefs.getBoolean("dark_mode", false))
-                          AppCompatDelegate.MODE_NIGHT_YES
+                      if (prefs.getBoolean("dark_mode", false)) AppCompatDelegate.MODE_NIGHT_YES
                       else AppCompatDelegate.MODE_NIGHT_NO
                   )
 
@@ -598,15 +526,18 @@ jobs:
                   homeOverlay = findViewById(R.id.homeOverlay)
                   vpnStatusText = findViewById(R.id.vpnStatusText)
 
-                  try {
-                      vpnBackend = GoBackend(this)
-                  } catch (e: Exception) {
-                      // WireGuard not available
-                  }
-
                   setupWebView()
                   setupButtons()
                   showHomePage()
+                  updateVpnStatus()
+
+                  vpnStatusText.setOnClickListener {
+                      showVpnDialog()
+                  }
+              }
+
+              override fun onResume() {
+                  super.onResume()
                   updateVpnStatus()
               }
 
@@ -615,6 +546,7 @@ jobs:
                   homeOverlay.visibility = View.VISIBLE
                   addressBar.setText("")
                   webView.loadUrl("about:blank")
+                  updateVpnStatus()
               }
 
               private fun hideHomePage() {
@@ -724,7 +656,7 @@ jobs:
                   homeSearchBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           val q = homeSearchBar.text.toString()
-                          if (q.isNotEmpty()) { hideHomePage(); navigate(q); homeSearchBar.text.clear() }
+                          if (q.isNotEmpty()) { hideHomePage(); navigate(q); homeSearchBar.clearFocus() }
                           true
                       } else false
                   }
@@ -772,9 +704,9 @@ jobs:
                               }
                           } catch(e){}
                           try {
-                              var origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+                              var og = CanvasRenderingContext2D.prototype.getImageData;
                               CanvasRenderingContext2D.prototype.getImageData = function(){
-                                  var d = origGetImageData.apply(this, arguments);
+                                  var d = og.apply(this, arguments);
                                   for (var i = 0; i < d.data.length; i += 100) d.data[i] = d.data[i] ^ 1;
                                   return d;
                               };
@@ -874,99 +806,77 @@ jobs:
                   webView.loadUrl(url)
               }
 
-              private fun startVpn() {
-                  val configText = prefs.getString("wg_config", "") ?: ""
-                  if (configText.isEmpty()) {
-                      Toast.makeText(this, "❌ WireGuard config not set", Toast.LENGTH_LONG).show()
-                      return
-                  }
-                  try {
-                      val prepareIntent = android.net.VpnService.prepare(this)
-                      if (prepareIntent != null) {
-                          startActivityForResult(prepareIntent, 1001)
+              // ====== VPN Integration via System WARP App ======
+              private fun isSystemVpnActive(): Boolean {
+                  return try {
+                      val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                          val network = cm.activeNetwork ?: return false
+                          val caps = cm.getNetworkCapabilities(network) ?: return false
+                          caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
                       } else {
-                          connectWireGuard(configText)
+                          @Suppress("DEPRECATION")
+                          cm.allNetworks.any { n ->
+                              @Suppress("DEPRECATION")
+                              (cm.getNetworkCapabilities(n)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true)
+                          }
                       }
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "VPN prepare failed: ${e.message}", Toast.LENGTH_LONG).show()
-                  }
-              }
-
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode == 1001 && resultCode == RESULT_OK) {
-                      val configText = prefs.getString("wg_config", "") ?: ""
-                      connectWireGuard(configText)
-                  } else if (requestCode == 1001) {
-                      Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
-                  }
-              }
-
-              private fun connectWireGuard(configText: String) {
-                  try {
-                      val config = Config.parse(StringReader(configText))
-                      val tunnel = NexusTunnel("nexus")
-                      vpnTunnel = tunnel
-                      val backend = vpnBackend ?: GoBackend(this).also { vpnBackend = it }
-                      val state = backend.setState(tunnel, Tunnel.State.UP, config)
-                      if (state == Tunnel.State.UP) {
-                          prefs.edit().putBoolean("vpn_enabled", true).apply()
-                          runOnUiThread { updateVpnStatus(); Toast.makeText(this, "✅ VPN Connected", Toast.LENGTH_SHORT).show() }
-                      } else {
-                          runOnUiThread { Toast.makeText(this, "VPN state: $state", Toast.LENGTH_LONG).show() }
-                      }
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "VPN connect failed: ${e.message}", Toast.LENGTH_LONG).show()
-                  }
-              }
-
-              private fun stopVpn() {
-                  try {
-                      val tunnel = vpnTunnel ?: return
-                      val backend = vpnBackend ?: return
-                      backend.setState(tunnel, Tunnel.State.DOWN, null)
-                      prefs.edit().putBoolean("vpn_enabled", false).apply()
-                      updateVpnStatus()
-                      Toast.makeText(this, "VPN Disconnected", Toast.LENGTH_SHORT).show()
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "VPN stop failed: ${e.message}", Toast.LENGTH_LONG).show()
-                  }
+                  } catch (e: Exception) { false }
               }
 
               private fun updateVpnStatus() {
-                  val on = prefs.getBoolean("vpn_enabled", false)
-                  if (on) {
-                      vpnStatusText.text = "🛡 VPN: CONNECTED (Cloudflare WARP)"
+                  if (isSystemVpnActive()) {
+                      vpnStatusText.text = "🛡 VPN: CONNECTED (System)"
                       vpnStatusText.setTextColor(getColor(R.color.vpn_on))
                   } else {
-                      vpnStatusText.text = "VPN: OFF"
+                      vpnStatusText.text = "VPN: OFF (Tap to enable)"
                       vpnStatusText.setTextColor(getColor(R.color.vpn_off))
                   }
               }
 
-              private fun setWireGuardConfigDialog() {
-                  val input = EditText(this)
-                  input.hint = "Paste WireGuard config here"
-                  input.setText(prefs.getString("wg_config", DEFAULT_WG_CONFIG))
-                  input.minLines = 6
-                  input.maxLines = 12
-                  input.gravity = android.view.Gravity.TOP or android.view.Gravity.START
-                  input.setPadding(30, 30, 30, 30)
+              private fun showVpnDialog() {
+                  val active = isSystemVpnActive()
                   AlertDialog.Builder(this)
-                      .setTitle("WireGuard Config")
-                      .setMessage("Default Cloudflare WARP config is pre-loaded. You can paste a new one if you have another VPN.")
-                      .setView(input)
-                      .setPositiveButton("Save") { _, _ ->
-                          val c = input.text.toString().trim()
-                          prefs.edit().putString("wg_config", c).apply()
-                          Toast.makeText(this, if (c.isEmpty()) "Cleared" else "Config saved", Toast.LENGTH_SHORT).show()
+                      .setTitle("VPN Status")
+                      .setMessage(
+                          if (active) "✅ System VPN is active. All your traffic (including this browser) is routed through Cloudflare WARP."
+                          else "❌ VPN is OFF.\n\nNexus Browser uses Cloudflare WARP (free, unlimited) for IP masking.\n\nTap 'Open WARP' to install/open it, then turn it ON. The browser will automatically detect it."
+                      )
+                      .setPositiveButton(if (active) "OK" else "Open WARP") { _, _ ->
+                          if (!active) openWarpApp()
                       }
-                      .setNeutralButton("Reset to WARP") { _, _ ->
-                          prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
-                          Toast.makeText(this, "Reset to Cloudflare WARP", Toast.LENGTH_SHORT).show()
+                      .setNeutralButton("Test IP") { _, _ ->
+                          hideHomePage()
+                          webView.loadUrl("https://tembrica.com/en/vpn-checker")
                       }
-                      .setNegativeButton("Cancel", null)
+                      .setNegativeButton("Close", null)
                       .show()
+              }
+
+              private fun openWarpApp() {
+                  // Try Cloudflare WARP (1.1.1.1)
+                  val packages = listOf(
+                      "com.cloudflare.onedotonedotonedotone",
+                      "com.cloudflare.app"
+                  )
+                  for (pkg in packages) {
+                      val i = packageManager.getLaunchIntentForPackage(pkg)
+                      if (i != null) {
+                          try { startActivity(i); return } catch (e: Exception) {}
+                      }
+                  }
+                  // Not installed - open Play Store
+                  try {
+                      startActivity(Intent(Intent.ACTION_VIEW,
+                          Uri.parse("market://details?id=com.cloudflare.onedotonedotonedotone")))
+                  } catch (e: Exception) {
+                      try {
+                          startActivity(Intent(Intent.ACTION_VIEW,
+                              Uri.parse("https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone")))
+                      } catch (e2: Exception) {
+                          Toast.makeText(this, "Cannot open Play Store", Toast.LENGTH_SHORT).show()
+                      }
+                  }
               }
 
               private fun setupButtons() {
@@ -1096,14 +1006,14 @@ jobs:
               private fun showSettings() {
                   val hideId = prefs.getBoolean("hide_identity", false)
                   val js = prefs.getBoolean("javascript", true)
-                  val vpn = prefs.getBoolean("vpn_enabled", false)
+                  val vpn = isSystemVpnActive()
                   val opts = arrayOf(
                       "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
                       "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
                       "🛡 Hide Identity: ${if (hideId) "ON" else "OFF"}",
                       "🔒 JavaScript: ${if (js) "ON" else "OFF"}",
                       "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"}",
-                      "📄 WireGuard Config (Cloudflare WARP pre-loaded)",
+                      "🌐 Open Cloudflare WARP (VPN)",
                       "Search engine: ${prefs.getString("search_engine", "google")}",
                       "Clear cache", "Clear cookies", "Reset all"
                   )
@@ -1133,22 +1043,12 @@ jobs:
                               Toast.makeText(this, if (j) "JS ON" else "JS OFF", Toast.LENGTH_SHORT).show()
                               webView.reload()
                           }
-                          4 -> {
-                              if (prefs.getBoolean("vpn_enabled", false)) stopVpn() else startVpn()
-                          }
-                          5 -> setWireGuardConfigDialog()
+                          4 -> showVpnDialog()
+                          5 -> openWarpApp()
                           6 -> chooseSearchEngine()
                           7 -> { webView.clearCache(true); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          9 -> {
-                              prefs.edit().clear().apply()
-                              prefs.edit()
-                                  .putString("wg_config", DEFAULT_WG_CONFIG)
-                                  .putBoolean("wg_config_initialized", true)
-                                  .apply()
-                              Toast.makeText(this, "Reset (WARP config re-loaded)", Toast.LENGTH_SHORT).show()
-                              recreate()
-                          }
+                          9 -> { prefs.edit().clear().apply(); Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show(); recreate() }
                       }
                   }.show()
               }
@@ -1174,32 +1074,6 @@ jobs:
                   else if (!isHomeVisible) showHomePage()
                   else super.onBackPressed()
               }
-          }
-          KOTEOF
-
-      - name: Write NexusTunnel.kt
-        run: |
-          cat > app/src/main/java/com/nexus/browser/NexusTunnel.kt << 'KOTEOF'
-          package com.nexus.browser
-
-          import com.wireguard.android.backend.Tunnel
-
-          class NexusTunnel(private val name: String) : Tunnel {
-              override fun getName(): String = name
-              override fun onStateChange(newState: Tunnel.State) { }
-          }
-          KOTEOF
-
-      - name: Write NexusVpnService.kt
-        run: |
-          cat > app/src/main/java/com/nexus/browser/NexusVpnService.kt << 'KOTEOF'
-          package com.nexus.browser
-
-          import android.content.Intent
-          import android.net.VpnService
-
-          class NexusVpnService : VpnService() {
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
           }
           KOTEOF
 
