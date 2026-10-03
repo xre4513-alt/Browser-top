@@ -508,6 +508,7 @@ jobs:
           import android.webkit.URLUtil
           import android.webkit.WebChromeClient
           import android.webkit.WebResourceRequest
+          import android.webkit.WebResourceResponse
           import android.webkit.WebSettings
           import android.webkit.WebView
           import android.webkit.WebViewClient
@@ -518,6 +519,7 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
+          import java.io.ByteArrayInputStream
           import java.net.URLEncoder
           import java.util.UUID
 
@@ -532,12 +534,33 @@ jobs:
               private var incognito = false
               private var desktopMode = false
 
-              private val adHosts = setOf(
+              // Expanded list of common ad/tracker domains
+              private val adDomains = setOf(
                   "doubleclick.net", "googlesyndication.com", "googleadservices.com",
                   "adservice.google.com", "ads.google.com", "adnxs.com",
                   "ads.yahoo.com", "advertising.com", "outbrain.com",
-                  "taboola.com", "popads.net", "popcash.net", "propellerads.com"
+                  "taboola.com", "popads.net", "popcash.net", "propellerads.com",
+                  "adcolony.com", "applovin.com", "unityads.unity3d.com",
+                  "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
+                  "mopub.com", "flurry.com", "adjust.com", "appsflyer.com",
+                  "branch.io", "kochava.com", "mixpanel.com", "amplitude.com",
+                  "scorecardresearch.com", "quantserve.com", "comscore.com",
+                  "criteo.com", "criteo.net", "rubiconproject.com", "pubmatic.com",
+                  "openx.net", "indexexchange.com", "casalemedia.com", "sharethrough.com",
+                  "teads.tv", "spotxchange.com", "smartadserver.com", "adform.net",
+                  "smaato.net", "mobfox.com", "yieldmo.com", "sonobi.com",
+                  "gumgum.com", "undertone.com", "adroll.com", "bidswitch.net"
               )
+
+              // Keywords in URL path that usually indicate ads
+              private val adKeywords = listOf(
+                  "/ads/", "/ad/", "/advert", "/banner", "/popup", "/pop-under",
+                  "/sponsor", "/promo", "/track", "/analytics", "/telemetry",
+                  "ad_", "_ad.", "ad-", "-ad.", "adsense", "adserver", "adtech"
+              )
+
+              private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
+              private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
 
               @SuppressLint("SetJavaScriptEnabled")
               override fun onCreate(savedInstanceState: Bundle?) {
@@ -595,15 +618,33 @@ jobs:
                   CookieManager.getInstance().setAcceptThirdPartyCookies(webView, !incognito)
 
                   webView.webViewClient = object : WebViewClient() {
+
+                      // Advanced Ad Blocker: Intercepts every network request
+                      override fun shouldInterceptRequest(
+                          view: WebView?,
+                          request: WebResourceRequest?
+                      ): WebResourceResponse? {
+                          val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+
+                          if (prefs.getBoolean("adblock", true)) {
+                              totalCount.incrementAndGet()
+                              if (isAdUrl(url)) {
+                                  blockedCount.incrementAndGet()
+                                  // Return empty response to block the ad
+                                  return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                              }
+                          }
+                          return super.shouldInterceptRequest(view, request)
+                      }
+
                       override fun shouldOverrideUrlLoading(
                           view: WebView?, request: WebResourceRequest?
                       ): Boolean {
                           val url = request?.url?.toString() ?: return false
 
                           if (prefs.getBoolean("adblock", true)) {
-                              val host = try { Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
-                              if (adHosts.any { host.endsWith(it) }) {
-                                  return true
+                              if (isAdUrl(url)) {
+                                  return true // Block navigation to ad URLs
                               }
                           }
 
@@ -628,6 +669,11 @@ jobs:
                           super.onPageFinished(view, url)
                           if (!incognito && url != null) saveHistory(url, view?.title ?: url)
                           updateBookmarkIcon()
+
+                          // Inject JavaScript to visually remove ads (especially YouTube)
+                          if (prefs.getBoolean("adblock", true)) {
+                              injectAdBlockJs()
+                          }
                       }
                   }
 
@@ -674,6 +720,53 @@ jobs:
                           true
                       } else false
                   }
+              }
+
+              // Core logic for detecting ad URLs
+              private fun isAdUrl(url: String): Boolean {
+                  val lowerUrl = url.lowercase()
+                  // Check domains
+                  val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
+                  if (adDomains.any { host.endsWith(it) }) return true
+
+                  // Check keywords in the full URL
+                  if (adKeywords.any { lowerUrl.contains(it) }) {
+                      // Exclude false positives for main sites (like youtube.com/watch?feature=...)
+                      if (!lowerUrl.contains("youtube.com/watch") &&
+                          !lowerUrl.contains("googlevideo.com/videoplayback") &&
+                          !lowerUrl.contains("facebook.com") &&
+                          !lowerUrl.contains("instagram.com")) {
+                          return true
+                      }
+                  }
+                  return false
+              }
+
+              // Injects JS to hide visual ad containers on websites (YouTube, News, etc.)
+              private fun injectAdBlockJs() {
+                  val js = """
+                      javascript:(function() {
+                          var style = document.createElement('style');
+                          style.type = 'text/css';
+                          style.innerHTML = `
+                              /* YouTube Ads */
+                              .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
+                              .ytp-ad-progress-list, #player-ads, #masthead-ad,
+                              ytd-promoted-sparkles-web-renderer, ytd-display-ad-renderer,
+                              ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer { display: none !important; }
+                              
+                              /* General Ads */
+                              .ad, .ads, .adsbygoogle, .ad-container, .ad-wrapper, 
+                              .ad-banner, .advertisement, .sponsored, .promoted, 
+                              [class*="ad-"], [class*="-ad"], [id*="google_ads"], 
+                              [id*="ad-slot"], [class*="banner"], .popup, .pop-under { 
+                                  display: none !important; 
+                              }
+                          `;
+                          document.head.appendChild(style);
+                      })();
+                  """.trimIndent()
+                  webView.evaluateJavascript(js, null)
               }
 
               private fun navigate(input: String) {
@@ -778,7 +871,7 @@ jobs:
               private fun showMainMenu() {
                   val options = arrayOf(
                       "New Tab", "Bookmarks", "History", "Find on page",
-                      "Share page", "Desktop site", "Downloads", "Exit"
+                      "Share page", "Desktop site", "Downloads", "Ad Block Stats", "Exit"
                   )
                   AlertDialog.Builder(this)
                       .setTitle("Menu")
@@ -791,9 +884,18 @@ jobs:
                               4 -> sharePage()
                               5 -> toggleDesktopMode()
                               6 -> openDownloads()
-                              7 -> finish()
+                              7 -> showAdBlockStats()
+                              8 -> finish()
                           }
                       }
+                      .show()
+              }
+
+              private fun showAdBlockStats() {
+                  AlertDialog.Builder(this)
+                      .setTitle("Ad Block Stats")
+                      .setMessage("Total requests: ${totalCount.get()}\nBlocked ads: ${blockedCount.get()}\n\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
+                      .setPositiveButton("OK", null)
                       .show()
               }
 
