@@ -44,7 +44,6 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
-          mkdir -p app/src/main/assets
 
       - name: Write settings.gradle
         run: |
@@ -61,6 +60,7 @@ jobs:
               repositories {
                   google()
                   mavenCentral()
+                  maven { url 'https://jitpack.io' }
               }
           }
           rootProject.name = "NexusBrowser"
@@ -120,7 +120,7 @@ jobs:
               kotlinOptions { jvmTarget = '17' }
               buildFeatures { viewBinding true }
               packagingOptions {
-                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
+                  resources.excludes += '/META-INF/{AL2.0,LGPL2.1,LICENSE,NOTICE,DEPENDENCIES,LICENSE.txt}'
               }
           }
           dependencies {
@@ -131,6 +131,7 @@ jobs:
               implementation 'androidx.webkit:webkit:1.10.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+              implementation 'com.wireguard.android:tunnel:1.0.20230706'
           }
           EOF
 
@@ -141,6 +142,9 @@ jobs:
           -keepclassmembers class * {
               @android.webkit.JavascriptInterface <methods>;
           }
+          -keep class com.wireguard.** { *; }
+          -dontwarn com.wireguard.**
+          -dontwarn org.jetbrains.annotations.**
           EOF
 
       - name: Write AndroidManifest.xml
@@ -158,6 +162,7 @@ jobs:
               <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
               <application
                   android:allowBackup="true"
@@ -192,10 +197,14 @@ jobs:
                   <service
                       android:name=".NexusVpnService"
                       android:permission="android.permission.BIND_VPN_SERVICE"
-                      android:exported="false">
+                      android:exported="false"
+                      android:foregroundServiceType="specialUse">
                       <intent-filter>
                           <action android:name="android.net.VpnService" />
                       </intent-filter>
+                      <property
+                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                          android:value="vpn" />
                   </service>
 
                   <provider
@@ -268,6 +277,8 @@ jobs:
               <color name="black">#000000</color>
               <color name="home_bg">#0F1A2E</color>
               <color name="home_bg_light">#F0F4F8</color>
+              <color name="vpn_on">#00C853</color>
+              <color name="vpn_off">#F44336</color>
           </resources>
           EOF
 
@@ -311,7 +322,6 @@ jobs:
               android:orientation="vertical"
               android:background="?android:attr/colorBackground">
 
-              <!-- Row 1: Navigation icons -->
               <LinearLayout
                   android:id="@+id/navBar"
                   android:layout_width="match_parent"
@@ -322,230 +332,98 @@ jobs:
                   android:paddingStart="4dp"
                   android:paddingEnd="4dp">
 
-                  <ImageButton
-                      android:id="@+id/btnBack"
-                      android:layout_width="0dp"
-                      android:layout_height="40dp"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_media_previous"
-                      android:contentDescription="@string/back"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnForward"
-                      android:layout_width="0dp"
-                      android:layout_height="40dp"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_media_next"
-                      android:contentDescription="@string/forward"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnRefresh"
-                      android:layout_width="0dp"
-                      android:layout_height="40dp"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_rotate"
-                      android:contentDescription="@string/refresh"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnMenu"
-                      android:layout_width="0dp"
-                      android:layout_height="40dp"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_more"
-                      android:contentDescription="@string/menu"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnBack" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_previous"
+                      android:contentDescription="@string/back" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnForward" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_next"
+                      android:contentDescription="@string/forward" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_rotate"
+                      android:contentDescription="@string/refresh" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnMenu" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_more"
+                      android:contentDescription="@string/menu" android:scaleType="centerInside" android:tint="@color/white" />
               </LinearLayout>
 
-              <!-- Row 2: Centered URL bar -->
               <LinearLayout
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
                   android:orientation="horizontal"
                   android:background="@color/primary"
-                  android:paddingStart="48dp"
-                  android:paddingEnd="48dp"
-                  android:paddingBottom="6dp"
+                  android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp"
                   android:gravity="center">
-
-                  <EditText
-                      android:id="@+id/addressBar"
-                      android:layout_width="match_parent"
-                      android:layout_height="40dp"
+                  <EditText android:id="@+id/addressBar"
+                      android:layout_width="match_parent" android:layout_height="40dp"
                       android:background="@drawable/address_bar_bg"
-                      android:hint="@string/search_hint"
-                      android:textColorHint="@color/text_secondary"
-                      android:textColor="@color/text_primary"
-                      android:paddingStart="16dp"
-                      android:paddingEnd="16dp"
-                      android:imeOptions="actionGo"
-                      android:inputType="textUri"
-                      android:maxLines="1"
-                      android:textSize="14sp" />
+                      android:hint="@string/search_hint" android:textColorHint="@color/text_secondary"
+                      android:textColor="@color/text_primary" android:paddingStart="16dp" android:paddingEnd="16dp"
+                      android:imeOptions="actionGo" android:inputType="textUri" android:maxLines="1" android:textSize="14sp" />
               </LinearLayout>
 
-              <ProgressBar
-                  android:id="@+id/progressBar"
-                  style="?android:attr/progressBarStyleHorizontal"
-                  android:layout_width="match_parent"
-                  android:layout_height="3dp"
-                  android:max="100"
-                  android:progressTint="@color/accent"
-                  android:visibility="gone" />
+              <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
+                  android:layout_width="match_parent" android:layout_height="3dp" android:max="100"
+                  android:progressTint="@color/accent" android:visibility="gone" />
 
-              <FrameLayout
-                  android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1">
+              <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
 
-                  <WebView
-                      android:id="@+id/webView"
-                      android:layout_width="match_parent"
-                      android:layout_height="match_parent" />
+                  <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" />
 
-                  <!-- Home overlay with centered search bar -->
-                  <LinearLayout
-                      android:id="@+id/homeOverlay"
-                      android:layout_width="match_parent"
-                      android:layout_height="match_parent"
-                      android:orientation="vertical"
-                      android:gravity="center"
-                      android:background="@color/home_bg_light"
-                      android:visibility="gone">
+                  <LinearLayout android:id="@+id/homeOverlay"
+                      android:layout_width="match_parent" android:layout_height="match_parent"
+                      android:orientation="vertical" android:gravity="center"
+                      android:background="@color/home_bg_light" android:visibility="gone">
 
-                      <TextView
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:text="Nexus"
-                          android:textColor="@color/primary"
-                          android:textSize="42sp"
-                          android:textStyle="bold"
-                          android:layout_marginBottom="8dp" />
+                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Nexus" android:textColor="@color/primary" android:textSize="42sp"
+                          android:textStyle="bold" android:layout_marginBottom="8dp" />
+                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
+                          android:textSize="13sp" android:layout_marginBottom="32dp" />
 
-                      <TextView
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:text="Private • Fast • Secure"
-                          android:textColor="@color/text_secondary"
-                          android:textSize="13sp"
-                          android:layout_marginBottom="32dp" />
-
-                      <EditText
-                          android:id="@+id/homeSearchBar"
-                          android:layout_width="match_parent"
-                          android:layout_height="52dp"
-                          android:layout_marginStart="24dp"
-                          android:layout_marginEnd="24dp"
+                      <EditText android:id="@+id/homeSearchBar"
+                          android:layout_width="match_parent" android:layout_height="52dp"
+                          android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
                           android:background="@drawable/home_search_bg"
-                          android:hint="@string/home_search_hint"
-                          android:textColorHint="@color/text_secondary"
-                          android:textColor="@color/text_primary"
-                          android:paddingStart="20dp"
-                          android:paddingEnd="20dp"
-                          android:imeOptions="actionGo"
-                          android:inputType="textUri"
-                          android:maxLines="1"
-                          android:textSize="15sp"
-                          android:elevation="4dp" />
+                          android:hint="@string/home_search_hint" android:textColorHint="@color/text_secondary"
+                          android:textColor="@color/text_primary" android:paddingStart="20dp" android:paddingEnd="20dp"
+                          android:imeOptions="actionGo" android:inputType="textUri" android:maxLines="1"
+                          android:textSize="15sp" android:elevation="4dp" />
 
-                      <TextView
-                          android:id="@+id/vpnStatusText"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:layout_marginTop="24dp"
-                          android:text="VPN: OFF"
-                          android:textColor="@color/text_secondary"
-                          android:textSize="12sp" />
+                      <TextView android:id="@+id/vpnStatusText"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:layout_marginTop="24dp" android:text="VPN: OFF"
+                          android:textColor="@color/vpn_off" android:textSize="12sp"
+                          android:textStyle="bold" />
                   </LinearLayout>
 
-                  <TextView
-                      android:id="@+id/incognitoBadge"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:layout_gravity="top|end"
-                      android:layout_margin="8dp"
-                      android:background="@color/incognito_color"
-                      android:paddingHorizontal="10dp"
-                      android:paddingVertical="4dp"
-                      android:text="INCOGNITO"
-                      android:textColor="@color/white"
-                      android:textSize="10sp"
-                      android:textStyle="bold"
-                      android:visibility="gone" />
+                  <TextView android:id="@+id/incognitoBadge"
+                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                      android:layout_gravity="top|end" android:layout_margin="8dp"
+                      android:background="@color/incognito_color" android:paddingHorizontal="10dp" android:paddingVertical="4dp"
+                      android:text="INCOGNITO" android:textColor="@color/white" android:textSize="10sp"
+                      android:textStyle="bold" android:visibility="gone" />
               </FrameLayout>
 
-              <LinearLayout
-                  android:id="@+id/bottomBar"
-                  android:layout_width="match_parent"
-                  android:layout_height="52dp"
-                  android:orientation="horizontal"
-                  android:background="@color/primary_dark"
-                  android:gravity="center_vertical">
+              <LinearLayout android:id="@+id/bottomBar"
+                  android:layout_width="match_parent" android:layout_height="52dp"
+                  android:orientation="horizontal" android:background="@color/primary_dark" android:gravity="center_vertical">
 
-                  <ImageButton
-                      android:id="@+id/btnHome"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_view"
-                      android:contentDescription="@string/home"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnBookmark"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/btn_star_big_off"
-                      android:contentDescription="@string/bookmarks"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnTabs"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_agenda"
-                      android:contentDescription="@string/new_tab"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnIncognito"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_crop"
-                      android:contentDescription="@string/incognito"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
-
-                  <ImageButton
-                      android:id="@+id/btnSettings"
-                      android:layout_width="0dp"
-                      android:layout_height="match_parent"
-                      android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@android:drawable/ic_menu_preferences"
-                      android:contentDescription="@string/settings"
-                      android:scaleType="centerInside"
-                      android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_view"
+                      android:contentDescription="@string/home" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/btn_star_big_off"
+                      android:contentDescription="@string/bookmarks" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnTabs" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_agenda"
+                      android:contentDescription="@string/new_tab" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnIncognito" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_crop"
+                      android:contentDescription="@string/incognito" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_preferences"
+                      android:contentDescription="@string/settings" android:scaleType="centerInside" android:tint="@color/white" />
               </LinearLayout>
           </LinearLayout>
           EOF
@@ -553,8 +431,7 @@ jobs:
       - name: Write address_bar_bg.xml
         run: |
           cat > app/src/main/res/drawable/address_bar_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android"
-              android:shape="rectangle">
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FFFFFF" />
               <corners android:radius="20dp" />
           </shape>
@@ -563,8 +440,7 @@ jobs:
       - name: Write home_search_bg.xml
         run: |
           cat > app/src/main/res/drawable/home_search_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android"
-              android:shape="rectangle">
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FFFFFF" />
               <corners android:radius="26dp" />
               <stroke android:width="1dp" android:color="#E0E0E0" />
@@ -605,12 +481,12 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
-          import androidx.webkit.ProxyConfig
-          import androidx.webkit.ProxyController
-          import androidx.webkit.WebViewFeature
+          import com.wireguard.android.backend.GoBackend
+          import com.wireguard.android.backend.Tunnel
+          import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
+          import java.io.StringReader
           import java.net.URLEncoder
-          import java.util.concurrent.Executors
 
           class MainActivity : AppCompatActivity() {
 
@@ -626,6 +502,22 @@ jobs:
               private var incognito = false
               private var desktopMode = false
               private var isHomeVisible = true
+              private var vpnBackend: GoBackend? = null
+              private var vpnTunnel: NexusTunnel? = null
+
+              // ============ DEFAULT CLOUDFLARE WARP CONFIG ============
+              private val DEFAULT_WG_CONFIG = """
+          [Interface]
+          PrivateKey = gGC/SHTnBPGo6rKBOegyMaVfEujbO5ZhS7aq+46ktUM=
+          Address = 172.16.0.2/32, 2606:4700:110:88eb:eee9:3b5c:e06e:dbee/128
+          DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001
+          MTU = 1280
+
+          [Peer]
+          PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+          AllowedIPs = 0.0.0.0/0, ::/0
+          Endpoint = engage.cloudflareclient.com:2408
+          """.trimIndent()
 
               private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
               private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
@@ -682,6 +574,14 @@ jobs:
                   super.onCreate(savedInstanceState)
                   prefs = getSharedPreferences("nexus_browser", Context.MODE_PRIVATE)
 
+                  // First-time: seed default WARP config
+                  if (!prefs.contains("wg_config_initialized")) {
+                      prefs.edit()
+                          .putString("wg_config", DEFAULT_WG_CONFIG)
+                          .putBoolean("wg_config_initialized", true)
+                          .apply()
+                  }
+
                   AppCompatDelegate.setDefaultNightMode(
                       if (prefs.getBoolean("dark_mode", false))
                           AppCompatDelegate.MODE_NIGHT_YES
@@ -698,14 +598,15 @@ jobs:
                   homeOverlay = findViewById(R.id.homeOverlay)
                   vpnStatusText = findViewById(R.id.vpnStatusText)
 
+                  try {
+                      vpnBackend = GoBackend(this)
+                  } catch (e: Exception) {
+                      // WireGuard not available
+                  }
+
                   setupWebView()
                   setupButtons()
                   showHomePage()
-
-                  // Apply proxy if VPN was ON previously
-                  if (prefs.getBoolean("vpn_enabled", false)) {
-                      applyProxy()
-                  }
                   updateVpnStatus()
               }
 
@@ -736,42 +637,32 @@ jobs:
                   s.allowContentAccess = true
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
-                  s.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE
-                                else WebSettings.LOAD_DEFAULT
+                  s.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
                   s.userAgentString = s.userAgentString + " NexusBrowser/1.0"
 
                   CookieManager.getInstance().setAcceptCookie(!incognito)
                   CookieManager.getInstance().setAcceptThirdPartyCookies(webView, !incognito)
 
                   webView.webViewClient = object : WebViewClient() {
-                      override fun shouldInterceptRequest(
-                          view: WebView?, request: WebResourceRequest?
-                      ): WebResourceResponse? {
-                          val url = request?.url?.toString()
-                              ?: return super.shouldInterceptRequest(view, request)
+                      override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                          val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
                           if (prefs.getBoolean("adblock", true)) {
                               totalCount.incrementAndGet()
                               if (isAdUrl(url)) {
                                   blockedCount.incrementAndGet()
-                                  return WebResourceResponse(
-                                      "text/plain", "utf-8",
-                                      ByteArrayInputStream(ByteArray(0))
-                                  )
+                                  return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                               }
                           }
                           return super.shouldInterceptRequest(view, request)
                       }
 
-                      override fun shouldOverrideUrlLoading(
-                          view: WebView?, request: WebResourceRequest?
-                      ): Boolean {
+                      override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                           val url = request?.url?.toString() ?: return false
                           if (prefs.getBoolean("adblock", true) && isAdUrl(url)) return true
                           if (url.startsWith("intent://")) {
                               try {
-                                  val intent2 = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                                  startActivity(intent2)
-                                  return true
+                                  val i = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                                  startActivity(i); return true
                               } catch (e: Exception) { return false }
                           }
                           return false
@@ -787,30 +678,21 @@ jobs:
 
                       override fun onPageFinished(view: WebView?, url: String?) {
                           super.onPageFinished(view, url)
-                          if (!incognito && url != null && url != "about:blank")
-                              saveHistory(url, view?.title ?: url)
+                          if (!incognito && url != null && url != "about:blank") saveHistory(url, view?.title ?: url)
                           updateBookmarkIcon()
-
                           if (url == null || url == "about:blank") return
-
-                          // Fix: NO 'javascript:' prefix here
                           if (prefs.getBoolean("adblock", true)) {
                               injectUniversalAdBlock()
-                              if (url.contains("youtube.com") || url.contains("youtu.be")) {
-                                  injectYouTubeAdBlock()
-                              }
+                              if (url.contains("youtube.com") || url.contains("youtu.be")) injectYouTubeAdBlock()
                           }
-                          if (prefs.getBoolean("hide_identity", false)) {
-                              injectHideIdentity()
-                          }
+                          if (prefs.getBoolean("hide_identity", false)) injectHideIdentity()
                       }
                   }
 
                   webView.webChromeClient = object : WebChromeClient() {
                       override fun onProgressChanged(view: WebView?, newProgress: Int) {
                           progressBar.progress = newProgress
-                          progressBar.visibility = if (newProgress in 1..99)
-                              View.VISIBLE else View.GONE
+                          progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
                       }
                   }
 
@@ -821,15 +703,10 @@ jobs:
                           request.setMimeType(mimeType)
                           request.addRequestHeader("User-Agent", userAgent)
                           request.addRequestHeader("cookie", CookieManager.getInstance().getCookie(url))
-                          request.setDescription("Downloading...")
-                          request.setTitle(filename)
+                          request.setDescription("Downloading..."); request.setTitle(filename)
                           request.allowScanningByMediaScanner()
-                          request.setNotificationVisibility(
-                              DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-                          )
-                          request.setDestinationInExternalPublicDir(
-                              Environment.DIRECTORY_DOWNLOADS, filename
-                          )
+                          request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                          request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
                           val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                           dm.enqueue(request)
                           Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
@@ -840,19 +717,14 @@ jobs:
 
                   addressBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                          navigate(addressBar.text.toString())
-                          true
+                          navigate(addressBar.text.toString()); true
                       } else false
                   }
 
                   homeSearchBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           val q = homeSearchBar.text.toString()
-                          if (q.isNotEmpty()) {
-                              hideHomePage()
-                              navigate(q)
-                              homeSearchBar.text.clear()
-                          }
+                          if (q.isNotEmpty()) { hideHomePage(); navigate(q); homeSearchBar.text.clear() }
                           true
                       } else false
                   }
@@ -867,136 +739,63 @@ jobs:
                       if (!lowerUrl.contains("youtube.com/watch") &&
                           !lowerUrl.contains("googlevideo.com/videoplayback") &&
                           !lowerUrl.contains("facebook.com/watch") &&
-                          !lowerUrl.contains("instagram.com/p/")
-                      ) return true
+                          !lowerUrl.contains("instagram.com/p/")) return true
                   }
                   return false
               }
 
-              // ===== Hide Identity (Fingerprint protection) =====
               private fun injectHideIdentity() {
                   val js = """
                       (function() {
                           if (window.__nexusHideIdLoaded) return;
                           window.__nexusHideIdLoaded = true;
-
-                          // ===== Navigator spoofing =====
                           try { Object.defineProperty(navigator, 'platform', {get: function(){return 'Linux x86_64';}}); } catch(e){}
                           try { Object.defineProperty(navigator, 'vendor', {get: function(){return 'Google Inc.';}}); } catch(e){}
                           try { Object.defineProperty(navigator, 'hardwareConcurrency', {get: function(){return 4;}}); } catch(e){}
                           try { Object.defineProperty(navigator, 'deviceMemory', {get: function(){return 8;}}); } catch(e){}
                           try { Object.defineProperty(navigator, 'languages', {get: function(){return ['en-US','en'];}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'language', {get: function(){return 'en-US';}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'maxTouchPoints', {get: function(){return 0;}}); } catch(e){}
                           try { Object.defineProperty(navigator, 'doNotTrack', {get: function(){return '1';}}); } catch(e){}
                           try { Object.defineProperty(navigator, 'plugins', {get: function(){return [];}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'mimeTypes', {get: function(){return [];}}); } catch(e){}
-
-                          // ===== Block WebRTC (prevents local IP leak) =====
                           try {
                               if (window.RTCPeerConnection) window.RTCPeerConnection = undefined;
                               if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = undefined;
-                              if (window.mozRTCPeerConnection) window.mozRTCPeerConnection = undefined;
                           } catch(e){}
-
-                          // ===== Block MediaDevices (device enumeration) =====
                           try {
                               if (navigator.mediaDevices) {
-                                  navigator.mediaDevices.enumerateDevices = function(){
-                                      return Promise.resolve([]);
-                                  };
-                                  navigator.mediaDevices.getUserMedia = function(){
-                                      return Promise.reject(new Error('Blocked'));
-                                  };
+                                  navigator.mediaDevices.enumerateDevices = function(){ return Promise.resolve([]); };
                               }
                           } catch(e){}
-
-                          // ===== Block Battery API =====
-                          try {
-                              if (navigator.getBattery) {
-                                  navigator.getBattery = function(){
-                                      return Promise.reject(new Error('Blocked'));
-                                  };
-                              }
-                          } catch(e){}
-
-                          // ===== Block Geolocation =====
                           try {
                               if (navigator.geolocation) {
                                   navigator.geolocation.getCurrentPosition = function(){};
                                   navigator.geolocation.watchPosition = function(){return 0;};
                               }
                           } catch(e){}
-
-                          // ===== Block Canvas fingerprinting =====
                           try {
                               var origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
                               CanvasRenderingContext2D.prototype.getImageData = function(){
                                   var d = origGetImageData.apply(this, arguments);
-                                  for (var i = 0; i < d.data.length; i += 100) {
-                                      d.data[i] = d.data[i] ^ 1;
-                                  }
+                                  for (var i = 0; i < d.data.length; i += 100) d.data[i] = d.data[i] ^ 1;
                                   return d;
                               };
-                              var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-                              HTMLCanvasElement.prototype.toDataURL = function(){
-                                  return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-                              };
-                              var origToBlob = HTMLCanvasElement.prototype.toBlob;
-                              HTMLCanvasElement.prototype.toBlob = function(cb){ cb(null); };
                           } catch(e){}
-
-                          // ===== Block WebGL fingerprinting =====
                           try {
-                              var getParameter = WebGLRenderingContext.prototype.getParameter;
+                              var gp = WebGLRenderingContext.prototype.getParameter;
                               WebGLRenderingContext.prototype.getParameter = function(p){
                                   if (p === 37445) return 'Intel Inc.';
                                   if (p === 37446) return 'Intel Iris OpenGL Engine';
-                                  return getParameter.apply(this, arguments);
+                                  return gp.apply(this, arguments);
                               };
                           } catch(e){}
-
-                          // ===== Block AudioContext fingerprinting =====
                           try {
-                              var origGetChannelData = AudioBuffer.prototype.getChannelData;
-                              AudioBuffer.prototype.getChannelData = function(){
-                                  var d = origGetChannelData.apply(this, arguments);
-                                  for (var i = 0; i < d.length; i += 100) {
-                                      d[i] = d[i] + 0.0000001;
-                                  }
-                                  return d;
-                              };
-                          } catch(e){}
-
-                          // ===== Block screen fingerprinting =====
-                          try {
-                              Object.defineProperty(screen, 'colorDepth', {get: function(){return 24;}});
-                              Object.defineProperty(screen, 'pixelDepth', {get: function(){return 24;}});
-                          } catch(e){}
-
-                          // ===== Block timezone fingerprinting =====
-                          try {
-                              var origResolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
+                              var ro = Intl.DateTimeFormat.prototype.resolvedOptions;
                               Intl.DateTimeFormat.prototype.resolvedOptions = function(){
-                                  var opts = origResolvedOptions.apply(this, arguments);
-                                  opts.timeZone = 'UTC';
-                                  return opts;
+                                  var o = ro.apply(this, arguments); o.timeZone = 'UTC'; return o;
                               };
-                          } catch(e){}
-
-                          // ===== Block performance fingerprinting =====
-                          try {
-                              if (window.performance && performance.now) {
-                                  var origNow = performance.now.bind(performance);
-                                  performance.now = function(){
-                                      return Math.round(origNow() * 100) / 100;
-                                  };
-                              }
                           } catch(e){}
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
-                  Toast.makeText(this, "🛡 Identity Protected", Toast.LENGTH_SHORT).show()
               }
 
               private fun injectUniversalAdBlock() {
@@ -1019,32 +818,28 @@ jobs:
                       (function() {
                           if (window.__nexusYtBlockLoaded) return;
                           window.__nexusYtBlockLoaded = true;
-
-                          var originalParse = JSON.parse;
+                          var op = JSON.parse;
                           JSON.parse = function(text, reviver) {
-                              var result = originalParse(text, reviver);
+                              var r = op(text, reviver);
                               try {
-                                  if (result) {
-                                      if (result.adPlacements) delete result.adPlacements;
-                                      if (result.playerAds) delete result.playerAds;
-                                      if (result.adSlots) delete result.adSlots;
-                                      if (result.adBreakHeartbeatParams) delete result.adBreakHeartbeatParams;
-                                      if (result.playerResponse) {
-                                          if (result.playerResponse.adPlacements) delete result.playerResponse.adPlacements;
-                                          if (result.playerResponse.playerAds) delete result.playerResponse.playerAds;
-                                          if (result.playerResponse.adSlots) delete result.playerResponse.adSlots;
+                                  if (r) {
+                                      if (r.adPlacements) delete r.adPlacements;
+                                      if (r.playerAds) delete r.playerAds;
+                                      if (r.adSlots) delete r.adSlots;
+                                      if (r.adBreakHeartbeatParams) delete r.adBreakHeartbeatParams;
+                                      if (r.playerResponse) {
+                                          if (r.playerResponse.adPlacements) delete r.playerResponse.adPlacements;
+                                          if (r.playerResponse.playerAds) delete r.playerResponse.playerAds;
                                       }
                                   }
-                              } catch (e) {}
-                              return result;
+                              } catch(e){}
+                              return r;
                           };
-
                           var css = '.video-ads,.ytp-ad-module,.ytp-ad-overlay-container,.ytp-ad-progress-list,#player-ads,#masthead-ad,ytd-promoted-sparkles-web-renderer,ytd-display-ad-renderer,ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-compact-promoted-video-renderer,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytp-ad-overlay-slot,.ytp-ad-player-overlay,.ytp-featured-product,.ytp-suggested-action,ytd-enforcement-message-view-model{display:none !important;height:0 !important;}';
-                          var style = document.createElement('style');
-                          style.type = 'text/css';
-                          style.appendChild(document.createTextNode(css));
-                          (document.head || document.documentElement).appendChild(style);
-
+                          var st = document.createElement('style');
+                          st.type = 'text/css';
+                          st.appendChild(document.createTextNode(css));
+                          (document.head || document.documentElement).appendChild(st);
                           function skip() {
                               document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad-button').forEach(function(b){try{b.click();}catch(e){}});
                               var v = document.querySelector('video');
@@ -1053,9 +848,6 @@ jobs:
                               }
                           }
                           setInterval(skip, 250);
-                          try {
-                              new MutationObserver(skip).observe(document.body || document.documentElement, {childList:true,subtree:true});
-                          } catch(e){}
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
@@ -1082,55 +874,104 @@ jobs:
                   webView.loadUrl(url)
               }
 
-              // ===== Proxy (VPN-like IP routing) =====
-              private fun applyProxy() {
-                  val proxyHost = prefs.getString("proxy_host", "") ?: ""
-                  val proxyPort = prefs.getString("proxy_port", "") ?: ""
-                  if (proxyHost.isEmpty() || proxyPort.isEmpty()) return
+              private fun startVpn() {
+                  val configText = prefs.getString("wg_config", "") ?: ""
+                  if (configText.isEmpty()) {
+                      Toast.makeText(this, "❌ WireGuard config not set", Toast.LENGTH_LONG).show()
+                      return
+                  }
                   try {
-                      if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-                          val proxyConfig = ProxyConfig.Builder()
-                              .addProxyRule("$proxyHost:$proxyPort")
-                              .addDirect()
-                              .build()
-                          ProxyController.getInstance().setProxyOverride(
-                              proxyConfig,
-                              Executors.newSingleThreadExecutor()
-                          ) {
-                              runOnUiThread { Toast.makeText(this, "VPN active via $proxyHost:$proxyPort", Toast.LENGTH_SHORT).show() }
-                          }
+                      val prepareIntent = android.net.VpnService.prepare(this)
+                      if (prepareIntent != null) {
+                          startActivityForResult(prepareIntent, 1001)
+                      } else {
+                          connectWireGuard(configText)
                       }
                   } catch (e: Exception) {
-                      Toast.makeText(this, "Proxy failed: ${e.message}", Toast.LENGTH_LONG).show()
+                      Toast.makeText(this, "VPN prepare failed: ${e.message}", Toast.LENGTH_LONG).show()
                   }
               }
 
-              private fun clearProxy() {
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (requestCode == 1001 && resultCode == RESULT_OK) {
+                      val configText = prefs.getString("wg_config", "") ?: ""
+                      connectWireGuard(configText)
+                  } else if (requestCode == 1001) {
+                      Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun connectWireGuard(configText: String) {
                   try {
-                      if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-                          ProxyController.getInstance().clearProxyOverride(
-                              Executors.newSingleThreadExecutor()
-                          ) { }
+                      val config = Config.parse(StringReader(configText))
+                      val tunnel = NexusTunnel("nexus")
+                      vpnTunnel = tunnel
+                      val backend = vpnBackend ?: GoBackend(this).also { vpnBackend = it }
+                      val state = backend.setState(tunnel, Tunnel.State.UP, config)
+                      if (state == Tunnel.State.UP) {
+                          prefs.edit().putBoolean("vpn_enabled", true).apply()
+                          runOnUiThread { updateVpnStatus(); Toast.makeText(this, "✅ VPN Connected", Toast.LENGTH_SHORT).show() }
+                      } else {
+                          runOnUiThread { Toast.makeText(this, "VPN state: $state", Toast.LENGTH_LONG).show() }
                       }
-                  } catch (e: Exception) {}
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "VPN connect failed: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
+              }
+
+              private fun stopVpn() {
+                  try {
+                      val tunnel = vpnTunnel ?: return
+                      val backend = vpnBackend ?: return
+                      backend.setState(tunnel, Tunnel.State.DOWN, null)
+                      prefs.edit().putBoolean("vpn_enabled", false).apply()
+                      updateVpnStatus()
+                      Toast.makeText(this, "VPN Disconnected", Toast.LENGTH_SHORT).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "VPN stop failed: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
               }
 
               private fun updateVpnStatus() {
                   val on = prefs.getBoolean("vpn_enabled", false)
-                  vpnStatusText.text = if (on) {
-                      val h = prefs.getString("proxy_host", "")
-                      val p = prefs.getString("proxy_port", "")
-                      if (h.isNullOrEmpty()) "VPN: ON (no proxy set)" else "VPN: ON ($h:$p)"
-                  } else "VPN: OFF"
+                  if (on) {
+                      vpnStatusText.text = "🛡 VPN: CONNECTED (Cloudflare WARP)"
+                      vpnStatusText.setTextColor(getColor(R.color.vpn_on))
+                  } else {
+                      vpnStatusText.text = "VPN: OFF"
+                      vpnStatusText.setTextColor(getColor(R.color.vpn_off))
+                  }
+              }
+
+              private fun setWireGuardConfigDialog() {
+                  val input = EditText(this)
+                  input.hint = "Paste WireGuard config here"
+                  input.setText(prefs.getString("wg_config", DEFAULT_WG_CONFIG))
+                  input.minLines = 6
+                  input.maxLines = 12
+                  input.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                  input.setPadding(30, 30, 30, 30)
+                  AlertDialog.Builder(this)
+                      .setTitle("WireGuard Config")
+                      .setMessage("Default Cloudflare WARP config is pre-loaded. You can paste a new one if you have another VPN.")
+                      .setView(input)
+                      .setPositiveButton("Save") { _, _ ->
+                          val c = input.text.toString().trim()
+                          prefs.edit().putString("wg_config", c).apply()
+                          Toast.makeText(this, if (c.isEmpty()) "Cleared" else "Config saved", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNeutralButton("Reset to WARP") { _, _ ->
+                          prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
+                          Toast.makeText(this, "Reset to Cloudflare WARP", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNegativeButton("Cancel", null)
+                      .show()
               }
 
               private fun setupButtons() {
-                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener {
-                      if (webView.canGoBack()) webView.goBack()
-                  }
-                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
-                      if (webView.canGoForward()) webView.goForward()
-                  }
+                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
+                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
                   findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener { webView.reload() }
                   findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHomePage() }
                   findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBookmark() }
@@ -1144,41 +985,31 @@ jobs:
                   val url = webView.url ?: return
                   if (url == "about:blank") return
                   val title = webView.title ?: url
-                  val bookmarks = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
                   val entry = "$title|$url"
-                  val existing = bookmarks.firstOrNull { it.endsWith("|$url") }
-                  if (existing != null) {
-                      bookmarks.remove(existing)
-                      Toast.makeText(this, R.string.remove_bookmark, Toast.LENGTH_SHORT).show()
-                  } else {
-                      bookmarks.add(entry)
-                      Toast.makeText(this, R.string.add_bookmark, Toast.LENGTH_SHORT).show()
-                  }
-                  prefs.edit().putStringSet("bookmarks_set", bookmarks).apply()
+                  val ex = bm.firstOrNull { it.endsWith("|$url") }
+                  if (ex != null) { bm.remove(ex); Toast.makeText(this, R.string.remove_bookmark, Toast.LENGTH_SHORT).show() }
+                  else { bm.add(entry); Toast.makeText(this, R.string.add_bookmark, Toast.LENGTH_SHORT).show() }
+                  prefs.edit().putStringSet("bookmarks_set", bm).apply()
                   updateBookmarkIcon()
               }
 
               private fun updateBookmarkIcon() {
                   val url = webView.url ?: return
-                  val bookmarks = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  val isBookmarked = bookmarks.any { it.endsWith("|$url") }
-                  val btn = findViewById<ImageButton>(R.id.btnBookmark)
-                  btn.setImageResource(
-                      if (isBookmarked) android.R.drawable.btn_star_big_on
-                      else android.R.drawable.btn_star_big_off
-                  )
+                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
+                  val marked = bm.any { it.endsWith("|$url") }
+                  findViewById<ImageButton>(R.id.btnBookmark).setImageResource(
+                      if (marked) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off)
               }
 
               private fun saveHistory(url: String, title: String) {
                   if (url.startsWith("about:") || url.startsWith("data:")) return
-                  val history = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                  history.add("${System.currentTimeMillis()}|$title|$url")
-                  if (history.size > 500) {
-                      val sorted = history.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
-                      prefs.edit().putStringSet("history_set", sorted.take(300).toMutableSet()).apply()
-                  } else {
-                      prefs.edit().putStringSet("history_set", history).apply()
-                  }
+                  val h = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                  h.add("${System.currentTimeMillis()}|$title|$url")
+                  if (h.size > 500) {
+                      val s = h.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
+                      prefs.edit().putStringSet("history_set", s.take(300).toMutableSet()).apply()
+                  } else prefs.edit().putStringSet("history_set", h).apply()
               }
 
               private fun toggleIncognito() {
@@ -1186,65 +1017,42 @@ jobs:
                   incognitoBadge.visibility = if (incognito) View.VISIBLE else View.GONE
                   CookieManager.getInstance().setAcceptCookie(!incognito)
                   webView.settings.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  webView.clearCache(incognito)
-                  webView.clearHistory()
-                  showHomePage()
+                  webView.clearCache(incognito); webView.clearHistory(); showHomePage()
                   Toast.makeText(this, if (incognito) "Incognito ON" else "Incognito OFF", Toast.LENGTH_SHORT).show()
               }
 
               private fun showMainMenu() {
-                  val options = arrayOf(
-                      "New Tab", "Bookmarks", "History", "Find on page",
-                      "Share page", "Desktop site", "Downloads", "Ad Block Stats", "Exit"
-                  )
-                  AlertDialog.Builder(this)
-                      .setTitle("Menu")
-                      .setItems(options) { _, which ->
-                          when (which) {
-                              0 -> showHomePage()
-                              1 -> showBookmarksDialog()
-                              2 -> showHistoryDialog()
-                              3 -> findOnPage()
-                              4 -> sharePage()
-                              5 -> toggleDesktopMode()
-                              6 -> openDownloads()
-                              7 -> showAdBlockStats()
-                              8 -> finish()
-                          }
+                  val opts = arrayOf("New Tab","Bookmarks","History","Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
+                  AlertDialog.Builder(this).setTitle("Menu").setItems(opts) { _, w ->
+                      when (w) {
+                          0 -> showHomePage()
+                          1 -> showBookmarksDialog()
+                          2 -> showHistoryDialog()
+                          3 -> findOnPage()
+                          4 -> sharePage()
+                          5 -> toggleDesktopMode()
+                          6 -> openDownloads()
+                          7 -> showAdBlockStats()
+                          8 -> finish()
                       }
-                      .show()
+                  }.show()
               }
 
               private fun showAdBlockStats() {
-                  val blocked = blockedCount.get()
-                  val total = totalCount.get()
-                  val percentage = if (total > 0) (blocked * 100 / total) else 0
-                  AlertDialog.Builder(this)
-                      .setTitle("Ad Block Stats")
-                      .setMessage("Total requests: $total\nBlocked ads: $blocked\nSuccess rate: $percentage%\n\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
-                      .setPositiveButton("OK", null)
-                      .setNeutralButton("Reset") { _, _ ->
-                          blockedCount.set(0); totalCount.set(0)
-                          Toast.makeText(this, "Stats reset", Toast.LENGTH_SHORT).show()
-                      }
-                      .show()
+                  val b = blockedCount.get(); val t = totalCount.get()
+                  val p = if (t > 0) (b * 100 / t) else 0
+                  AlertDialog.Builder(this).setTitle("Ad Block Stats")
+                      .setMessage("Total: $t\nBlocked: $b\nRate: $p%")
+                      .setPositiveButton("OK", null).show()
               }
 
               private fun showBookmarksDialog() {
                   val set = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
                   if (set.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
-                  val items = set.map {
-                      val p = it.split("|", limit = 2)
-                      (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "")
-                  }
-                  val titles = items.map { it.first }.toTypedArray()
-                  AlertDialog.Builder(this)
-                      .setTitle("Bookmarks")
-                      .setItems(titles) { _, w -> hideHomePage(); webView.loadUrl(items[w].second) }
-                      .setNeutralButton("Clear") { _, _ ->
-                          prefs.edit().remove("bookmarks_set").apply()
-                          updateBookmarkIcon()
-                      }
+                  val items = set.map { val p = it.split("|", limit = 2); (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "") }
+                  AlertDialog.Builder(this).setTitle("Bookmarks")
+                      .setItems(items.map { it.first }.toTypedArray()) { _, w -> hideHomePage(); webView.loadUrl(items[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("bookmarks_set").apply(); updateBookmarkIcon() }
                       .show()
               }
 
@@ -1252,34 +1060,22 @@ jobs:
                   val set = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
                   if (set.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
                   val sorted = set.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
-                  val entries = sorted.map {
-                      val p = it.split("|", limit = 3)
-                      (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "")
-                  }
-                  val titles = entries.map { it.first }.toTypedArray()
-                  AlertDialog.Builder(this)
-                      .setTitle("History")
-                      .setItems(titles) { _, w -> hideHomePage(); webView.loadUrl(entries[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }
-                      .show()
+                  val entries = sorted.map { val p = it.split("|", limit = 3); (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "") }
+                  AlertDialog.Builder(this).setTitle("History")
+                      .setItems(entries.map { it.first }.toTypedArray()) { _, w -> hideHomePage(); webView.loadUrl(entries[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
               }
 
               private fun findOnPage() {
-                  val input = EditText(this)
-                  input.hint = "Find text"
-                  AlertDialog.Builder(this)
-                      .setTitle("Find on page")
-                      .setView(input)
-                      .setPositiveButton("Find") { _, _ -> webView.findAllAsync(input.text.toString()) }
-                      .setNegativeButton("Cancel", null)
-                      .show()
+                  val i = EditText(this); i.hint = "Find text"
+                  AlertDialog.Builder(this).setTitle("Find").setView(i)
+                      .setPositiveButton("Find") { _, _ -> webView.findAllAsync(i.text.toString()) }
+                      .setNegativeButton("Cancel", null).show()
               }
 
               private fun sharePage() {
                   val url = webView.url ?: return
-                  val i = Intent(Intent.ACTION_SEND)
-                  i.type = "text/plain"
-                  i.putExtra(Intent.EXTRA_TEXT, url)
+                  val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, url)
                   startActivity(Intent.createChooser(i, "Share via"))
               }
 
@@ -1287,148 +1083,110 @@ jobs:
                   desktopMode = !desktopMode
                   webView.settings.userAgentString = if (desktopMode)
                       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                  else
-                      "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                  else "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                   webView.reload()
                   Toast.makeText(this, if (desktopMode) "Desktop mode" else "Mobile mode", Toast.LENGTH_SHORT).show()
               }
 
               private fun openDownloads() {
                   try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
-                  catch (e: Exception) { Toast.makeText(this, "Downloads unavailable", Toast.LENGTH_SHORT).show() }
+                  catch (e: Exception) { Toast.makeText(this, "Unavailable", Toast.LENGTH_SHORT).show() }
               }
 
               private fun showSettings() {
                   val hideId = prefs.getBoolean("hide_identity", false)
                   val js = prefs.getBoolean("javascript", true)
                   val vpn = prefs.getBoolean("vpn_enabled", false)
-                  val options = arrayOf(
+                  val opts = arrayOf(
                       "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
                       "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
                       "🛡 Hide Identity: ${if (hideId) "ON" else "OFF"}",
                       "🔒 JavaScript: ${if (js) "ON" else "OFF"}",
-                      "🌐 VPN: ${if (vpn) "ON" else "OFF"}",
-                      "VPN Proxy: ${prefs.getString("proxy_host", "not set")}:${prefs.getString("proxy_port", "")}",
+                      "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"}",
+                      "📄 WireGuard Config (Cloudflare WARP pre-loaded)",
                       "Search engine: ${prefs.getString("search_engine", "google")}",
                       "Clear cache", "Clear cookies", "Reset all"
                   )
-                  AlertDialog.Builder(this)
-                      .setTitle("Settings")
-                      .setItems(options) { _, which ->
-                          when (which) {
-                              0 -> {
-                                  val d = !prefs.getBoolean("dark_mode", false)
-                                  prefs.edit().putBoolean("dark_mode", d).apply()
-                                  AppCompatDelegate.setDefaultNightMode(
-                                      if (d) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
-                                  recreate()
-                              }
-                              1 -> {
-                                  val a = !prefs.getBoolean("adblock", true)
-                                  prefs.edit().putBoolean("adblock", a).apply()
-                                  Toast.makeText(this, if (a) "Ad blocker ON" else "Ad blocker OFF", Toast.LENGTH_SHORT).show()
-                              }
-                              2 -> {
-                                  val h = !prefs.getBoolean("hide_identity", false)
-                                  prefs.edit().putBoolean("hide_identity", h).apply()
-                                  if (h) {
-                                      Toast.makeText(this, "🛡 Hide Identity ON — reload page", Toast.LENGTH_SHORT).show()
-                                      webView.reload()
-                                  } else {
-                                      Toast.makeText(this, "Hide Identity OFF", Toast.LENGTH_SHORT).show()
-                                  }
-                              }
-                              3 -> {
-                                  val j = !prefs.getBoolean("javascript", true)
-                                  prefs.edit().putBoolean("javascript", j).apply()
-                                  webView.settings.javaScriptEnabled = j
-                                  Toast.makeText(this, if (j) "JavaScript ON" else "JavaScript OFF", Toast.LENGTH_SHORT).show()
-                                  webView.reload()
-                              }
-                              4 -> {
-                                  val v = !prefs.getBoolean("vpn_enabled", false)
-                                  prefs.edit().putBoolean("vpn_enabled", v).apply()
-                                  if (v) {
-                                      if (prefs.getString("proxy_host", "").isNullOrEmpty()) {
-                                          Toast.makeText(this, "Set proxy first (option below)", Toast.LENGTH_LONG).show()
-                                      } else applyProxy()
-                                  } else clearProxy()
-                                  updateVpnStatus()
-                              }
-                              5 -> setProxyDialog()
-                              6 -> chooseSearchEngine()
-                              7 -> { webView.clearCache(true); Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show() }
-                              8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cookies cleared", Toast.LENGTH_SHORT).show() }
-                              9 -> {
-                                  prefs.edit().clear().apply()
-                                  clearProxy()
-                                  Toast.makeText(this, "Reset done", Toast.LENGTH_SHORT).show()
-                                  recreate()
-                              }
+                  AlertDialog.Builder(this).setTitle("Settings").setItems(opts) { _, w ->
+                      when (w) {
+                          0 -> {
+                              val d = !prefs.getBoolean("dark_mode", false)
+                              prefs.edit().putBoolean("dark_mode", d).apply()
+                              AppCompatDelegate.setDefaultNightMode(if (d) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
+                              recreate()
+                          }
+                          1 -> {
+                              val a = !prefs.getBoolean("adblock", true)
+                              prefs.edit().putBoolean("adblock", a).apply()
+                              Toast.makeText(this, if (a) "ON" else "OFF", Toast.LENGTH_SHORT).show()
+                          }
+                          2 -> {
+                              val h = !prefs.getBoolean("hide_identity", false)
+                              prefs.edit().putBoolean("hide_identity", h).apply()
+                              Toast.makeText(this, if (h) "🛡 Identity Protected" else "OFF", Toast.LENGTH_SHORT).show()
+                              if (h) webView.reload()
+                          }
+                          3 -> {
+                              val j = !prefs.getBoolean("javascript", true)
+                              prefs.edit().putBoolean("javascript", j).apply()
+                              webView.settings.javaScriptEnabled = j
+                              Toast.makeText(this, if (j) "JS ON" else "JS OFF", Toast.LENGTH_SHORT).show()
+                              webView.reload()
+                          }
+                          4 -> {
+                              if (prefs.getBoolean("vpn_enabled", false)) stopVpn() else startVpn()
+                          }
+                          5 -> setWireGuardConfigDialog()
+                          6 -> chooseSearchEngine()
+                          7 -> { webView.clearCache(true); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          9 -> {
+                              prefs.edit().clear().apply()
+                              prefs.edit()
+                                  .putString("wg_config", DEFAULT_WG_CONFIG)
+                                  .putBoolean("wg_config_initialized", true)
+                                  .apply()
+                              Toast.makeText(this, "Reset (WARP config re-loaded)", Toast.LENGTH_SHORT).show()
+                              recreate()
                           }
                       }
-                      .show()
-              }
-
-              private fun setProxyDialog() {
-                  val layout = android.widget.LinearLayout(this)
-                  layout.orientation = android.widget.LinearLayout.VERTICAL
-                  layout.setPadding(40, 20, 40, 20)
-                  val hostInput = EditText(this)
-                  hostInput.hint = "Proxy host (e.g. 1.2.3.4)"
-                  hostInput.setText(prefs.getString("proxy_host", ""))
-                  val portInput = EditText(this)
-                  portInput.hint = "Proxy port (e.g. 8080)"
-                  portInput.setText(prefs.getString("proxy_port", ""))
-                  layout.addView(hostInput)
-                  layout.addView(portInput)
-                  AlertDialog.Builder(this)
-                      .setTitle("Set VPN Proxy")
-                      .setMessage("Enter a SOCKS/HTTP proxy. IP will route through it.")
-                      .setView(layout)
-                      .setPositiveButton("Save") { _, _ ->
-                          prefs.edit()
-                              .putString("proxy_host", hostInput.text.toString().trim())
-                              .putString("proxy_port", portInput.text.toString().trim())
-                              .apply()
-                          if (prefs.getBoolean("vpn_enabled", false)) applyProxy()
-                          updateVpnStatus()
-                          Toast.makeText(this, "Proxy saved", Toast.LENGTH_SHORT).show()
-                      }
-                      .setNegativeButton("Cancel", null)
-                      .show()
+                  }.show()
               }
 
               private fun chooseSearchEngine() {
                   val engines = arrayOf("google", "duckduckgo", "bing", "brave")
-                  AlertDialog.Builder(this)
-                      .setTitle("Search engine")
-                      .setItems(engines) { _, w ->
-                          prefs.edit().putString("search_engine", engines[w]).apply()
-                          Toast.makeText(this, "Set to ${engines[w]}", Toast.LENGTH_SHORT).show()
-                      }
-                      .show()
+                  AlertDialog.Builder(this).setTitle("Search engine").setItems(engines) { _, w ->
+                      prefs.edit().putString("search_engine", engines[w]).apply()
+                      Toast.makeText(this, "Set to ${engines[w]}", Toast.LENGTH_SHORT).show()
+                  }.show()
               }
 
               override fun onSaveInstanceState(outState: Bundle) {
-                  super.onSaveInstanceState(outState)
-                  webView.saveState(outState)
+                  super.onSaveInstanceState(outState); webView.saveState(outState)
               }
 
               override fun onNewIntent(intent: Intent) {
-                  super.onNewIntent(intent)
-                  intent.data?.let { hideHomePage(); webView.loadUrl(it.toString()) }
+                  super.onNewIntent(intent); intent.data?.let { hideHomePage(); webView.loadUrl(it.toString()) }
               }
 
               override fun onBackPressed() {
-                  if (!isHomeVisible && webView.canGoBack() && webView.url != "about:blank") {
-                      webView.goBack()
-                  } else if (!isHomeVisible) {
-                      showHomePage()
-                  } else {
-                      super.onBackPressed()
-                  }
+                  if (!isHomeVisible && webView.canGoBack() && webView.url != "about:blank") webView.goBack()
+                  else if (!isHomeVisible) showHomePage()
+                  else super.onBackPressed()
               }
+          }
+          KOTEOF
+
+      - name: Write NexusTunnel.kt
+        run: |
+          cat > app/src/main/java/com/nexus/browser/NexusTunnel.kt << 'KOTEOF'
+          package com.nexus.browser
+
+          import com.wireguard.android.backend.Tunnel
+
+          class NexusTunnel(private val name: String) : Tunnel {
+              override fun getName(): String = name
+              override fun onStateChange(newState: Tunnel.State) { }
           }
           KOTEOF
 
@@ -1441,12 +1199,7 @@ jobs:
           import android.net.VpnService
 
           class NexusVpnService : VpnService() {
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-                  return START_STICKY
-              }
-              override fun onDestroy() {
-                  super.onDestroy()
-              }
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
           }
           KOTEOF
 
