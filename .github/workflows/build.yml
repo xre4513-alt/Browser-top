@@ -29,8 +29,13 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "ndk;25.2.9519653"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Set up Rust for Android
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Set up Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
@@ -44,6 +49,9 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/jniLibs
+          mkdir -p app/src/main/rust
+          mkdir -p app/src/main/assets
 
       - name: Write settings.gradle
         run: |
@@ -60,6 +68,7 @@ jobs:
               repositories {
                   google()
                   mavenCentral()
+                  maven { url 'https://jitpack.io' }
               }
           }
           rootProject.name = "NexusBrowser"
@@ -72,6 +81,7 @@ jobs:
           plugins {
               id 'com.android.application' version '8.2.2' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+              id 'org.mozilla.rust-android-gradle.rust-android' version '0.9.4' apply false
           }
           EOF
 
@@ -81,9 +91,10 @@ jobs:
           android.useAndroidX=true
           android.enableJetifier=true
           kotlin.code.style=official
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
           org.gradle.parallel=true
           org.gradle.caching=true
+          android.ndkVersion=25.2.9519653
           EOF
 
       - name: Write app/build.gradle
@@ -92,10 +103,14 @@ jobs:
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
+              id 'org.mozilla.rust-android-gradle.rust-android'
           }
+
           android {
               namespace 'com.nexus.browser'
               compileSdk 34
+              ndkVersion "25.2.9519653"
+
               defaultConfig {
                   applicationId "com.nexus.browser"
                   minSdk 24
@@ -103,6 +118,7 @@ jobs:
                   versionCode 1
                   versionName "1.0.0"
               }
+
               buildTypes {
                   release {
                       minifyEnabled false
@@ -112,16 +128,27 @@ jobs:
                       applicationIdSuffix ".debug"
                   }
               }
+
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
+
               kotlinOptions { jvmTarget = '17' }
               buildFeatures { viewBinding true }
+
               packagingOptions {
                   resources.excludes += '/META-INF/{AL2.0,LGPL2.1}'
               }
           }
+
+          cargo {
+              module = "../app/src/main/rust"
+              libname = "adblock_jni"
+              targets = ["arm64", "arm", "x86", "x86_64"]
+              profile = "release"
+          }
+
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
@@ -130,6 +157,13 @@ jobs:
               implementation 'androidx.webkit:webkit:1.10.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+              implementation 'com.github.MonsterTechnoGits:WebViewAdblock:1.2'
+          }
+
+          tasks.whenTaskAdded { task ->
+              if (task.name == 'mergeDebugJniLibFolders' || task.name == 'mergeReleaseJniLibFolders') {
+                  task.dependsOn 'cargoBuild'
+              }
           }
           EOF
 
@@ -140,7 +174,73 @@ jobs:
           -keepclassmembers class * {
               @android.webkit.JavascriptInterface <methods>;
           }
+          -keep class com.nexus.browser.adblock.** { *; }
           EOF
+
+      - name: Write Rust Cargo.toml
+        run: |
+          cat > app/src/main/rust/Cargo.toml << 'EOF'
+          [package]
+          name = "adblock_jni"
+          version = "0.1.0"
+          edition = "2021"
+
+          [lib]
+          crate-type = ["cdylib"]
+
+          [dependencies]
+          jni = "0.21"
+          adblock = "0.8"
+          once_cell = "1.19"
+          EOF
+
+      - name: Write Rust lib.rs (JNI Bridge)
+        run: |
+          cat > app/src/main/rust/src/lib.rs << 'EOF'
+          use jni::objects::{JClass, JString};
+          use jni::sys::jboolean;
+          use jni::JNIEnv;
+          use once_cell::sync::Lazy;
+          use std::sync::Mutex;
+
+          static ENGINE: Lazy<Mutex<adblock::Engine>> = Lazy::new(|| {
+              let mut engine = adblock::Engine::from_rules(
+                  adblock::lists::parse_filters(
+                      include_str!("easylist.txt"),
+                      adblock::lists::FilterFormat::Standard,
+                  ).unwrap(),
+                  adblock::lists::ParseOptions::default(),
+              );
+              Mutex::new(engine)
+          });
+
+          #[no_mangle]
+          pub extern "system" fn Java_com_nexus_browser_adblock_AdBlockEngine_isAd(
+              mut env: JNIEnv,
+              _class: JClass,
+              url: JString,
+          ) -> jboolean {
+              let url_str: String = match env.get_string(&url) {
+                  Ok(s) => s.into(),
+                  Err(_) => return 0,
+              };
+
+              let mut engine = ENGINE.lock().unwrap();
+              let request = adblock::request::Request::new(&url_str, "", "").unwrap();
+              let result = engine.check_network_request(&request, true);
+
+              if result.matched {
+                  1
+              } else {
+                  0
+              }
+          }
+          EOF
+
+      - name: Download EasyList filter list
+        run: |
+          curl -sL https://easylist.to/easylist/easylist.txt -o app/src/main/rust/src/easylist.txt
+          echo "Filter list downloaded: $(wc -l < app/src/main/rust/src/easylist.txt) lines"
 
       - name: Write AndroidManifest.xml
         run: |
@@ -519,6 +619,7 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
+          import com.nexus.browser.adblock.AdBlockEngine
           import java.io.ByteArrayInputStream
           import java.net.URLEncoder
           import java.util.UUID
@@ -533,31 +634,7 @@ jobs:
 
               private var incognito = false
               private var desktopMode = false
-
-              // Expanded list of common ad/tracker domains
-              private val adDomains = setOf(
-                  "doubleclick.net", "googlesyndication.com", "googleadservices.com",
-                  "adservice.google.com", "ads.google.com", "adnxs.com",
-                  "ads.yahoo.com", "advertising.com", "outbrain.com",
-                  "taboola.com", "popads.net", "popcash.net", "propellerads.com",
-                  "adcolony.com", "applovin.com", "unityads.unity3d.com",
-                  "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
-                  "mopub.com", "flurry.com", "adjust.com", "appsflyer.com",
-                  "branch.io", "kochava.com", "mixpanel.com", "amplitude.com",
-                  "scorecardresearch.com", "quantserve.com", "comscore.com",
-                  "criteo.com", "criteo.net", "rubiconproject.com", "pubmatic.com",
-                  "openx.net", "indexexchange.com", "casalemedia.com", "sharethrough.com",
-                  "teads.tv", "spotxchange.com", "smartadserver.com", "adform.net",
-                  "smaato.net", "mobfox.com", "yieldmo.com", "sonobi.com",
-                  "gumgum.com", "undertone.com", "adroll.com", "bidswitch.net"
-              )
-
-              // Keywords in URL path that usually indicate ads
-              private val adKeywords = listOf(
-                  "/ads/", "/ad/", "/advert", "/banner", "/popup", "/pop-under",
-                  "/sponsor", "/promo", "/track", "/analytics", "/telemetry",
-                  "ad_", "_ad.", "ad-", "-ad.", "adsense", "adserver", "adtech"
-              )
+              private var adBlockEngine: AdBlockEngine? = null
 
               private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
               private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
@@ -579,6 +656,13 @@ jobs:
                   addressBar = findViewById(R.id.addressBar)
                   progressBar = findViewById(R.id.progressBar)
                   incognitoBadge = findViewById(R.id.incognitoBadge)
+
+                  // Initialize the Rust-based adblock engine
+                  try {
+                      adBlockEngine = AdBlockEngine()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Adblock engine failed to load: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
 
                   setupWebView()
                   setupButtons()
@@ -619,7 +703,6 @@ jobs:
 
                   webView.webViewClient = object : WebViewClient() {
 
-                      // Advanced Ad Blocker: Intercepts every network request
                       override fun shouldInterceptRequest(
                           view: WebView?,
                           request: WebResourceRequest?
@@ -628,10 +711,25 @@ jobs:
 
                           if (prefs.getBoolean("adblock", true)) {
                               totalCount.incrementAndGet()
-                              if (isAdUrl(url)) {
-                                  blockedCount.incrementAndGet()
-                                  // Return empty response to block the ad
-                                  return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+
+                              // Layer 1: Rust-based adblock engine (Brave's engine)
+                              try {
+                                  if (adBlockEngine?.isAd(url) == true) {
+                                      blockedCount.incrementAndGet()
+                                      return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                                  }
+                              } catch (e: Exception) {
+                                  // Fallback to library if Rust engine fails
+                              }
+
+                              // Layer 2: WebViewAdblock library fallback
+                              try {
+                                  if (com.nexus.browser.adblock.WebViewAdblock.blockAds(view, url)) {
+                                      blockedCount.incrementAndGet()
+                                      return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                                  }
+                              } catch (e: Exception) {
+                                  // Ignore fallback errors
                               }
                           }
                           return super.shouldInterceptRequest(view, request)
@@ -643,8 +741,8 @@ jobs:
                           val url = request?.url?.toString() ?: return false
 
                           if (prefs.getBoolean("adblock", true)) {
-                              if (isAdUrl(url)) {
-                                  return true // Block navigation to ad URLs
+                              if (adBlockEngine?.isAd(url) == true) {
+                                  return true
                               }
                           }
 
@@ -670,9 +768,12 @@ jobs:
                           if (!incognito && url != null) saveHistory(url, view?.title ?: url)
                           updateBookmarkIcon()
 
-                          // Inject JavaScript to visually remove ads (especially YouTube)
+                          // Layer 3: Inject YouTube-specific ad blocking scripts (from NouTube)
                           if (prefs.getBoolean("adblock", true)) {
-                              injectAdBlockJs()
+                              injectNouTubeAdBlockScripts()
+                              if (url?.contains("youtube.com") == true) {
+                                  injectYouTubeAdSkipper()
+                              }
                           }
                       }
                   }
@@ -722,48 +823,77 @@ jobs:
                   }
               }
 
-              // Core logic for detecting ad URLs
-              private fun isAdUrl(url: String): Boolean {
-                  val lowerUrl = url.lowercase()
-                  // Check domains
-                  val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
-                  if (adDomains.any { host.endsWith(it) }) return true
-
-                  // Check keywords in the full URL
-                  if (adKeywords.any { lowerUrl.contains(it) }) {
-                      // Exclude false positives for main sites (like youtube.com/watch?feature=...)
-                      if (!lowerUrl.contains("youtube.com/watch") &&
-                          !lowerUrl.contains("googlevideo.com/videoplayback") &&
-                          !lowerUrl.contains("facebook.com") &&
-                          !lowerUrl.contains("instagram.com")) {
-                          return true
-                      }
-                  }
-                  return false
-              }
-
-              // Injects JS to hide visual ad containers on websites (YouTube, News, etc.)
-              private fun injectAdBlockJs() {
+              // Injects NouTube's ad blocking scripts (YouTube specific)
+              private fun injectNouTubeAdBlockScripts() {
                   val js = """
                       javascript:(function() {
-                          var style = document.createElement('style');
+                          // Remove ad placements from YouTube's initial data
+                          const originalParse = JSON.parse;
+                          JSON.parse = function(text, reviver) {
+                              const result = originalParse(text, reviver);
+                              try {
+                                  if (result && result.adPlacements) delete result.adPlacements;
+                                  if (result && result.playerAds) delete result.playerAds;
+                                  if (result && result.adSlots) delete result.adSlots;
+                              } catch (e) {}
+                              return result;
+                          };
+
+                          // Remove ad containers from DOM
+                          const style = document.createElement('style');
                           style.type = 'text/css';
                           style.innerHTML = `
-                              /* YouTube Ads */
                               .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
                               .ytp-ad-progress-list, #player-ads, #masthead-ad,
                               ytd-promoted-sparkles-web-renderer, ytd-display-ad-renderer,
-                              ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer { display: none !important; }
-                              
-                              /* General Ads */
-                              .ad, .ads, .adsbygoogle, .ad-container, .ad-wrapper, 
-                              .ad-banner, .advertisement, .sponsored, .promoted, 
-                              [class*="ad-"], [class*="-ad"], [id*="google_ads"], 
-                              [id*="ad-slot"], [class*="banner"], .popup, .pop-under { 
-                                  display: none !important; 
+                              ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer,
+                              .ytp-ad-image-overlay, .ytp-ad-text-overlay,
+                              .ytp-ad-overlay-slot, .ytp-ad-player-overlay,
+                              ytd-action-companion-ad-renderer,
+                              ytd-promoted-video-renderer,
+                              ytd-compact-promoted-video-renderer,
+                              .ad, .ads, .adsbygoogle, .ad-container, .ad-wrapper,
+                              .ad-banner, .advertisement, .sponsored, .promoted,
+                              [class*="ad-"], [class*="-ad"], [id*="google_ads"],
+                              [id*="ad-slot"], [class*="banner"], .popup, .pop-under,
+                              [class*="advert"], [id*="advert"], [class*="sponsor"],
+                              [id*="sponsor"], [class*="promo"], [id*="promo"] {
+                                  display: none !important;
                               }
                           `;
                           document.head.appendChild(style);
+                      })();
+                  """.trimIndent()
+                  webView.evaluateJavascript(js, null)
+              }
+
+              // YouTube specific ad skipper (NouTube approach)
+              private fun injectYouTubeAdSkipper() {
+                  val js = """
+                      javascript:(function() {
+                          function skipYouTubeAds() {
+                              // Click skip button if present
+                              const skipButton = document.querySelector(
+                                  '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button'
+                              );
+                              if (skipButton) skipButton.click();
+
+                              // Fast-forward video ads
+                              const video = document.querySelector('video');
+                              if (video && document.querySelector('.ad-showing')) {
+                                  video.currentTime = video.duration;
+                              }
+
+                              // Remove ad overlays
+                              document.querySelectorAll(
+                                  '.ytp-ad-overlay-container, .ytp-ad-text-overlay, .ytp-ad-image-overlay'
+                              ).forEach(el => el.style.display = 'none');
+                          }
+
+                          setInterval(skipYouTubeAds, 500);
+
+                          const observer = new MutationObserver(skipYouTubeAds);
+                          observer.observe(document.body, { childList: true, subtree: true });
                       })();
                   """.trimIndent()
                   webView.evaluateJavascript(js, null)
@@ -892,10 +1022,18 @@ jobs:
               }
 
               private fun showAdBlockStats() {
+                  val blocked = blockedCount.get()
+                  val total = totalCount.get()
+                  val percentage = if (total > 0) (blocked * 100 / total) else 0
                   AlertDialog.Builder(this)
                       .setTitle("Ad Block Stats")
-                      .setMessage("Total requests: ${totalCount.get()}\nBlocked ads: ${blockedCount.get()}\n\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
+                      .setMessage("Total requests: $total\nBlocked ads: $blocked\nSuccess rate: $percentage%\n\nEngine: Brave adblock-rust + NouTube scripts + WebViewAdblock\nStatus: ${if(prefs.getBoolean("adblock", true)) "ON" else "OFF"}")
                       .setPositiveButton("OK", null)
+                      .setNeutralButton("Reset") { _, _ ->
+                          blockedCount.set(0)
+                          totalCount.set(0)
+                          Toast.makeText(this, "Stats reset", Toast.LENGTH_SHORT).show()
+                      }
                       .show()
               }
 
@@ -1088,8 +1226,51 @@ jobs:
           }
           KOTEOF
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace --no-daemon
+      - name: Write AdBlockEngine.kt (JNI wrapper for Rust)
+        run: |
+          cat > app/src/main/java/com/nexus/browser/adblock/AdBlockEngine.kt << 'KOTEOF'
+          package com.nexus.browser.adblock
+
+          class AdBlockEngine {
+              companion object {
+                  init {
+                      System.loadLibrary("adblock_jni")
+                  }
+              }
+
+              external fun isAd(url: String): Boolean
+          }
+          KOTEOF
+
+      - name: Write WebViewAdblock fallback class
+        run: |
+          cat > app/src/main/java/com/nexus/browser/adblock/WebViewAdblock.kt << 'KOTEOF'
+          package com.nexus.browser.adblock
+
+          import android.webkit.WebView
+
+          object WebViewAdblock {
+              private val adDomains = setOf(
+                  "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+                  "adservice.google.com", "ads.google.com", "adnxs.com",
+                  "ads.yahoo.com", "advertising.com", "outbrain.com",
+                  "taboola.com", "popads.net", "popcash.net", "propellerads.com",
+                  "adcolony.com", "applovin.com", "unityads.unity3d.com",
+                  "chartboost.com", "vungle.com", "inmobi.com", "startapp.com",
+                  "mopub.com", "flurry.com", "adjust.com", "appsflyer.com"
+              )
+
+              fun blockAds(view: WebView?, url: String?): Boolean {
+                  url ?: return false
+                  val host = try { java.net.URI(url).host ?: "" } catch (e: Exception) { "" }
+                  return adDomains.any { host.endsWith(it) }
+              }
+          }
+          KOTEOF
+
+      - name: Build APK
+        run: |
+          gradle assembleDebug --stacktrace --no-daemon
 
       - name: Find APK
         run: |
