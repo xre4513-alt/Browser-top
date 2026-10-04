@@ -132,7 +132,6 @@ jobs:
               implementation 'androidx.webkit:webkit:1.10.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-              // WireGuard - from Maven Central with all transitive deps
               implementation 'com.wireguard.android:tunnel:1.0.20230706'
               implementation 'androidx.annotation:annotation:1.7.1'
               implementation 'androidx.collection:collection:1.4.0'
@@ -506,7 +505,6 @@ jobs:
           import com.wireguard.android.backend.Tunnel
           import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
-          import java.io.StringReader
           import java.net.URLEncoder
 
           class MainActivity : AppCompatActivity() {
@@ -531,7 +529,6 @@ jobs:
               private var wgTunnel: NexusTunnel? = null
               private val handler = Handler(Looper.getMainLooper())
 
-              // Cloudflare WARP WireGuard config (pre-loaded)
               private val DEFAULT_WG_CONFIG = """
           [Interface]
           PrivateKey = gGC/SHTnBPGo6rKBOegyMaVfEujbO5ZhS7aq+46ktUM=
@@ -681,7 +678,10 @@ jobs:
               private fun connectVpn(configText: String) {
                   Thread {
                       try {
-                          val config = Config.parse(StringReader(configText))
+                          // FIX: Use ByteArrayInputStream instead of StringReader
+                          val config = Config.parse(
+                              ByteArrayInputStream(configText.toByteArray(Charsets.UTF_8))
+                          )
                           val tunnel = NexusTunnel("nexus-warp")
                           val backend = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
                           val state = backend.setState(tunnel, Tunnel.State.UP, config)
