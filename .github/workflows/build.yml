@@ -100,8 +100,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 3
-                  versionName "2.1.0"
+                  versionCode 4
+                  versionName "2.2.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -397,13 +397,16 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent" android:layout_height="match_parent"
-              android:orientation="vertical" android:background="?android:attr/colorBackground">
+              android:orientation="vertical"
+              android:background="?android:attr/colorBackground"
+              android:animateLayoutChanges="false">
 
               <!-- Nav bar -->
               <LinearLayout android:id="@+id/navBar"
                   android:layout_width="match_parent" android:layout_height="44dp"
                   android:orientation="horizontal" android:background="@color/primary"
-                  android:gravity="center_vertical" android:paddingStart="4dp" android:paddingEnd="4dp">
+                  android:gravity="center_vertical" android:paddingStart="4dp" android:paddingEnd="4dp"
+                  android:animateLayoutChanges="false">
 
                   <ImageButton android:id="@+id/btnBack" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_previous"
@@ -422,7 +425,8 @@ jobs:
               <!-- URL bar -->
               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                   android:orientation="horizontal" android:background="@color/primary"
-                  android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp" android:gravity="center">
+                  android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp" android:gravity="center"
+                  android:animateLayoutChanges="false">
                   <EditText android:id="@+id/addressBar" android:layout_width="match_parent" android:layout_height="40dp"
                       android:background="@drawable/address_bar_bg" android:hint="@string/search_hint"
                       android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
@@ -439,7 +443,8 @@ jobs:
                   <LinearLayout android:id="@+id/tabStrip"
                       android:layout_width="wrap_content" android:layout_height="match_parent"
                       android:orientation="horizontal" android:gravity="center_vertical"
-                      android:paddingStart="6dp" android:paddingEnd="6dp" />
+                      android:paddingStart="6dp" android:paddingEnd="6dp"
+                      android:animateLayoutChanges="false" />
               </HorizontalScrollView>
 
               <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
@@ -447,65 +452,63 @@ jobs:
                   android:progressTint="@color/accent" android:visibility="gone" />
 
               <FrameLayout android:id="@+id/contentContainer"
-                  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+                  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                  android:animateLayoutChanges="false">
 
-                  <!-- Home overlay in ScrollView to prevent shake on keyboard open/close -->
-                  <ScrollView android:id="@+id/homeOverlay"
+                  <!-- Home overlay - plain LinearLayout, no ScrollView, fixed top padding -->
+                  <LinearLayout android:id="@+id/homeOverlay"
                       android:layout_width="match_parent" android:layout_height="match_parent"
-                      android:background="@color/home_bg_light" android:visibility="gone"
-                      android:fillViewport="true"
-                      android:focusableInTouchMode="true"
-                      android:scrollbars="none">
+                      android:orientation="vertical"
+                      android:gravity="top|center_horizontal"
+                      android:background="@color/home_bg_light"
+                      android:visibility="visible"
+                      android:paddingTop="120dp"
+                      android:paddingStart="8dp"
+                      android:paddingEnd="8dp"
+                      android:animateLayoutChanges="false"
+                      android:focusableInTouchMode="true">
 
-                      <LinearLayout
-                          android:layout_width="match_parent" android:layout_height="wrap_content"
-                          android:orientation="vertical" android:gravity="center_horizontal"
-                          android:layout_gravity="center_vertical"
-                          android:paddingStart="8dp" android:paddingEnd="8dp"
-                          android:paddingTop="100dp" android:paddingBottom="60dp">
+                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Nexus" android:textColor="@color/primary" android:textSize="42sp"
+                          android:textStyle="bold" android:layout_marginBottom="8dp" />
+                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
+                          android:textSize="13sp" android:layout_marginBottom="32dp" />
 
-                          <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="Nexus" android:textColor="@color/primary" android:textSize="42sp"
-                              android:textStyle="bold" android:layout_marginBottom="8dp" />
-                          <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
-                              android:textSize="13sp" android:layout_marginBottom="32dp" />
+                      <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="52dp"
+                          android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
+                          android:background="@drawable/home_search_bg" android:hint="@string/home_search_hint"
+                          android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
+                          android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
+                          android:inputType="textUri" android:maxLines="1" android:textSize="15sp"
+                          android:elevation="4dp"
+                          android:importantForAutofill="no" />
 
-                          <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="52dp"
-                              android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
-                              android:background="@drawable/home_search_bg" android:hint="@string/home_search_hint"
-                              android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
-                              android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
-                              android:inputType="textUri" android:maxLines="1" android:textSize="15sp"
-                              android:elevation="4dp"
-                              android:importantForAutofill="no" />
+                      <LinearLayout android:id="@+id/vpnButton"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:layout_marginTop="32dp"
+                          android:orientation="horizontal" android:gravity="center_vertical"
+                          android:paddingStart="20dp" android:paddingEnd="20dp"
+                          android:paddingTop="12dp" android:paddingBottom="12dp"
+                          android:background="@drawable/vpn_button_bg"
+                          android:clickable="true" android:focusable="true" android:elevation="4dp">
 
-                          <LinearLayout android:id="@+id/vpnButton"
+                          <TextView android:id="@+id/vpnShield"
                               android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:layout_marginTop="32dp"
-                              android:orientation="horizontal" android:gravity="center_vertical"
-                              android:paddingStart="20dp" android:paddingEnd="20dp"
-                              android:paddingTop="12dp" android:paddingBottom="12dp"
-                              android:background="@drawable/vpn_button_bg"
-                              android:clickable="true" android:focusable="true" android:elevation="4dp">
+                              android:text="🛡" android:textSize="20sp" android:layout_marginEnd="10dp" />
 
-                              <TextView android:id="@+id/vpnShield"
-                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="🛡" android:textSize="20sp" android:layout_marginEnd="10dp" />
-
-                              <TextView android:id="@+id/vpnStatusText"
-                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="TAP TO CONNECT VPN"
-                                  android:textColor="@color/white" android:textSize="13sp" android:textStyle="bold" />
-                          </LinearLayout>
-
-                          <TextView android:id="@+id/vpnInfoText"
+                          <TextView android:id="@+id/vpnStatusText"
                               android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:layout_marginTop="8dp"
-                              android:text="Cloudflare WARP • Free • Built-in"
-                              android:textColor="@color/text_secondary" android:textSize="11sp" />
+                              android:text="TAP TO CONNECT VPN"
+                              android:textColor="@color/white" android:textSize="13sp" android:textStyle="bold" />
                       </LinearLayout>
-                  </ScrollView>
+
+                      <TextView android:id="@+id/vpnInfoText"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:layout_marginTop="8dp"
+                          android:text="Cloudflare WARP • Free • Built-in"
+                          android:textColor="@color/text_secondary" android:textSize="11sp" />
+                  </LinearLayout>
 
                   <TextView android:id="@+id/incognitoBadge"
                       android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -517,7 +520,8 @@ jobs:
 
               <LinearLayout android:id="@+id/bottomBar"
                   android:layout_width="match_parent" android:layout_height="52dp"
-                  android:orientation="horizontal" android:background="@color/primary_dark" android:gravity="center_vertical">
+                  android:orientation="horizontal" android:background="@color/primary_dark" android:gravity="center_vertical"
+                  android:animateLayoutChanges="false">
 
                   <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_view"
@@ -690,9 +694,10 @@ jobs:
                       else AppCompatDelegate.MODE_NIGHT_NO
                   )
 
-                  // Prevent keyboard from pushing layout
-                  window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or
-                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+                  window.setSoftInputMode(
+                      WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or
+                      WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+                  )
 
                   setContentView(R.layout.activity_main)
 
@@ -716,16 +721,72 @@ jobs:
                   setupInputs()
                   setupButtons()
 
+                  // FIX: homeOverlay is visible in XML already, so just set state directly
+                  // without triggering any navigation/re-layout loops.
                   val incoming = intent?.data
-                  newTab(if (incoming != null) "" else "about:blank", initialUri = incoming)
+                  if (incoming != null) {
+                      // Has file/URL from external app -> create tab and load it
+                      createTabInternal(loadUri = incoming)
+                  } else {
+                      // Normal launch -> just create home tab without any navigation
+                      createHomeTabInternal()
+                  }
 
                   vpnButton.setOnClickListener { toggleVpn() }
 
-                  // Clear focus to prevent auto-keyboard
                   homeSearchBar.clearFocus()
                   addressBar.clearFocus()
               }
 
+              // ====== Internal tab creation without triggering layout loops ======
+              private fun createHomeTabInternal() {
+                  val tab = BrowserTab(isIncognito = false)
+                  val wv = WebView(this)
+                  configureWebView(wv, tab)
+                  wv.layoutParams = FrameLayout.LayoutParams(
+                      ViewGroup.LayoutParams.MATCH_PARENT,
+                      ViewGroup.LayoutParams.MATCH_PARENT
+                  )
+                  wv.visibility = View.GONE
+                  contentContainer.addView(wv, 0)
+                  tab.webView = wv
+                  tabs.add(tab)
+                  currentTabIndex = 0
+
+                  // Ensure home overlay is shown (already visible in XML, but explicit for state)
+                  homeOverlay.visibility = View.VISIBLE
+                  isHomeVisible = true
+                  addressBar.setText("")
+                  incognitoBadge.visibility = View.GONE
+
+                  // Render tab strip once (no navigation triggered)
+                  renderTabStrip()
+                  updateVpnUi()
+              }
+
+              private fun createTabInternal(loadUri: Uri) {
+                  val tab = BrowserTab(isIncognito = false)
+                  val wv = WebView(this)
+                  configureWebView(wv, tab)
+                  wv.layoutParams = FrameLayout.LayoutParams(
+                      ViewGroup.LayoutParams.MATCH_PARENT,
+                      ViewGroup.LayoutParams.MATCH_PARENT
+                  )
+                  wv.visibility = View.VISIBLE
+                  contentContainer.addView(wv, 0)
+                  tab.webView = wv
+                  tabs.add(tab)
+                  currentTabIndex = 0
+
+                  homeOverlay.visibility = View.GONE
+                  isHomeVisible = false
+
+                  loadIncoming(tab, loadUri)
+                  renderTabStrip()
+                  updateVpnUi()
+              }
+
+              // ====== Public tab operations ======
               private fun newTab(url: String = "about:blank", initialUri: Uri? = null) {
                   val tab = BrowserTab(isIncognito = false)
                   val wv = WebView(this)
@@ -738,15 +799,30 @@ jobs:
                   contentContainer.addView(wv, 0)
                   tab.webView = wv
                   tabs.add(tab)
-                  switchToTab(tabs.size - 1)
+
+                  // Switch to new tab
+                  currentTabIndex = tabs.size - 1
+                  tabs.forEachIndexed { i, t ->
+                      t.webView?.visibility = if (i == currentTabIndex) View.VISIBLE else View.GONE
+                  }
+
                   if (initialUri != null) {
+                      homeOverlay.visibility = View.GONE
+                      isHomeVisible = false
                       loadIncoming(tab, initialUri)
                   } else if (url != "about:blank") {
                       tab.isHome = false
+                      homeOverlay.visibility = View.GONE
+                      isHomeVisible = false
                       wv.loadUrl(url)
                   } else {
-                      showHome()
+                      homeOverlay.visibility = View.VISIBLE
+                      isHomeVisible = true
+                      addressBar.setText("")
                   }
+
+                  renderTabStrip()
+                  updateBookmarkIcon()
               }
 
               private fun closeTab(index: Int) {
@@ -755,7 +831,7 @@ jobs:
                   contentContainer.removeView(tab.webView)
                   tab.webView?.destroy()
                   if (tabs.isEmpty()) {
-                      newTab()
+                      createHomeTabInternal()
                       return
                   }
                   val newIdx = when {
@@ -776,25 +852,31 @@ jobs:
                   if (tab.isHome) {
                       homeOverlay.visibility = View.VISIBLE
                       addressBar.setText("")
-                      incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
                       isHomeVisible = true
                   } else {
                       homeOverlay.visibility = View.GONE
                       isHomeVisible = false
                       addressBar.setText(tab.url)
-                      incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
                   }
+                  incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
                   updateBookmarkIcon()
                   renderTabStrip()
               }
 
               private fun showHome() {
                   val tab = currentTab ?: return
+                  // FIX: idempotent - if already home, do nothing to prevent re-layout
+                  if (tab.isHome && isHomeVisible) return
                   tab.isHome = true
                   tab.url = "about:blank"
                   tab.title = "New Tab"
-                  tab.webView?.loadUrl("about:blank")
-                  switchToTab(currentTabIndex)
+                  tab.webView?.visibility = View.GONE
+                  homeOverlay.visibility = View.VISIBLE
+                  isHomeVisible = true
+                  addressBar.setText("")
+                  incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
+                  updateBookmarkIcon()
+                  renderTabStrip()
               }
 
               private fun hideHome() {
@@ -809,6 +891,7 @@ jobs:
                           scheme == "http" || scheme == "https" || scheme == "ftp" -> {
                               tab.isHome = false
                               tab.url = uri.toString()
+                              tab.webView?.visibility = View.VISIBLE
                               tab.webView?.loadUrl(uri.toString())
                           }
                           scheme == "file" || scheme == "content" -> {
@@ -817,11 +900,13 @@ jobs:
                               tab.isHome = false
                               tab.title = uri.lastPathSegment ?: "Local file"
                               tab.url = uri.toString()
+                              tab.webView?.visibility = View.VISIBLE
                               tab.webView?.loadDataWithBaseURL(null, content, "text/html", "UTF-8", null)
                           }
                           else -> {
                               tab.isHome = false
                               tab.url = uri.toString()
+                              tab.webView?.visibility = View.VISIBLE
                               tab.webView?.loadUrl(uri.toString())
                           }
                       }
@@ -877,7 +962,6 @@ jobs:
                       setOnClickListener { newTab() }
                   }
                   tabStrip.addView(add)
-                  // No smooth scroll — prevents jitter
                   if (currentTabIndex >= 0 && tabStrip.childCount > 3) {
                       tabScroll.post {
                           val active = tabStrip.getChildAt(currentTabIndex) ?: return@post
@@ -904,7 +988,7 @@ jobs:
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
                   s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/2.1"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/2.2"
                   s.setSupportMultipleWindows(true)
 
                   wv.webViewClient = object : WebViewClient() {
@@ -953,8 +1037,13 @@ jobs:
                               updateBookmarkIcon()
                               renderTabStrip()
                           }
+                          // FIX: only show home if tab is marked home and overlay is not already visible
                           if (url == null || url == "about:blank") {
-                              if (tab === currentTab) showHome()
+                              if (tab === currentTab && tab.isHome && homeOverlay.visibility != View.VISIBLE) {
+                                  homeOverlay.visibility = View.VISIBLE
+                                  isHomeVisible = true
+                                  addressBar.setText("")
+                              }
                               return
                           }
                           if (prefs.getBoolean("adblock", true)) {
@@ -1034,6 +1123,7 @@ jobs:
                   val tab = currentTab ?: return
                   tab.isHome = false
                   hideHome()
+                  tab.webView?.visibility = View.VISIBLE
                   tab.webView?.loadUrl(url)
                   renderTabStrip()
               }
@@ -1080,7 +1170,15 @@ jobs:
                   contentContainer.addView(wv, 0)
                   tab.webView = wv
                   tabs.add(tab)
-                  switchToTab(tabs.size - 1)
+                  currentTabIndex = tabs.size - 1
+                  tabs.forEachIndexed { i, t ->
+                      t.webView?.visibility = if (i == currentTabIndex) View.VISIBLE else View.GONE
+                  }
+                  homeOverlay.visibility = View.VISIBLE
+                  isHomeVisible = true
+                  addressBar.setText("")
+                  incognitoBadge.visibility = View.VISIBLE
+                  renderTabStrip()
                   Toast.makeText(this, "🕵 Incognito Tab", Toast.LENGTH_SHORT).show()
               }
 
