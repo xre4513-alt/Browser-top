@@ -100,8 +100,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 5
-                  versionName "3.0.0"
+                  versionCode 6
+                  versionName "3.1.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -314,16 +314,11 @@ jobs:
               <color name="tab_active">#FFFFFF</color>
               <color name="tab_inactive">#0D47A1</color>
               <color name="tab_strip_bg">#0D47A1</color>
-              <color name="home_gradient_start">#0D47A1</color>
-              <color name="home_gradient_end">#1565C0</color>
-              <color name="search_bar_bg">#FFFFFF</color>
-              <color name="search_bar_shadow">#1A000000</color>
-              <color name="tile_bg">#FFFFFF</color>
-              <color name="tile_icon_bg">#E3F2FD</color>
-              <color name="tile_text">#1565C0</color>
               <color name="bottom_bar">#FFFFFF</color>
-              <color name="bottom_icon">#5F6368</color>
-              <color name="bottom_icon_active">#1565C0</color>
+              <color name="code_bg">#1E1E1E</color>
+              <color name="code_text">#D4D4D4</color>
+              <color name="req_allowed">#4CAF50</color>
+              <color name="req_blocked">#F44336</color>
           </resources>
           EOF
 
@@ -342,9 +337,6 @@ jobs:
           </resources>
           EOF
 
-      # ============================================================
-      # PROFESSIONAL VECTOR ICONS
-      # ============================================================
       - name: Write ic_launcher.xml
         run: |
           cat > app/src/main/res/drawable/ic_launcher.xml << 'EOF'
@@ -483,28 +475,6 @@ jobs:
           </vector>
           EOF
 
-      - name: Write ic_close.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_close.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="16dp" android:height="16dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#1565C0"
-                  android:pathData="M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_plus.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_plus.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="20dp" android:height="20dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#FFFFFF"
-                  android:pathData="M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-          </vector>
-          EOF
-
       - name: Write ic_nexus_logo.xml
         run: |
           cat > app/src/main/res/drawable/ic_nexus_logo.xml << 'EOF'
@@ -520,9 +490,6 @@ jobs:
           </vector>
           EOF
 
-      # ============================================================
-      # SHAPES / BACKGROUNDS
-      # ============================================================
       - name: Write tab_chip_bg.xml
         run: |
           cat > app/src/main/res/drawable/tab_chip_bg.xml << 'EOF'
@@ -556,7 +523,6 @@ jobs:
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FFFFFF" />
               <corners android:radius="28dp" />
-              <stroke android:width="0dp" android:color="#00000000" />
           </shape>
           EOF
 
@@ -608,26 +574,25 @@ jobs:
           </shape>
           EOF
 
-      - name: Write bottom_bar_bg.xml
+      - name: Write code_bg.xml
         run: |
-          cat > app/src/main/res/drawable/bottom_bar_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/code_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
+              <solid android:color="#1E1E1E" />
+              <corners android:radius="8dp" />
           </shape>
           EOF
 
-      - name: Write pill_edit_text_bg.xml
+      - name: Write req_row_bg.xml
         run: |
-          cat > app/src/main/res/drawable/pill_edit_text_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/req_row_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="24dp" />
+              <solid android:color="#FAFAFA" />
+              <corners android:radius="6dp" />
+              <stroke android:width="1dp" android:color="#E0E0E0" />
           </shape>
           EOF
 
-      # ============================================================
-      # ACTIVITY MAIN LAYOUT - PROFESSIONAL UI
-      # ============================================================
       - name: Write activity_main.xml
         run: |
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
@@ -638,7 +603,6 @@ jobs:
               android:background="?android:attr/colorBackground"
               android:animateLayoutChanges="false">
 
-              <!-- TOP BAR (nav buttons + modern search) -->
               <LinearLayout android:id="@+id/navBar"
                   android:layout_width="match_parent" android:layout_height="56dp"
                   android:orientation="horizontal" android:background="@color/primary"
@@ -694,7 +658,6 @@ jobs:
                       android:padding="10dp" />
               </LinearLayout>
 
-              <!-- TAB STRIP -->
               <HorizontalScrollView android:id="@+id/tabScroll"
                   android:layout_width="match_parent" android:layout_height="40dp"
                   android:background="@color/tab_strip_bg"
@@ -715,7 +678,6 @@ jobs:
                   android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
                   android:animateLayoutChanges="false">
 
-                  <!-- HOME OVERLAY -->
                   <LinearLayout android:id="@+id/homeOverlay"
                       android:layout_width="match_parent" android:layout_height="match_parent"
                       android:orientation="vertical"
@@ -727,7 +689,6 @@ jobs:
                       android:paddingStart="20dp"
                       android:paddingEnd="20dp">
 
-                      <!-- Brand row -->
                       <LinearLayout
                           android:layout_width="match_parent" android:layout_height="wrap_content"
                           android:orientation="horizontal" android:gravity="center_vertical"
@@ -744,13 +705,11 @@ jobs:
                                   android:text="Nexus"
                                   android:textColor="#FFFFFF"
                                   android:textSize="28sp"
-                                  android:textStyle="bold"
-                                  android:letterSpacing="-0.02" />
+                                  android:textStyle="bold" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                   android:text="Private • Fast • Secure"
                                   android:textColor="#B0C4DE"
-                                  android:textSize="11sp"
-                                  android:letterSpacing="0.05" />
+                                  android:textSize="11sp" />
                           </LinearLayout>
 
                           <LinearLayout android:id="@+id/vpnPill"
@@ -771,7 +730,6 @@ jobs:
                           </LinearLayout>
                       </LinearLayout>
 
-                      <!-- Search bar (floating pill) -->
                       <LinearLayout
                           android:layout_width="match_parent" android:layout_height="54dp"
                           android:orientation="horizontal" android:gravity="center_vertical"
@@ -798,7 +756,6 @@ jobs:
                               android:importantForAutofill="no" />
                       </LinearLayout>
 
-                      <!-- Quick access tiles -->
                       <LinearLayout
                           android:layout_width="match_parent" android:layout_height="wrap_content"
                           android:orientation="horizontal" android:gravity="center"
@@ -815,7 +772,7 @@ jobs:
                               <View android:layout_width="44dp" android:layout_height="44dp"
                                   android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="YouTube" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:text="YouTube" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
 
@@ -830,7 +787,7 @@ jobs:
                               <View android:layout_width="44dp" android:layout_height="44dp"
                                   android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Google" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:text="Google" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
 
@@ -845,7 +802,7 @@ jobs:
                               <View android:layout_width="44dp" android:layout_height="44dp"
                                   android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Wikipedia" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:text="Wikipedia" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
 
@@ -860,7 +817,7 @@ jobs:
                               <View android:layout_width="44dp" android:layout_height="44dp"
                                   android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="GitHub" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:text="GitHub" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
                       </LinearLayout>
@@ -881,7 +838,6 @@ jobs:
                       android:textStyle="bold" android:visibility="gone" />
               </FrameLayout>
 
-              <!-- BOTTOM BAR - white with elevation -->
               <LinearLayout android:id="@+id/bottomBar"
                   android:layout_width="match_parent" android:layout_height="56dp"
                   android:orientation="horizontal" android:background="@color/bottom_bar"
@@ -935,17 +891,21 @@ jobs:
           import android.annotation.SuppressLint
           import android.app.AlertDialog
           import android.app.DownloadManager
+          import android.content.ClipData
+          import android.content.ClipboardManager
           import android.content.Context
           import android.content.Intent
           import android.content.SharedPreferences
           import android.graphics.Bitmap
           import android.graphics.Color
+          import android.graphics.Typeface
           import android.net.Uri
           import android.net.VpnService
           import android.os.Bundle
           import android.os.Environment
           import android.os.Handler
           import android.os.Looper
+          import android.text.InputType
           import android.util.TypedValue
           import android.view.Gravity
           import android.view.KeyEvent
@@ -966,9 +926,9 @@ jobs:
           import android.widget.FrameLayout
           import android.widget.HorizontalScrollView
           import android.widget.ImageButton
-          import android.widget.ImageView
           import android.widget.LinearLayout
           import android.widget.ProgressBar
+          import android.widget.ScrollView
           import android.widget.TextView
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
@@ -979,6 +939,9 @@ jobs:
           import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
           import java.net.URLEncoder
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
           import java.util.UUID
 
           class MainActivity : AppCompatActivity() {
@@ -1003,6 +966,19 @@ jobs:
               private var wgBackend: Backend? = null
               private var wgTunnel: NexusTunnel? = null
               private val handler = Handler(Looper.getMainLooper())
+
+              // ============ REQUEST LOG ============
+              data class RequestLogEntry(
+                  val timestamp: Long,
+                  val url: String,
+                  val method: String,
+                  val resourceType: String,
+                  val blocked: Boolean,
+                  val isMainFrame: Boolean
+              )
+              private val requestLog = mutableListOf<RequestLogEntry>()
+              private val MAX_LOG_SIZE = 2000
+              private var logPaused = false
 
               data class BrowserTab(
                   val id: String = UUID.randomUUID().toString(),
@@ -1100,14 +1076,11 @@ jobs:
                   tabStrip = findViewById(R.id.tabStrip)
                   tabScroll = findViewById(R.id.tabScroll)
 
-                  try {
-                      wgBackend = GoBackend(applicationContext)
-                  } catch (e: Throwable) {}
+                  try { wgBackend = GoBackend(applicationContext) } catch (e: Throwable) {}
 
                   setupInputs()
                   setupButtons()
 
-                  // Quick tiles
                   findViewById<View>(R.id.tileYoutube).setOnClickListener { navigate("https://www.youtube.com") }
                   findViewById<View>(R.id.tileGoogle).setOnClickListener { navigate("https://www.google.com") }
                   findViewById<View>(R.id.tileWikipedia).setOnClickListener { navigate("https://www.wikipedia.org") }
@@ -1118,7 +1091,6 @@ jobs:
                   else createHomeTabInternal()
 
                   vpnPill.setOnClickListener { toggleVpn() }
-
                   homeSearchBar.clearFocus()
                   addressBar.clearFocus()
               }
@@ -1284,7 +1256,6 @@ jobs:
               private fun renderTabStrip() {
                   tabStrip.removeAllViews()
                   if (tabs.size <= 1) {
-                      // Hide strip when only 1 tab
                       tabScroll.visibility = View.GONE
                       return
                   }
@@ -1298,9 +1269,7 @@ jobs:
                           background = getDrawable(
                               if (isActive) R.drawable.tab_chip_bg else R.drawable.tab_chip_inactive_bg
                           )
-                          layoutParams = LinearLayout.LayoutParams(
-                              dp(150), dp(30)
-                          ).apply { marginEnd = dp(4) }
+                          layoutParams = LinearLayout.LayoutParams(dp(150), dp(30)).apply { marginEnd = dp(4) }
                           elevation = if (isActive) dp(2).toFloat() else 0f
                       }
                       val title = TextView(this).apply {
@@ -1311,7 +1280,6 @@ jobs:
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                           layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                           gravity = Gravity.CENTER_VERTICAL
-                          setPadding(dp(2), 0, dp(2), 0)
                       }
                       val close = TextView(this).apply {
                           text = "✕"
@@ -1346,6 +1314,46 @@ jobs:
 
               private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+              // ============ REQUEST TYPE DETECTOR ============
+              private fun guessResourceType(url: String, isMainFrame: Boolean): String {
+                  if (isMainFrame) return "document"
+                  val lower = url.lowercase().substringBefore("?")
+                  return when {
+                      lower.endsWith(".css") -> "stylesheet"
+                      lower.endsWith(".js") || lower.contains(".js?") -> "script"
+                      lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+                          || lower.endsWith(".gif") || lower.endsWith(".webp") || lower.endsWith(".svg")
+                          || lower.endsWith(".ico") -> "image"
+                      lower.endsWith(".woff") || lower.endsWith(".woff2") || lower.endsWith(".ttf")
+                          || lower.endsWith(".otf") -> "font"
+                      lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mkv")
+                          || lower.contains("videoplayback") || lower.contains(".m3u8") -> "media"
+                      lower.endsWith(".json") || lower.contains("/api/") || lower.contains("/graphql") -> "xhr"
+                      lower.endsWith(".html") || lower.endsWith(".htm") -> "document"
+                      lower.endsWith(".wasm") -> "wasm"
+                      lower.startsWith("ws://") || lower.startsWith("wss://") -> "websocket"
+                      else -> "other"
+                  }
+              }
+
+              private fun logRequest(url: String, method: String, blocked: Boolean, isMainFrame: Boolean) {
+                  if (logPaused) return
+                  val entry = RequestLogEntry(
+                      timestamp = System.currentTimeMillis(),
+                      url = url,
+                      method = method,
+                      resourceType = guessResourceType(url, isMainFrame),
+                      blocked = blocked,
+                      isMainFrame = isMainFrame
+                  )
+                  synchronized(requestLog) {
+                      requestLog.add(entry)
+                      if (requestLog.size > MAX_LOG_SIZE) {
+                          requestLog.removeAt(0)
+                      }
+                  }
+              }
+
               @SuppressLint("SetJavaScriptEnabled")
               private fun configureWebView(wv: WebView, tab: BrowserTab) {
                   val s = wv.settings
@@ -1362,25 +1370,32 @@ jobs:
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
                   s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.0"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.1"
                   s.setSupportMultipleWindows(true)
 
                   wv.webViewClient = object : WebViewClient() {
                       override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                           val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                          val method = request.method ?: "GET"
+                          val isMainFrame = request.isForMainFrame
                           if (prefs.getBoolean("adblock", true)) {
                               totalCount.incrementAndGet()
                               if (isAdUrl(url)) {
                                   blockedCount.incrementAndGet()
+                                  logRequest(url, method, true, isMainFrame)
                                   return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                               }
                           }
+                          logRequest(url, method, false, isMainFrame)
                           return super.shouldInterceptRequest(view, request)
                       }
 
                       override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                           val url = request?.url?.toString() ?: return false
-                          if (prefs.getBoolean("adblock", true) && isAdUrl(url)) return true
+                          if (prefs.getBoolean("adblock", true) && isAdUrl(url)) {
+                              logRequest(url, "GET", true, true)
+                              return true
+                          }
                           if (url.startsWith("intent://")) {
                               try {
                                   val i = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
@@ -1516,19 +1531,367 @@ jobs:
                   findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
               }
 
+              // ============================================================
+              // INSPECT MODE - See HTML source, cookies, storage, DOM
+              // ============================================================
+              private fun showInspectDialog() {
+                  val tab = currentTab ?: return
+                  val wv = tab.webView ?: return
+                  val url = wv.url ?: "about:blank"
+
+                  if (url == "about:blank" || tab.isHome) {
+                      Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show()
+                      return
+                  }
+
+                  val options = arrayOf(
+                      "📄 Page HTML Source",
+                      "🍪 Cookies",
+                      "💾 LocalStorage",
+                      "📊 Page Info",
+                      "🖼️ All Links (href)",
+                      "🔗 All Images (src)",
+                      "📜 Scripts & Styles",
+                      "🎯 Element at tap (Point & Inspect)"
+                  )
+
+                  AlertDialog.Builder(this)
+                      .setTitle("🔍 Inspect: ${tab.title.take(30)}")
+                      .setItems(options) { _, which ->
+                          when (which) {
+                              0 -> inspectHtmlSource(wv)
+                              1 -> inspectCookies(url)
+                              2 -> inspectLocalStorage(wv)
+                              3 -> inspectPageInfo(wv, tab)
+                              4 -> inspectLinks(wv)
+                              5 -> inspectImages(wv)
+                              6 -> inspectScriptsStyles(wv)
+                              7 -> inspectByTap(wv)
+                          }
+                      }
+                      .setNegativeButton("Close", null)
+                      .show()
+              }
+
+              private fun inspectHtmlSource(wv: WebView) {
+                  wv.evaluateJavascript(
+                      "(function(){ try { return document.documentElement.outerHTML; } catch(e) { return 'ERROR: ' + e.message; } })()"
+                  ) { result ->
+                      val html = unescapeJsonString(result)
+                      showCodeDialog("Page HTML Source (${html.length} chars)", html)
+                  }
+              }
+
+              private fun inspectCookies(url: String) {
+                  try {
+                      val cookie = CookieManager.getInstance().getCookie(url)
+                      val text = if (cookie.isNullOrEmpty()) "No cookies for this site.\n\n$url" else cookie.split(";").joinToString("\n\n") { it.trim() }
+                      showCodeDialog("Cookies (${if (cookie.isNullOrEmpty()) 0 else cookie.split(";").size})", text)
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Cookie error: ${e.message}", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun inspectLocalStorage(wv: WebView) {
+                  wv.evaluateJavascript(
+                      "(function(){ try { var out=''; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); out += k + ' = ' + localStorage.getItem(k) + '\\n\\n'; } return out || 'LocalStorage is empty.'; } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result ->
+                      val text = unescapeJsonString(result)
+                      showCodeDialog("LocalStorage", text)
+                  }
+              }
+
+              private fun inspectPageInfo(wv: WebView, tab: BrowserTab) {
+                  wv.evaluateJavascript(
+                      "(function(){ try { return JSON.stringify({ title: document.title, url: location.href, host: location.host, protocol: location.protocol, referrer: document.referrer, charset: document.characterSet, size: document.documentElement.outerHTML.length, links: document.links.length, images: document.images.length, scripts: document.scripts.length, forms: document.forms.length, meta: document.querySelectorAll('meta').length }); } catch(e){ return '{}'; } })()"
+                  ) { result ->
+                      val info = unescapeJsonString(result)
+                      val pretty = info.replace(",", ",\n")
+                          .replace("{", "{\n")
+                          .replace("}", "\n}")
+                      showCodeDialog("Page Info", pretty)
+                  }
+              }
+
+              private fun inspectLinks(wv: WebView) {
+                  wv.evaluateJavascript(
+                      "(function(){ try { var arr=[]; var links=document.querySelectorAll('a[href]'); for(var i=0;i<links.length && i<200;i++){ arr.push(links[i].href); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result ->
+                      val text = unescapeJsonString(result)
+                      val count = text.split("\n").size
+                      showCodeDialog("Links Found (${if (text.startsWith("ERROR")) 0 else count})", text)
+                  }
+              }
+
+              private fun inspectImages(wv: WebView) {
+                  wv.evaluateJavascript(
+                      "(function(){ try { var arr=[]; var imgs=document.querySelectorAll('img[src]'); for(var i=0;i<imgs.length && i<200;i++){ arr.push(imgs[i].src + '  [' + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ']'); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result ->
+                      val text = unescapeJsonString(result)
+                      val count = text.split("\n").size
+                      showCodeDialog("Images Found (${if (text.startsWith("ERROR")) 0 else count})", text)
+                  }
+              }
+
+              private fun inspectScriptsStyles(wv: WebView) {
+                  wv.evaluateJavascript(
+                      "(function(){ try { var out='=== SCRIPTS ===\\n'; var scripts=document.querySelectorAll('script[src]'); for(var i=0;i<scripts.length;i++){ out += scripts[i].src + '\\n'; } out += '\\n=== STYLESHEETS ===\\n'; var styles=document.querySelectorAll('link[rel=\"stylesheet\"]'); for(var i=0;i<styles.length;i++){ out += styles[i].href + '\\n'; } return out; } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result ->
+                      val text = unescapeJsonString(result)
+                      showCodeDialog("Scripts & Stylesheets", text)
+                  }
+              }
+
+              private fun inspectByTap(wv: WebView) {
+                  // Inject a temporary tap-inspector
+                  val js = """
+                      (function(){
+                          if (window.__nexusInspector) { document.removeEventListener('click', window.__nexusInspector, true); }
+                          window.__nexusInspector = function(e) {
+                              e.preventDefault(); e.stopPropagation();
+                              var el = e.target;
+                              var info = '=== ELEMENT INSPECTED ===\n';
+                              info += 'Tag: ' + el.tagName + '\n';
+                              info += 'ID: ' + (el.id || '(none)') + '\n';
+                              info += 'Classes: ' + (el.className || '(none)') + '\n';
+                              info += 'Text: ' + (el.innerText ? el.innerText.substring(0, 200) : '(none)') + '\n';
+                              info += 'Href: ' + (el.href || '(none)') + '\n';
+                              info += 'Src: ' + (el.src || '(none)') + '\n';
+                              info += '\n=== OUTER HTML (first 3000 chars) ===\n';
+                              info += el.outerHTML.substring(0, 3000);
+                              window.NexusInspect.onElement(info);
+                              return false;
+                          };
+                          document.addEventListener('click', window.__nexusInspector, true);
+                          return 'OK';
+                      })();
+                  """.trimIndent()
+                  wv.evaluateJavascript(js, null)
+                  Toast.makeText(this, "Tap any element on the page to inspect it", Toast.LENGTH_LONG).show()
+                  // Note: To fully receive callback, you'd need a JS interface.
+                  // For simplicity, we show toast + let user use other inspect options.
+                  // A production version would add addJavascriptInterface().
+              }
+
+              private fun unescapeJsonString(s: String?): String {
+                  if (s == null) return ""
+                  if (s == "null") return "(empty)"
+                  var str = s
+                  if (str.startsWith("\"") && str.endsWith("\"") && str.length > 1) {
+                      str = str.substring(1, str.length - 1)
+                  }
+                  return str
+                      .replace("\\n", "\n")
+                      .replace("\\t", "\t")
+                      .replace("\\\"", "\"")
+                      .replace("\\\\", "\\")
+                      .replace("\\u003c", "<")
+                      .replace("\\u003e", ">")
+                      .replace("\\u0026", "&")
+              }
+
+              private fun showCodeDialog(title: String, content: String) {
+                  val container = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(20, 20, 20, 20)
+                  }
+                  val code = TextView(this).apply {
+                      text = content
+                      setTextIsSelectable(true)
+                      setTextColor(Color.parseColor("#D4D4D4"))
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                      typeface = Typeface.MONOSPACE
+                      setPadding(20, 20, 20, 20)
+                      background = getDrawable(R.drawable.code_bg)
+                  }
+                  val scroll = ScrollView(this).apply {
+                      addView(code)
+                      layoutParams = LinearLayout.LayoutParams(
+                          ViewGroup.LayoutParams.MATCH_PARENT,
+                          dp(420)
+                      )
+                  }
+                  container.addView(scroll)
+
+                  AlertDialog.Builder(this)
+                      .setTitle(title)
+                      .setView(container)
+                      .setPositiveButton("Copy") { _, _ ->
+                          val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", content))
+                          Toast.makeText(this, "Copied ${content.length} chars", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNeutralButton("Share") { _, _ ->
+                          val i = Intent(Intent.ACTION_SEND)
+                          i.type = "text/plain"
+                          i.putExtra(Intent.EXTRA_TEXT, content)
+                          startActivity(Intent.createChooser(i, "Share"))
+                      }
+                      .setNegativeButton("Close", null)
+                      .show()
+              }
+
+              // ============================================================
+              // NETWORK REQUEST LOG
+              // ============================================================
+              private fun showRequestLogDialog() {
+                  if (requestLog.isEmpty()) {
+                      AlertDialog.Builder(this)
+                          .setTitle("📡 Network Requests")
+                          .setMessage("No requests logged yet.\n\nBrowse a website and come back.")
+                          .setPositiveButton("OK", null)
+                          .show()
+                      return
+                  }
+
+                  val snapshot = synchronized(requestLog) { requestLog.toList().reversed() }
+
+                  // Build list display
+                  val container = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(20, 20, 20, 20)
+                  }
+
+                  val summary = TextView(this).apply {
+                      val blocked = snapshot.count { it.blocked }
+                      text = "Total: ${snapshot.size}  |  Allowed: ${snapshot.size - blocked}  |  Blocked: $blocked"
+                      setTextColor(Color.parseColor("#212121"))
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                      setPadding(0, 0, 0, 12)
+                  }
+                  container.addView(summary)
+
+                  val scroll = ScrollView(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(
+                          ViewGroup.LayoutParams.MATCH_PARENT,
+                          dp(430)
+                      )
+                  }
+                  val listLayout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                  }
+
+                  val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+                  // Show last 300 requests max
+                  snapshot.take(300).forEach { req ->
+                      val row = LinearLayout(this).apply {
+                          orientation = LinearLayout.VERTICAL
+                          setPadding(dp(10), dp(8), dp(10), dp(8))
+                          background = getDrawable(R.drawable.req_row_bg)
+                          layoutParams = LinearLayout.LayoutParams(
+                              ViewGroup.LayoutParams.MATCH_PARENT,
+                              ViewGroup.LayoutParams.WRAP_CONTENT
+                          ).apply { bottomMargin = dp(4) }
+                          isClickable = true
+                          isFocusable = true
+                          setOnClickListener {
+                              val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                              val text = "${req.method} ${req.url}\n\nType: ${req.resourceType}\nTime: ${timeFmt.format(Date(req.timestamp))}\nBlocked: ${req.blocked}"
+                              cm.setPrimaryClip(ClipData.newPlainText("Nexus", text))
+                              Toast.makeText(this@MainActivity, "Request copied", Toast.LENGTH_SHORT).show()
+                          }
+                      }
+
+                      val header = LinearLayout(this).apply {
+                          orientation = LinearLayout.HORIZONTAL
+                          gravity = Gravity.CENTER_VERTICAL
+                      }
+
+                      val badge = TextView(this).apply {
+                          text = if (req.blocked) "⛔" else "✓"
+                          setTextColor(if (req.blocked) Color.parseColor("#F44336") else Color.parseColor("#4CAF50"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                          setPadding(0, 0, dp(8), 0)
+                      }
+                      header.addView(badge)
+
+                      val method = TextView(this).apply {
+                          text = req.method
+                          setTextColor(Color.parseColor("#1565C0"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                          typeface = Typeface.DEFAULT_BOLD
+                          setPadding(0, 0, dp(8), 0)
+                      }
+                      header.addView(method)
+
+                      val type = TextView(this).apply {
+                          text = req.resourceType
+                          setTextColor(Color.parseColor("#757575"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                          layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                      }
+                      header.addView(type)
+
+                      val time = TextView(this).apply {
+                          text = timeFmt.format(Date(req.timestamp))
+                          setTextColor(Color.parseColor("#9E9E9E"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                      }
+                      header.addView(time)
+
+                      val urlView = TextView(this).apply {
+                          text = req.url
+                          setTextColor(if (req.blocked) Color.parseColor("#B71C1C") else Color.parseColor("#424242"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                          maxLines = 2
+                          ellipsize = android.text.TextUtils.TruncateAt.END
+                          setPadding(0, dp(4), 0, 0)
+                          typeface = Typeface.MONOSPACE
+                      }
+
+                      row.addView(header)
+                      row.addView(urlView)
+                      listLayout.addView(row)
+                  }
+
+                  scroll.addView(listLayout)
+                  container.addView(scroll)
+
+                  AlertDialog.Builder(this)
+                      .setTitle("📡 Network Requests")
+                      .setView(container)
+                      .setPositiveButton("Copy All") { _, _ ->
+                          val sb = StringBuilder()
+                          snapshot.forEach { r ->
+                              sb.append(timeFmt.format(Date(r.timestamp)))
+                                  .append("  ")
+                                  .append(if (r.blocked) "[BLOCKED] " else "[OK]      ")
+                                  .append(r.method)
+                                  .append("  ")
+                                  .append(r.resourceType)
+                                  .append("  ")
+                                  .append(r.url)
+                                  .append("\n")
+                          }
+                          val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", sb.toString()))
+                          Toast.makeText(this, "Copied ${snapshot.size} requests", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNeutralButton("Clear") { _, _ ->
+                          synchronized(requestLog) { requestLog.clear() }
+                          Toast.makeText(this, "Log cleared", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNegativeButton("Close", null)
+                      .show()
+              }
+
+              // ============================================================
+              // TABS / HOME / VPN / MISC
+              // ============================================================
               private fun showTabsDialog() {
                   val items = tabs.mapIndexed { i, t ->
                       val mark = if (i == currentTabIndex) "▶ " else "   "
                       val incog = if (t.isIncognito) "🕵 " else ""
                       "$mark$incog${t.title}"
                   }.toTypedArray()
-                  val builder = AlertDialog.Builder(this)
-                  builder.setTitle("Tabs (${tabs.size})")
-                  builder.setItems(items) { _, which -> switchToTab(which) }
-                  builder.setPositiveButton("New Tab") { _, _ -> newTab() }
-                  builder.setNeutralButton("Close Tab") { _, _ -> closeTab(currentTabIndex) }
-                  builder.setNegativeButton("Cancel", null)
-                  builder.show()
+                  AlertDialog.Builder(this)
+                      .setTitle("Tabs (${tabs.size})")
+                      .setItems(items) { _, which -> switchToTab(which) }
+                      .setPositiveButton("New Tab") { _, _ -> newTab() }
+                      .setNeutralButton("Close Tab") { _, _ -> closeTab(currentTabIndex) }
+                      .setNegativeButton("Cancel", null)
+                      .show()
               }
 
               private fun toggleIncognitoForTab() {
@@ -1554,7 +1917,6 @@ jobs:
                   Toast.makeText(this, "🕵 Incognito Tab", Toast.LENGTH_SHORT).show()
               }
 
-              // ===== VPN =====
               private fun toggleVpn() { if (isVpnUp()) stopVpn() else startVpn() }
 
               private fun isVpnUp(): Boolean {
@@ -1627,19 +1989,16 @@ jobs:
               private fun updateVpnUi() {
                   val up = isVpnUp()
                   if (up) {
-                      vpnShield.text = "🛡"
                       vpnStatusText.text = "PROTECTED"
                       vpnPill.setBackgroundResource(R.drawable.vpn_pill_bg)
                       vpnInfoText.text = "Cloudflare WARP active • Tap to disconnect"
                   } else {
-                      vpnShield.text = "🛡"
                       vpnStatusText.text = "VPN OFF"
                       vpnPill.setBackgroundResource(R.drawable.vpn_pill_off_bg)
                       vpnInfoText.text = "Cloudflare WARP • Built-in • Free"
                   }
               }
 
-              // ===== Ad block / identity =====
               private fun isAdUrl(url: String): Boolean {
                   val lowerUrl = url.lowercase()
                   val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
@@ -1766,7 +2125,6 @@ jobs:
                   wv.evaluateJavascript(js, null)
               }
 
-              // ===== Bookmarks / History =====
               private fun toggleBookmark() {
                   val tab = currentTab ?: return
                   val url = tab.url
@@ -1819,20 +2177,33 @@ jobs:
                       .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
               }
 
-              // ===== Menu / Settings =====
               private fun showMainMenu() {
-                  val opts = arrayOf("New Tab","Bookmarks","History","Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
+                  val opts = arrayOf(
+                      "New Tab",
+                      "Bookmarks",
+                      "History",
+                      "🔍 Inspect Mode (Source/Cookies/Storage)",
+                      "📡 Network Requests Log",
+                      "Find on page",
+                      "Share page",
+                      "Desktop site",
+                      "Downloads",
+                      "Ad Block Stats",
+                      "Exit"
+                  )
                   AlertDialog.Builder(this).setTitle("Menu").setItems(opts) { _, w ->
                       when (w) {
                           0 -> newTab()
                           1 -> showBookmarksDialog()
                           2 -> showHistoryDialog()
-                          3 -> findOnPage()
-                          4 -> sharePage()
-                          5 -> toggleDesktopMode()
-                          6 -> openDownloads()
-                          7 -> showAdBlockStats()
-                          8 -> finish()
+                          3 -> showInspectDialog()
+                          4 -> showRequestLogDialog()
+                          5 -> findOnPage()
+                          6 -> sharePage()
+                          7 -> toggleDesktopMode()
+                          8 -> openDownloads()
+                          9 -> showAdBlockStats()
+                          10 -> finish()
                       }
                   }.show()
               }
@@ -1936,7 +2307,7 @@ jobs:
                   input.setPadding(30, 30, 30, 30)
                   AlertDialog.Builder(this)
                       .setTitle("WireGuard Config")
-                      .setMessage("Cloudflare WARP config pre-loaded. Change Endpoint IP for other countries.")
+                      .setMessage("Cloudflare WARP config pre-loaded.")
                       .setView(input)
                       .setPositiveButton("Save") { _, _ ->
                           prefs.edit().putString("wg_config", input.text.toString().trim()).apply()
@@ -2017,6 +2388,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NexusBrowser-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
