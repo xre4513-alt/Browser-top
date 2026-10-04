@@ -100,8 +100,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 2
-                  versionName "2.0.0"
+                  versionCode 3
+                  versionName "2.1.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -193,7 +193,7 @@ jobs:
                       android:exported="true"
                       android:launchMode="singleTop"
                       android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
-                      android:windowSoftInputMode="adjustResize">
+                      android:windowSoftInputMode="adjustNothing">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -206,7 +206,6 @@ jobs:
                           <data android:scheme="https" />
                           <data android:scheme="ftp" />
                       </intent-filter>
-                      <!-- HTML / text file support -->
                       <intent-filter>
                           <action android:name="android.intent.action.VIEW" />
                           <category android:name="android.intent.category.DEFAULT" />
@@ -217,7 +216,6 @@ jobs:
                           <data android:mimeType="text/plain" />
                           <data android:mimeType="application/xhtml+xml" />
                       </intent-filter>
-                      <!-- Open local HTML files -->
                       <intent-filter>
                           <action android:name="android.intent.action.VIEW" />
                           <category android:name="android.intent.category.DEFAULT" />
@@ -451,50 +449,63 @@ jobs:
               <FrameLayout android:id="@+id/contentContainer"
                   android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
 
-                  <LinearLayout android:id="@+id/homeOverlay"
+                  <!-- Home overlay in ScrollView to prevent shake on keyboard open/close -->
+                  <ScrollView android:id="@+id/homeOverlay"
                       android:layout_width="match_parent" android:layout_height="match_parent"
-                      android:orientation="vertical" android:gravity="center"
-                      android:background="@color/home_bg_light" android:visibility="gone">
+                      android:background="@color/home_bg_light" android:visibility="gone"
+                      android:fillViewport="true"
+                      android:focusableInTouchMode="true"
+                      android:scrollbars="none">
 
-                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:text="Nexus" android:textColor="@color/primary" android:textSize="42sp"
-                          android:textStyle="bold" android:layout_marginBottom="8dp" />
-                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
-                          android:textSize="13sp" android:layout_marginBottom="32dp" />
+                      <LinearLayout
+                          android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="vertical" android:gravity="center_horizontal"
+                          android:layout_gravity="center_vertical"
+                          android:paddingStart="8dp" android:paddingEnd="8dp"
+                          android:paddingTop="100dp" android:paddingBottom="60dp">
 
-                      <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="52dp"
-                          android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
-                          android:background="@drawable/home_search_bg" android:hint="@string/home_search_hint"
-                          android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
-                          android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
-                          android:inputType="textUri" android:maxLines="1" android:textSize="15sp" android:elevation="4dp" />
+                          <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                              android:text="Nexus" android:textColor="@color/primary" android:textSize="42sp"
+                              android:textStyle="bold" android:layout_marginBottom="8dp" />
+                          <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                              android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
+                              android:textSize="13sp" android:layout_marginBottom="32dp" />
 
-                      <LinearLayout android:id="@+id/vpnButton"
-                          android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="32dp"
-                          android:orientation="horizontal" android:gravity="center_vertical"
-                          android:paddingStart="20dp" android:paddingEnd="20dp"
-                          android:paddingTop="12dp" android:paddingBottom="12dp"
-                          android:background="@drawable/vpn_button_bg"
-                          android:clickable="true" android:focusable="true" android:elevation="4dp">
+                          <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="52dp"
+                              android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
+                              android:background="@drawable/home_search_bg" android:hint="@string/home_search_hint"
+                              android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
+                              android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
+                              android:inputType="textUri" android:maxLines="1" android:textSize="15sp"
+                              android:elevation="4dp"
+                              android:importantForAutofill="no" />
 
-                          <TextView android:id="@+id/vpnShield"
+                          <LinearLayout android:id="@+id/vpnButton"
                               android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="🛡" android:textSize="20sp" android:layout_marginEnd="10dp" />
+                              android:layout_marginTop="32dp"
+                              android:orientation="horizontal" android:gravity="center_vertical"
+                              android:paddingStart="20dp" android:paddingEnd="20dp"
+                              android:paddingTop="12dp" android:paddingBottom="12dp"
+                              android:background="@drawable/vpn_button_bg"
+                              android:clickable="true" android:focusable="true" android:elevation="4dp">
 
-                          <TextView android:id="@+id/vpnStatusText"
+                              <TextView android:id="@+id/vpnShield"
+                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="🛡" android:textSize="20sp" android:layout_marginEnd="10dp" />
+
+                              <TextView android:id="@+id/vpnStatusText"
+                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="TAP TO CONNECT VPN"
+                                  android:textColor="@color/white" android:textSize="13sp" android:textStyle="bold" />
+                          </LinearLayout>
+
+                          <TextView android:id="@+id/vpnInfoText"
                               android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="TAP TO CONNECT VPN"
-                              android:textColor="@color/white" android:textSize="13sp" android:textStyle="bold" />
+                              android:layout_marginTop="8dp"
+                              android:text="Cloudflare WARP • Free • Built-in"
+                              android:textColor="@color/text_secondary" android:textSize="11sp" />
                       </LinearLayout>
-
-                      <TextView android:id="@+id/vpnInfoText"
-                          android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="8dp"
-                          android:text="Cloudflare WARP • Free • Built-in"
-                          android:textColor="@color/text_secondary" android:textSize="11sp" />
-                  </LinearLayout>
+                  </ScrollView>
 
                   <TextView android:id="@+id/incognitoBadge"
                       android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -540,7 +551,6 @@ jobs:
           import android.content.SharedPreferences
           import android.graphics.Bitmap
           import android.graphics.Color
-          import android.graphics.Typeface
           import android.net.Uri
           import android.net.VpnService
           import android.os.Bundle
@@ -552,6 +562,7 @@ jobs:
           import android.view.KeyEvent
           import android.view.View
           import android.view.ViewGroup
+          import android.view.WindowManager
           import android.view.inputmethod.EditorInfo
           import android.webkit.CookieManager
           import android.webkit.DownloadListener
@@ -603,7 +614,6 @@ jobs:
               private var wgTunnel: NexusTunnel? = null
               private val handler = Handler(Looper.getMainLooper())
 
-              // ============ TABS ============
               data class BrowserTab(
                   val id: String = UUID.randomUUID().toString(),
                   var title: String = "New Tab",
@@ -680,6 +690,10 @@ jobs:
                       else AppCompatDelegate.MODE_NIGHT_NO
                   )
 
+                  // Prevent keyboard from pushing layout
+                  window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or
+                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+
                   setContentView(R.layout.activity_main)
 
                   addressBar = findViewById(R.id.addressBar)
@@ -702,14 +716,16 @@ jobs:
                   setupInputs()
                   setupButtons()
 
-                  // Handle incoming intent (file/URL)
                   val incoming = intent?.data
                   newTab(if (incoming != null) "" else "about:blank", initialUri = incoming)
 
                   vpnButton.setOnClickListener { toggleVpn() }
+
+                  // Clear focus to prevent auto-keyboard
+                  homeSearchBar.clearFocus()
+                  addressBar.clearFocus()
               }
 
-              // ===== Tab management =====
               private fun newTab(url: String = "about:blank", initialUri: Uri? = null) {
                   val tab = BrowserTab(isIncognito = false)
                   val wv = WebView(this)
@@ -760,7 +776,7 @@ jobs:
                   if (tab.isHome) {
                       homeOverlay.visibility = View.VISIBLE
                       addressBar.setText("")
-                      if (tab.isIncognito) incognitoBadge.visibility = View.VISIBLE else incognitoBadge.visibility = View.GONE
+                      incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
                       isHomeVisible = true
                   } else {
                       homeOverlay.visibility = View.GONE
@@ -796,15 +812,12 @@ jobs:
                               tab.webView?.loadUrl(uri.toString())
                           }
                           scheme == "file" || scheme == "content" -> {
-                              // Read HTML/text content and load as data
                               val inputStream = contentResolver.openInputStream(uri)
                               val content = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
                               tab.isHome = false
                               tab.title = uri.lastPathSegment ?: "Local file"
                               tab.url = uri.toString()
-                              tab.webView?.loadDataWithBaseURL(
-                                  null, content, "text/html", "UTF-8", null
-                              )
+                              tab.webView?.loadDataWithBaseURL(null, content, "text/html", "UTF-8", null)
                           }
                           else -> {
                               tab.isHome = false
@@ -817,7 +830,6 @@ jobs:
                   }
               }
 
-              // ===== Tab strip UI =====
               private fun renderTabStrip() {
                   tabStrip.removeAllViews()
                   tabs.forEachIndexed { i, tab ->
@@ -855,7 +867,6 @@ jobs:
                       chip.setOnClickListener { switchToTab(i) }
                       tabStrip.addView(chip)
                   }
-                  // + button
                   val add = TextView(this).apply {
                       text = "+"
                       setTextColor(Color.WHITE)
@@ -866,16 +877,17 @@ jobs:
                       setOnClickListener { newTab() }
                   }
                   tabStrip.addView(add)
-                  // Scroll to active
-                  tabScroll.post {
-                      val active = tabStrip.getChildAt(currentTabIndex) ?: return@post
-                      tabScroll.smoothScrollTo(active.left - dp(20), 0)
+                  // No smooth scroll — prevents jitter
+                  if (currentTabIndex >= 0 && tabStrip.childCount > 3) {
+                      tabScroll.post {
+                          val active = tabStrip.getChildAt(currentTabIndex) ?: return@post
+                          tabScroll.scrollTo(active.left - dp(20), 0)
+                      }
                   }
               }
 
               private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-              // ===== WebView configuration =====
               @SuppressLint("SetJavaScriptEnabled")
               private fun configureWebView(wv: WebView, tab: BrowserTab) {
                   val s = wv.settings
@@ -892,7 +904,7 @@ jobs:
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
                   s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/2.0"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/2.1"
                   s.setSupportMultipleWindows(true)
 
                   wv.webViewClient = object : WebViewClient() {
@@ -942,10 +954,7 @@ jobs:
                               renderTabStrip()
                           }
                           if (url == null || url == "about:blank") {
-                              // Back to home blank page -> show home overlay
-                              if (tab === currentTab) {
-                                  showHome()
-                              }
+                              if (tab === currentTab) showHome()
                               return
                           }
                           if (prefs.getBoolean("adblock", true)) {
@@ -988,14 +997,17 @@ jobs:
               private fun setupInputs() {
                   addressBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                          navigate(addressBar.text.toString()); true
+                          navigate(addressBar.text.toString())
+                          addressBar.clearFocus()
+                          true
                       } else false
                   }
                   homeSearchBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           val q = homeSearchBar.text.toString()
                           if (q.isNotEmpty()) {
-                              navigate(q); homeSearchBar.clearFocus()
+                              navigate(q)
+                              homeSearchBar.clearFocus()
                           }
                           true
                       } else false
@@ -1052,15 +1064,12 @@ jobs:
                   builder.setTitle("Tabs (${tabs.size})")
                   builder.setItems(items) { _, which -> switchToTab(which) }
                   builder.setPositiveButton("New Tab") { _, _ -> newTab() }
-                  builder.setNeutralButton("Close Tab") { _, _ ->
-                      closeTab(currentTabIndex)
-                  }
+                  builder.setNeutralButton("Close Tab") { _, _ -> closeTab(currentTabIndex) }
                   builder.setNegativeButton("Cancel", null)
                   builder.show()
               }
 
               private fun toggleIncognitoForTab() {
-                  // Close current tab, open new incognito tab
                   val tab = BrowserTab(isIncognito = true, title = "Incognito", isHome = true)
                   val wv = WebView(this)
                   configureWebView(wv, tab)
@@ -1485,9 +1494,7 @@ jobs:
                   intent.data?.let { uri ->
                       val tab = currentTab
                       if (tab != null && tab.isHome) loadIncoming(tab, uri)
-                      else {
-                          newTab(initialUri = uri)
-                      }
+                      else newTab(initialUri = uri)
                   }
               }
 
@@ -1498,7 +1505,6 @@ jobs:
                       wv.goBack()
                       return
                   }
-                  // If back would land on about:blank or go home
                   if (tab != null && !tab.isHome) {
                       showHome()
                       return
