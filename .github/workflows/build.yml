@@ -100,8 +100,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 4
-                  versionName "2.2.0"
+                  versionCode 5
+                  versionName "3.0.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -314,6 +314,16 @@ jobs:
               <color name="tab_active">#FFFFFF</color>
               <color name="tab_inactive">#0D47A1</color>
               <color name="tab_strip_bg">#0D47A1</color>
+              <color name="home_gradient_start">#0D47A1</color>
+              <color name="home_gradient_end">#1565C0</color>
+              <color name="search_bar_bg">#FFFFFF</color>
+              <color name="search_bar_shadow">#1A000000</color>
+              <color name="tile_bg">#FFFFFF</color>
+              <color name="tile_icon_bg">#E3F2FD</color>
+              <color name="tile_text">#1565C0</color>
+              <color name="bottom_bar">#FFFFFF</color>
+              <color name="bottom_icon">#5F6368</color>
+              <color name="bottom_icon_active">#1565C0</color>
           </resources>
           EOF
 
@@ -332,6 +342,9 @@ jobs:
           </resources>
           EOF
 
+      # ============================================================
+      # PROFESSIONAL VECTOR ICONS
+      # ============================================================
       - name: Write ic_launcher.xml
         run: |
           cat > app/src/main/res/drawable/ic_launcher.xml << 'EOF'
@@ -345,12 +358,177 @@ jobs:
           </vector>
           EOF
 
+      - name: Write ic_back.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_back.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24"
+              android:tint="#FFFFFF">
+              <path android:fillColor="@android:color/white"
+                  android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_forward.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_forward.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24"
+              android:tint="#FFFFFF">
+              <path android:fillColor="@android:color/white"
+                  android:pathData="M12,4l-1.41,1.41L16.17,11H4v2h12.17l-5.58,5.59L12,20l8,-8z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_refresh.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_refresh.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24"
+              android:tint="#FFFFFF">
+              <path android:fillColor="@android:color/white"
+                  android:pathData="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_menu.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_menu.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24"
+              android:tint="#FFFFFF">
+              <path android:fillColor="@android:color/white"
+                  android:pathData="M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2zM12,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_home.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_home.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368"
+                  android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_star_outline.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_star_outline.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368"
+                  android:pathData="M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24zM12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_star_filled.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_star_filled.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#1565C0"
+                  android:pathData="M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_tabs.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_tabs.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368"
+                  android:pathData="M2,4h10v2H2zM2,8h10v2H2zM2,12h10v2H2zM14,4h8v2h-8zM14,8h8v2h-8zM14,12h8v2h-8zM2,16h20v2H2zM2,20h20v2H2z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_incognito.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_incognito.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368"
+                  android:pathData="M17.06,10L19,6h1V4H4v2h1l1.94,4H2v2h2.13c0.08,0.7 0.27,1.35 0.57,1.93C5.4,15.16 6.64,16 8.5,16c1.86,0 3.1,-0.84 3.8,-2.07C12.6,14.16 13.84,15 15.7,15c1.86,0 3.1,-0.84 3.8,-2.07 0.3,-0.58 0.49,-1.23 0.57,-1.93H22v-2zM8.5,14c-1.1,0 -1.99,-0.5 -2.4,-1.3C5.94,12.4 5.8,12 5.7,11.6L5.1,10h6.8l-0.6,1.6c-0.1,0.4 -0.24,0.8 -0.4,1.1C10.49,13.5 9.6,14 8.5,14zM15.7,13.7C15.5,14 15.34,14 15.24,14c-0.1,0 -0.26,0 -0.4,-0.3c-0.16,-0.3 -0.3,-0.7 -0.4,-1.1L13.84,11h6.8l-0.6,1.6c-0.1,0.4 -0.24,0.8 -0.4,1.1C19.24,14.5 18.35,15 17.25,15c-1.1,0 -1.99,-0.5 -2.4,-1.3z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_settings.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_settings.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368"
+                  android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_search.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_search.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#757575"
+                  android:pathData="M15.5,14h-0.79l-0.28,-0.27C15.41,12.59 16,11.11 16,9.5 16,5.91 13.09,3 9.5,3S3,5.91 3,9.5 5.91,16 9.5,16c1.61,0 3.09,-0.59 4.23,-1.57l0.27,0.28v0.79l5,4.99L20.49,19l-4.99,-5zM9.5,14C7.01,14 5,11.99 5,9.5S7.01,5 9.5,5 14,7.01 14,9.5 11.99,14 9.5,14z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_close.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_close.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="16dp" android:height="16dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#1565C0"
+                  android:pathData="M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_plus.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_plus.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="20dp" android:height="20dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF"
+                  android:pathData="M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </vector>
+          EOF
+
+      - name: Write ic_nexus_logo.xml
+        run: |
+          cat > app/src/main/res/drawable/ic_nexus_logo.xml << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="72dp" android:height="72dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#FFFFFF"
+                  android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
+              <path android:fillColor="#00BFA5"
+                  android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
+              <path android:fillColor="#FFFFFF"
+                  android:pathData="M50,44 L50,64 L66,54 Z"/>
+          </vector>
+          EOF
+
+      # ============================================================
+      # SHAPES / BACKGROUNDS
+      # ============================================================
       - name: Write tab_chip_bg.xml
         run: |
           cat > app/src/main/res/drawable/tab_chip_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FFFFFF" />
-              <corners android:radius="16dp" />
+              <corners android:radius="18dp" />
           </shape>
           EOF
 
@@ -358,39 +536,98 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/tab_chip_inactive_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#1AFFFFFF" />
+              <solid android:color="#22FFFFFF" />
+              <corners android:radius="18dp" />
+          </shape>
+          EOF
+
+      - name: Write search_bar_modern_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/search_bar_modern_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="24dp" />
+          </shape>
+          EOF
+
+      - name: Write home_search_modern_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/home_search_modern_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="28dp" />
+              <stroke android:width="0dp" android:color="#00000000" />
+          </shape>
+          EOF
+
+      - name: Write home_gradient_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/home_gradient_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <gradient
+                  android:angle="270"
+                  android:startColor="#0D47A1"
+                  android:centerColor="#1565C0"
+                  android:endColor="#1E88E5"
+                  android:type="linear" />
+          </shape>
+          EOF
+
+      - name: Write tile_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/tile_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
               <corners android:radius="16dp" />
           </shape>
           EOF
 
-      - name: Write address_bar_bg.xml
+      - name: Write tile_circle_bg.xml
         run: |
-          cat > app/src/main/res/drawable/address_bar_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/tile_circle_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+              <solid android:color="#E3F2FD" />
+          </shape>
+          EOF
+
+      - name: Write vpn_pill_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/vpn_pill_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
+              <solid android:color="#00C853" />
               <corners android:radius="20dp" />
           </shape>
           EOF
 
-      - name: Write home_search_bg.xml
+      - name: Write vpn_pill_off_bg.xml
         run: |
-          cat > app/src/main/res/drawable/home_search_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/vpn_pill_off_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#F44336" />
+              <corners android:radius="20dp" />
+          </shape>
+          EOF
+
+      - name: Write bottom_bar_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/bottom_bar_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FFFFFF" />
-              <corners android:radius="26dp" />
-              <stroke android:width="1dp" android:color="#E0E0E0" />
           </shape>
           EOF
 
-      - name: Write vpn_button_bg.xml
+      - name: Write pill_edit_text_bg.xml
         run: |
-          cat > app/src/main/res/drawable/vpn_button_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/pill_edit_text_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#1565C0" />
-              <corners android:radius="26dp" />
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="24dp" />
           </shape>
           EOF
 
+      # ============================================================
+      # ACTIVITY MAIN LAYOUT - PROFESSIONAL UI
+      # ============================================================
       - name: Write activity_main.xml
         run: |
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
@@ -401,42 +638,65 @@ jobs:
               android:background="?android:attr/colorBackground"
               android:animateLayoutChanges="false">
 
-              <!-- Nav bar -->
+              <!-- TOP BAR (nav buttons + modern search) -->
               <LinearLayout android:id="@+id/navBar"
-                  android:layout_width="match_parent" android:layout_height="44dp"
+                  android:layout_width="match_parent" android:layout_height="56dp"
                   android:orientation="horizontal" android:background="@color/primary"
-                  android:gravity="center_vertical" android:paddingStart="4dp" android:paddingEnd="4dp"
-                  android:animateLayoutChanges="false">
+                  android:gravity="center_vertical"
+                  android:elevation="4dp"
+                  android:paddingStart="4dp" android:paddingEnd="4dp">
 
-                  <ImageButton android:id="@+id/btnBack" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_previous"
-                      android:contentDescription="@string/back" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnForward" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_media_next"
-                      android:contentDescription="@string/forward" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_rotate"
-                      android:contentDescription="@string/refresh" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnMenu" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_more"
-                      android:contentDescription="@string/menu" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnBack" android:layout_width="44dp" android:layout_height="44dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_back"
+                      android:contentDescription="@string/back" android:scaleType="centerInside"
+                      android:padding="10dp" />
+
+                  <ImageButton android:id="@+id/btnForward" android:layout_width="44dp" android:layout_height="44dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_forward"
+                      android:contentDescription="@string/forward" android:scaleType="centerInside"
+                      android:padding="10dp" />
+
+                  <LinearLayout
+                      android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1"
+                      android:orientation="horizontal" android:gravity="center_vertical"
+                      android:background="@drawable/search_bar_modern_bg"
+                      android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
+                      android:elevation="2dp">
+
+                      <ImageView
+                          android:layout_width="20dp" android:layout_height="20dp"
+                          android:src="@drawable/ic_search"
+                          android:layout_marginStart="14dp"
+                          android:layout_marginEnd="6dp" />
+
+                      <EditText android:id="@+id/addressBar"
+                          android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                          android:background="@android:color/transparent"
+                          android:hint="@string/search_hint"
+                          android:textColorHint="#9E9E9E"
+                          android:textColor="@color/text_primary"
+                          android:paddingStart="0dp" android:paddingEnd="12dp"
+                          android:imeOptions="actionGo"
+                          android:inputType="textUri"
+                          android:maxLines="1"
+                          android:textSize="14sp"
+                          android:importantForAutofill="no" />
+                  </LinearLayout>
+
+                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="44dp" android:layout_height="44dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_refresh"
+                      android:contentDescription="@string/refresh" android:scaleType="centerInside"
+                      android:padding="10dp" />
+
+                  <ImageButton android:id="@+id/btnMenu" android:layout_width="44dp" android:layout_height="44dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_menu"
+                      android:contentDescription="@string/menu" android:scaleType="centerInside"
+                      android:padding="10dp" />
               </LinearLayout>
 
-              <!-- URL bar -->
-              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                  android:orientation="horizontal" android:background="@color/primary"
-                  android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp" android:gravity="center"
-                  android:animateLayoutChanges="false">
-                  <EditText android:id="@+id/addressBar" android:layout_width="match_parent" android:layout_height="40dp"
-                      android:background="@drawable/address_bar_bg" android:hint="@string/search_hint"
-                      android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
-                      android:paddingStart="16dp" android:paddingEnd="16dp" android:imeOptions="actionGo"
-                      android:inputType="textUri" android:maxLines="1" android:textSize="14sp" />
-              </LinearLayout>
-
-              <!-- Tab strip -->
+              <!-- TAB STRIP -->
               <HorizontalScrollView android:id="@+id/tabScroll"
-                  android:layout_width="match_parent" android:layout_height="38dp"
+                  android:layout_width="match_parent" android:layout_height="40dp"
                   android:background="@color/tab_strip_bg"
                   android:scrollbars="none"
                   android:fillViewport="false">
@@ -455,59 +715,162 @@ jobs:
                   android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
                   android:animateLayoutChanges="false">
 
-                  <!-- Home overlay - plain LinearLayout, no ScrollView, fixed top padding -->
+                  <!-- HOME OVERLAY -->
                   <LinearLayout android:id="@+id/homeOverlay"
                       android:layout_width="match_parent" android:layout_height="match_parent"
                       android:orientation="vertical"
                       android:gravity="top|center_horizontal"
-                      android:background="@color/home_bg_light"
+                      android:background="@drawable/home_gradient_bg"
                       android:visibility="visible"
-                      android:paddingTop="120dp"
-                      android:paddingStart="8dp"
-                      android:paddingEnd="8dp"
                       android:animateLayoutChanges="false"
-                      android:focusableInTouchMode="true">
+                      android:focusableInTouchMode="true"
+                      android:paddingStart="20dp"
+                      android:paddingEnd="20dp">
 
-                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:text="Nexus" android:textColor="@color/primary" android:textSize="42sp"
-                          android:textStyle="bold" android:layout_marginBottom="8dp" />
-                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:text="Private • Fast • Secure" android:textColor="@color/text_secondary"
-                          android:textSize="13sp" android:layout_marginBottom="32dp" />
-
-                      <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="52dp"
-                          android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
-                          android:background="@drawable/home_search_bg" android:hint="@string/home_search_hint"
-                          android:textColorHint="@color/text_secondary" android:textColor="@color/text_primary"
-                          android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
-                          android:inputType="textUri" android:maxLines="1" android:textSize="15sp"
-                          android:elevation="4dp"
-                          android:importantForAutofill="no" />
-
-                      <LinearLayout android:id="@+id/vpnButton"
-                          android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="32dp"
+                      <!-- Brand row -->
+                      <LinearLayout
+                          android:layout_width="match_parent" android:layout_height="wrap_content"
                           android:orientation="horizontal" android:gravity="center_vertical"
-                          android:paddingStart="20dp" android:paddingEnd="20dp"
-                          android:paddingTop="12dp" android:paddingBottom="12dp"
-                          android:background="@drawable/vpn_button_bg"
-                          android:clickable="true" android:focusable="true" android:elevation="4dp">
+                          android:paddingTop="60dp" android:paddingBottom="20dp">
 
-                          <TextView android:id="@+id/vpnShield"
-                              android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="🛡" android:textSize="20sp" android:layout_marginEnd="10dp" />
+                          <ImageView
+                              android:layout_width="56dp" android:layout_height="56dp"
+                              android:src="@drawable/ic_nexus_logo" />
 
-                          <TextView android:id="@+id/vpnStatusText"
-                              android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="TAP TO CONNECT VPN"
-                              android:textColor="@color/white" android:textSize="13sp" android:textStyle="bold" />
+                          <LinearLayout
+                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                              android:orientation="vertical" android:layout_marginStart="14dp">
+                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="Nexus"
+                                  android:textColor="#FFFFFF"
+                                  android:textSize="28sp"
+                                  android:textStyle="bold"
+                                  android:letterSpacing="-0.02" />
+                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="Private • Fast • Secure"
+                                  android:textColor="#B0C4DE"
+                                  android:textSize="11sp"
+                                  android:letterSpacing="0.05" />
+                          </LinearLayout>
+
+                          <LinearLayout android:id="@+id/vpnPill"
+                              android:layout_width="wrap_content" android:layout_height="32dp"
+                              android:orientation="horizontal" android:gravity="center_vertical"
+                              android:paddingStart="12dp" android:paddingEnd="12dp"
+                              android:background="@drawable/vpn_pill_off_bg"
+                              android:clickable="true" android:focusable="true">
+
+                              <TextView android:id="@+id/vpnShield"
+                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="🛡" android:textSize="12sp" android:layout_marginEnd="4dp" />
+
+                              <TextView android:id="@+id/vpnStatusText"
+                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="VPN OFF"
+                                  android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
+                          </LinearLayout>
+                      </LinearLayout>
+
+                      <!-- Search bar (floating pill) -->
+                      <LinearLayout
+                          android:layout_width="match_parent" android:layout_height="54dp"
+                          android:orientation="horizontal" android:gravity="center_vertical"
+                          android:background="@drawable/home_search_modern_bg"
+                          android:elevation="6dp">
+
+                          <ImageView
+                              android:layout_width="22dp" android:layout_height="22dp"
+                              android:src="@drawable/ic_search"
+                              android:layout_marginStart="18dp"
+                              android:layout_marginEnd="8dp" />
+
+                          <EditText android:id="@+id/homeSearchBar"
+                              android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                              android:background="@android:color/transparent"
+                              android:hint="@string/home_search_hint"
+                              android:textColorHint="#9E9E9E"
+                              android:textColor="@color/text_primary"
+                              android:paddingStart="0dp" android:paddingEnd="18dp"
+                              android:imeOptions="actionGo"
+                              android:inputType="textUri"
+                              android:maxLines="1"
+                              android:textSize="15sp"
+                              android:importantForAutofill="no" />
+                      </LinearLayout>
+
+                      <!-- Quick access tiles -->
+                      <LinearLayout
+                          android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="horizontal" android:gravity="center"
+                          android:layout_marginTop="28dp">
+
+                          <LinearLayout android:id="@+id/tileYoutube"
+                              android:layout_width="0dp" android:layout_height="wrap_content"
+                              android:layout_weight="1" android:orientation="vertical"
+                              android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg"
+                              android:layout_marginEnd="6dp"
+                              android:clickable="true" android:focusable="true">
+
+                              <View android:layout_width="44dp" android:layout_height="44dp"
+                                  android:background="@drawable/tile_circle_bg" />
+                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="YouTube" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:layout_marginTop="6dp" android:textStyle="bold" />
+                          </LinearLayout>
+
+                          <LinearLayout android:id="@+id/tileGoogle"
+                              android:layout_width="0dp" android:layout_height="wrap_content"
+                              android:layout_weight="1" android:orientation="vertical"
+                              android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg"
+                              android:layout_marginStart="3dp" android:layout_marginEnd="3dp"
+                              android:clickable="true" android:focusable="true">
+
+                              <View android:layout_width="44dp" android:layout_height="44dp"
+                                  android:background="@drawable/tile_circle_bg" />
+                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="Google" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:layout_marginTop="6dp" android:textStyle="bold" />
+                          </LinearLayout>
+
+                          <LinearLayout android:id="@+id/tileWikipedia"
+                              android:layout_width="0dp" android:layout_height="wrap_content"
+                              android:layout_weight="1" android:orientation="vertical"
+                              android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg"
+                              android:layout_marginEnd="3dp" android:layout_marginStart="3dp"
+                              android:clickable="true" android:focusable="true">
+
+                              <View android:layout_width="44dp" android:layout_height="44dp"
+                                  android:background="@drawable/tile_circle_bg" />
+                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="Wikipedia" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:layout_marginTop="6dp" android:textStyle="bold" />
+                          </LinearLayout>
+
+                          <LinearLayout android:id="@+id/tileGithub"
+                              android:layout_width="0dp" android:layout_height="wrap_content"
+                              android:layout_weight="1" android:orientation="vertical"
+                              android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg"
+                              android:layout_marginStart="6dp"
+                              android:clickable="true" android:focusable="true">
+
+                              <View android:layout_width="44dp" android:layout_height="44dp"
+                                  android:background="@drawable/tile_circle_bg" />
+                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="GitHub" android:textSize="12sp" android:textColor="@color/tile_text"
+                                  android:layout_marginTop="6dp" android:textStyle="bold" />
+                          </LinearLayout>
                       </LinearLayout>
 
                       <TextView android:id="@+id/vpnInfoText"
                           android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="8dp"
-                          android:text="Cloudflare WARP • Free • Built-in"
-                          android:textColor="@color/text_secondary" android:textSize="11sp" />
+                          android:layout_marginTop="20dp"
+                          android:text="Cloudflare WARP • Built-in"
+                          android:textColor="#80FFFFFF"
+                          android:textSize="11sp" />
                   </LinearLayout>
 
                   <TextView android:id="@+id/incognitoBadge"
@@ -518,26 +881,48 @@ jobs:
                       android:textStyle="bold" android:visibility="gone" />
               </FrameLayout>
 
+              <!-- BOTTOM BAR - white with elevation -->
               <LinearLayout android:id="@+id/bottomBar"
-                  android:layout_width="match_parent" android:layout_height="52dp"
-                  android:orientation="horizontal" android:background="@color/primary_dark" android:gravity="center_vertical"
+                  android:layout_width="match_parent" android:layout_height="56dp"
+                  android:orientation="horizontal" android:background="@color/bottom_bar"
+                  android:gravity="center_vertical"
+                  android:elevation="8dp"
                   android:animateLayoutChanges="false">
 
-                  <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_view"
-                      android:contentDescription="@string/home" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/btn_star_big_off"
-                      android:contentDescription="@string/bookmarks" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnTabs" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_agenda"
-                      android:contentDescription="@string/new_tab" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnIncognito" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_crop"
-                      android:contentDescription="@string/incognito" android:scaleType="centerInside" android:tint="@color/white" />
-                  <ImageButton android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_preferences"
-                      android:contentDescription="@string/settings" android:scaleType="centerInside" android:tint="@color/white" />
+                  <ImageButton android:id="@+id/btnHome"
+                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_home"
+                      android:contentDescription="@string/home"
+                      android:scaleType="centerInside" android:padding="14dp" />
+
+                  <ImageButton android:id="@+id/btnBookmark"
+                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_star_outline"
+                      android:contentDescription="@string/bookmarks"
+                      android:scaleType="centerInside" android:padding="14dp" />
+
+                  <ImageButton android:id="@+id/btnTabs"
+                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_tabs"
+                      android:contentDescription="@string/new_tab"
+                      android:scaleType="centerInside" android:padding="14dp" />
+
+                  <ImageButton android:id="@+id/btnIncognito"
+                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_incognito"
+                      android:contentDescription="@string/incognito"
+                      android:scaleType="centerInside" android:padding="14dp" />
+
+                  <ImageButton android:id="@+id/btnSettings"
+                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_settings"
+                      android:contentDescription="@string/settings"
+                      android:scaleType="centerInside" android:padding="14dp" />
               </LinearLayout>
           </LinearLayout>
           EOF
@@ -581,6 +966,7 @@ jobs:
           import android.widget.FrameLayout
           import android.widget.HorizontalScrollView
           import android.widget.ImageButton
+          import android.widget.ImageView
           import android.widget.LinearLayout
           import android.widget.ProgressBar
           import android.widget.TextView
@@ -604,7 +990,7 @@ jobs:
               private lateinit var homeOverlay: View
               private lateinit var vpnStatusText: TextView
               private lateinit var vpnShield: TextView
-              private lateinit var vpnButton: View
+              private lateinit var vpnPill: View
               private lateinit var vpnInfoText: TextView
               private lateinit var contentContainer: FrameLayout
               private lateinit var tabStrip: LinearLayout
@@ -708,7 +1094,7 @@ jobs:
                   homeOverlay = findViewById(R.id.homeOverlay)
                   vpnStatusText = findViewById(R.id.vpnStatusText)
                   vpnShield = findViewById(R.id.vpnShield)
-                  vpnButton = findViewById(R.id.vpnButton)
+                  vpnPill = findViewById(R.id.vpnPill)
                   vpnInfoText = findViewById(R.id.vpnInfoText)
                   contentContainer = findViewById(R.id.contentContainer)
                   tabStrip = findViewById(R.id.tabStrip)
@@ -721,45 +1107,38 @@ jobs:
                   setupInputs()
                   setupButtons()
 
-                  // FIX: homeOverlay is visible in XML already, so just set state directly
-                  // without triggering any navigation/re-layout loops.
-                  val incoming = intent?.data
-                  if (incoming != null) {
-                      // Has file/URL from external app -> create tab and load it
-                      createTabInternal(loadUri = incoming)
-                  } else {
-                      // Normal launch -> just create home tab without any navigation
-                      createHomeTabInternal()
-                  }
+                  // Quick tiles
+                  findViewById<View>(R.id.tileYoutube).setOnClickListener { navigate("https://www.youtube.com") }
+                  findViewById<View>(R.id.tileGoogle).setOnClickListener { navigate("https://www.google.com") }
+                  findViewById<View>(R.id.tileWikipedia).setOnClickListener { navigate("https://www.wikipedia.org") }
+                  findViewById<View>(R.id.tileGithub).setOnClickListener { navigate("https://github.com") }
 
-                  vpnButton.setOnClickListener { toggleVpn() }
+                  val incoming = intent?.data
+                  if (incoming != null) createTabInternal(loadUri = incoming)
+                  else createHomeTabInternal()
+
+                  vpnPill.setOnClickListener { toggleVpn() }
 
                   homeSearchBar.clearFocus()
                   addressBar.clearFocus()
               }
 
-              // ====== Internal tab creation without triggering layout loops ======
               private fun createHomeTabInternal() {
                   val tab = BrowserTab(isIncognito = false)
                   val wv = WebView(this)
                   configureWebView(wv, tab)
                   wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT,
-                      ViewGroup.LayoutParams.MATCH_PARENT
+                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
                   )
                   wv.visibility = View.GONE
                   contentContainer.addView(wv, 0)
                   tab.webView = wv
                   tabs.add(tab)
                   currentTabIndex = 0
-
-                  // Ensure home overlay is shown (already visible in XML, but explicit for state)
                   homeOverlay.visibility = View.VISIBLE
                   isHomeVisible = true
                   addressBar.setText("")
                   incognitoBadge.visibility = View.GONE
-
-                  // Render tab strip once (no navigation triggered)
                   renderTabStrip()
                   updateVpnUi()
               }
@@ -769,43 +1148,35 @@ jobs:
                   val wv = WebView(this)
                   configureWebView(wv, tab)
                   wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT,
-                      ViewGroup.LayoutParams.MATCH_PARENT
+                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
                   )
                   wv.visibility = View.VISIBLE
                   contentContainer.addView(wv, 0)
                   tab.webView = wv
                   tabs.add(tab)
                   currentTabIndex = 0
-
                   homeOverlay.visibility = View.GONE
                   isHomeVisible = false
-
                   loadIncoming(tab, loadUri)
                   renderTabStrip()
                   updateVpnUi()
               }
 
-              // ====== Public tab operations ======
               private fun newTab(url: String = "about:blank", initialUri: Uri? = null) {
                   val tab = BrowserTab(isIncognito = false)
                   val wv = WebView(this)
                   configureWebView(wv, tab)
                   wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT,
-                      ViewGroup.LayoutParams.MATCH_PARENT
+                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
                   )
                   wv.visibility = View.GONE
                   contentContainer.addView(wv, 0)
                   tab.webView = wv
                   tabs.add(tab)
-
-                  // Switch to new tab
                   currentTabIndex = tabs.size - 1
                   tabs.forEachIndexed { i, t ->
                       t.webView?.visibility = if (i == currentTabIndex) View.VISIBLE else View.GONE
                   }
-
                   if (initialUri != null) {
                       homeOverlay.visibility = View.GONE
                       isHomeVisible = false
@@ -820,7 +1191,6 @@ jobs:
                       isHomeVisible = true
                       addressBar.setText("")
                   }
-
                   renderTabStrip()
                   updateBookmarkIcon()
               }
@@ -830,10 +1200,7 @@ jobs:
                   val tab = tabs.removeAt(index)
                   contentContainer.removeView(tab.webView)
                   tab.webView?.destroy()
-                  if (tabs.isEmpty()) {
-                      createHomeTabInternal()
-                      return
-                  }
+                  if (tabs.isEmpty()) { createHomeTabInternal(); return }
                   val newIdx = when {
                       currentTabIndex > index -> currentTabIndex - 1
                       currentTabIndex == index -> index.coerceAtMost(tabs.size - 1)
@@ -865,7 +1232,6 @@ jobs:
 
               private fun showHome() {
                   val tab = currentTab ?: return
-                  // FIX: idempotent - if already home, do nothing to prevent re-layout
                   if (tab.isHome && isHomeVisible) return
                   tab.isHome = true
                   tab.url = "about:blank"
@@ -917,18 +1283,25 @@ jobs:
 
               private fun renderTabStrip() {
                   tabStrip.removeAllViews()
+                  if (tabs.size <= 1) {
+                      // Hide strip when only 1 tab
+                      tabScroll.visibility = View.GONE
+                      return
+                  }
+                  tabScroll.visibility = View.VISIBLE
                   tabs.forEachIndexed { i, tab ->
                       val isActive = i == currentTabIndex
                       val chip = LinearLayout(this).apply {
                           orientation = LinearLayout.HORIZONTAL
                           gravity = Gravity.CENTER_VERTICAL
-                          setPadding(dp(10), 0, dp(6), 0)
+                          setPadding(dp(12), 0, dp(6), 0)
                           background = getDrawable(
                               if (isActive) R.drawable.tab_chip_bg else R.drawable.tab_chip_inactive_bg
                           )
                           layoutParams = LinearLayout.LayoutParams(
-                              dp(140), dp(30)
+                              dp(150), dp(30)
                           ).apply { marginEnd = dp(4) }
+                          elevation = if (isActive) dp(2).toFloat() else 0f
                       }
                       val title = TextView(this).apply {
                           text = if (tab.isIncognito) "🕵 ${tab.title}" else tab.title
@@ -938,12 +1311,13 @@ jobs:
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                           layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                           gravity = Gravity.CENTER_VERTICAL
+                          setPadding(dp(2), 0, dp(2), 0)
                       }
                       val close = TextView(this).apply {
                           text = "✕"
                           setTextColor(if (isActive) Color.parseColor("#1565C0") else Color.WHITE)
-                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                          setPadding(dp(6), 0, dp(6), 0)
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                          setPadding(dp(6), 0, dp(4), 0)
                           gravity = Gravity.CENTER_VERTICAL
                           setOnClickListener { closeTab(i) }
                       }
@@ -955,7 +1329,7 @@ jobs:
                   val add = TextView(this).apply {
                       text = "+"
                       setTextColor(Color.WHITE)
-                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
                       gravity = Gravity.CENTER
                       setPadding(dp(12), 0, dp(12), 0)
                       layoutParams = LinearLayout.LayoutParams(dp(40), dp(30)).apply { marginEnd = dp(4) }
@@ -988,7 +1362,7 @@ jobs:
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
                   s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/2.2"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.0"
                   s.setSupportMultipleWindows(true)
 
                   wv.webViewClient = object : WebViewClient() {
@@ -1037,7 +1411,6 @@ jobs:
                               updateBookmarkIcon()
                               renderTabStrip()
                           }
-                          // FIX: only show home if tab is marked home and overlay is not already visible
                           if (url == null || url == "about:blank") {
                               if (tab === currentTab && tab.isHome && homeOverlay.visibility != View.VISIBLE) {
                                   homeOverlay.visibility = View.VISIBLE
@@ -1149,7 +1522,6 @@ jobs:
                       val incog = if (t.isIncognito) "🕵 " else ""
                       "$mark$incog${t.title}"
                   }.toTypedArray()
-
                   val builder = AlertDialog.Builder(this)
                   builder.setTitle("Tabs (${tabs.size})")
                   builder.setItems(items) { _, which -> switchToTab(which) }
@@ -1256,13 +1628,13 @@ jobs:
                   val up = isVpnUp()
                   if (up) {
                       vpnShield.text = "🛡"
-                      vpnStatusText.text = "VPN: PROTECTED"
-                      vpnButton.setBackgroundColor(getColor(R.color.vpn_on))
+                      vpnStatusText.text = "PROTECTED"
+                      vpnPill.setBackgroundResource(R.drawable.vpn_pill_bg)
                       vpnInfoText.text = "Cloudflare WARP active • Tap to disconnect"
                   } else {
                       vpnShield.text = "🛡"
-                      vpnStatusText.text = "TAP TO CONNECT VPN"
-                      vpnButton.setBackgroundColor(getColor(R.color.primary))
+                      vpnStatusText.text = "VPN OFF"
+                      vpnPill.setBackgroundResource(R.drawable.vpn_pill_off_bg)
                       vpnInfoText.text = "Cloudflare WARP • Built-in • Free"
                   }
               }
@@ -1414,7 +1786,7 @@ jobs:
                   val bm = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
                   val marked = bm.any { it.endsWith("|$url") }
                   findViewById<ImageButton>(R.id.btnBookmark).setImageResource(
-                      if (marked) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off)
+                      if (marked) R.drawable.ic_star_filled else R.drawable.ic_star_outline)
               }
 
               private fun saveHistory(url: String, title: String) {
@@ -1603,14 +1975,8 @@ jobs:
                       wv.goBack()
                       return
                   }
-                  if (tab != null && !tab.isHome) {
-                      showHome()
-                      return
-                  }
-                  if (tabs.size > 1) {
-                      closeTab(currentTabIndex)
-                      return
-                  }
+                  if (tab != null && !tab.isHome) { showHome(); return }
+                  if (tabs.size > 1) { closeTab(currentTabIndex); return }
                   super.onBackPressed()
               }
           }
@@ -1651,6 +2017,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NexusBrowser-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
