@@ -100,8 +100,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0.0"
+                  versionCode 2
+                  versionName "2.0.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -170,6 +170,13 @@ jobs:
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.VIEW" />
+                      <data android:scheme="https" />
+                  </intent>
+              </queries>
+
               <application
                   android:allowBackup="true"
                   android:icon="@drawable/ic_launcher"
@@ -197,6 +204,28 @@ jobs:
                           <category android:name="android.intent.category.BROWSABLE" />
                           <data android:scheme="http" />
                           <data android:scheme="https" />
+                          <data android:scheme="ftp" />
+                      </intent-filter>
+                      <!-- HTML / text file support -->
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="file" />
+                          <data android:scheme="content" />
+                          <data android:mimeType="text/html" />
+                          <data android:mimeType="text/plain" />
+                          <data android:mimeType="application/xhtml+xml" />
+                      </intent-filter>
+                      <!-- Open local HTML files -->
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <data android:scheme="file" />
+                          <data android:host="*" />
+                          <data android:pathPattern=".*\\.html" />
+                          <data android:pathPattern=".*\\.htm" />
+                          <data android:pathPattern=".*\\.mhtml" />
                       </intent-filter>
                   </activity>
 
@@ -284,6 +313,9 @@ jobs:
               <color name="home_bg_light">#F0F4F8</color>
               <color name="vpn_on">#00C853</color>
               <color name="vpn_off">#F44336</color>
+              <color name="tab_active">#FFFFFF</color>
+              <color name="tab_inactive">#0D47A1</color>
+              <color name="tab_strip_bg">#0D47A1</color>
           </resources>
           EOF
 
@@ -315,6 +347,52 @@ jobs:
           </vector>
           EOF
 
+      - name: Write tab_chip_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/tab_chip_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="16dp" />
+          </shape>
+          EOF
+
+      - name: Write tab_chip_inactive_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/tab_chip_inactive_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1AFFFFFF" />
+              <corners android:radius="16dp" />
+          </shape>
+          EOF
+
+      - name: Write address_bar_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/address_bar_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="20dp" />
+          </shape>
+          EOF
+
+      - name: Write home_search_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/home_search_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#FFFFFF" />
+              <corners android:radius="26dp" />
+              <stroke android:width="1dp" android:color="#E0E0E0" />
+          </shape>
+          EOF
+
+      - name: Write vpn_button_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/vpn_button_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#1565C0" />
+              <corners android:radius="26dp" />
+          </shape>
+          EOF
+
       - name: Write activity_main.xml
         run: |
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
@@ -323,6 +401,7 @@ jobs:
               android:layout_width="match_parent" android:layout_height="match_parent"
               android:orientation="vertical" android:background="?android:attr/colorBackground">
 
+              <!-- Nav bar -->
               <LinearLayout android:id="@+id/navBar"
                   android:layout_width="match_parent" android:layout_height="44dp"
                   android:orientation="horizontal" android:background="@color/primary"
@@ -342,6 +421,7 @@ jobs:
                       android:contentDescription="@string/menu" android:scaleType="centerInside" android:tint="@color/white" />
               </LinearLayout>
 
+              <!-- URL bar -->
               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                   android:orientation="horizontal" android:background="@color/primary"
                   android:paddingStart="48dp" android:paddingEnd="48dp" android:paddingBottom="6dp" android:gravity="center">
@@ -352,12 +432,24 @@ jobs:
                       android:inputType="textUri" android:maxLines="1" android:textSize="14sp" />
               </LinearLayout>
 
+              <!-- Tab strip -->
+              <HorizontalScrollView android:id="@+id/tabScroll"
+                  android:layout_width="match_parent" android:layout_height="38dp"
+                  android:background="@color/tab_strip_bg"
+                  android:scrollbars="none"
+                  android:fillViewport="false">
+                  <LinearLayout android:id="@+id/tabStrip"
+                      android:layout_width="wrap_content" android:layout_height="match_parent"
+                      android:orientation="horizontal" android:gravity="center_vertical"
+                      android:paddingStart="6dp" android:paddingEnd="6dp" />
+              </HorizontalScrollView>
+
               <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
                   android:layout_width="match_parent" android:layout_height="3dp" android:max="100"
                   android:progressTint="@color/accent" android:visibility="gone" />
 
-              <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-                  <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" />
+              <FrameLayout android:id="@+id/contentContainer"
+                  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
 
                   <LinearLayout android:id="@+id/homeOverlay"
                       android:layout_width="match_parent" android:layout_height="match_parent"
@@ -435,34 +527,6 @@ jobs:
           </LinearLayout>
           EOF
 
-      - name: Write address_bar_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/address_bar_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="20dp" />
-          </shape>
-          EOF
-
-      - name: Write home_search_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/home_search_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="26dp" />
-              <stroke android:width="1dp" android:color="#E0E0E0" />
-          </shape>
-          EOF
-
-      - name: Write vpn_button_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/vpn_button_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#1565C0" />
-              <corners android:radius="26dp" />
-          </shape>
-          EOF
-
       - name: Write MainActivity.kt
         run: |
           cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
@@ -475,14 +539,19 @@ jobs:
           import android.content.Intent
           import android.content.SharedPreferences
           import android.graphics.Bitmap
+          import android.graphics.Color
+          import android.graphics.Typeface
           import android.net.Uri
           import android.net.VpnService
           import android.os.Bundle
           import android.os.Environment
           import android.os.Handler
           import android.os.Looper
+          import android.util.TypedValue
+          import android.view.Gravity
           import android.view.KeyEvent
           import android.view.View
+          import android.view.ViewGroup
           import android.view.inputmethod.EditorInfo
           import android.webkit.CookieManager
           import android.webkit.DownloadListener
@@ -494,7 +563,10 @@ jobs:
           import android.webkit.WebView
           import android.webkit.WebViewClient
           import android.widget.EditText
+          import android.widget.FrameLayout
+          import android.widget.HorizontalScrollView
           import android.widget.ImageButton
+          import android.widget.LinearLayout
           import android.widget.ProgressBar
           import android.widget.TextView
           import android.widget.Toast
@@ -506,10 +578,10 @@ jobs:
           import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
           import java.net.URLEncoder
+          import java.util.UUID
 
           class MainActivity : AppCompatActivity() {
 
-              private lateinit var webView: WebView
               private lateinit var addressBar: EditText
               private lateinit var homeSearchBar: EditText
               private lateinit var progressBar: ProgressBar
@@ -519,15 +591,31 @@ jobs:
               private lateinit var vpnShield: TextView
               private lateinit var vpnButton: View
               private lateinit var vpnInfoText: TextView
+              private lateinit var contentContainer: FrameLayout
+              private lateinit var tabStrip: LinearLayout
+              private lateinit var tabScroll: HorizontalScrollView
               private lateinit var prefs: SharedPreferences
 
-              private var incognito = false
               private var desktopMode = false
               private var isHomeVisible = true
 
               private var wgBackend: Backend? = null
               private var wgTunnel: NexusTunnel? = null
               private val handler = Handler(Looper.getMainLooper())
+
+              // ============ TABS ============
+              data class BrowserTab(
+                  val id: String = UUID.randomUUID().toString(),
+                  var title: String = "New Tab",
+                  var url: String = "about:blank",
+                  var isHome: Boolean = true,
+                  var isIncognito: Boolean = false,
+                  var webView: WebView? = null
+              )
+
+              private val tabs = mutableListOf<BrowserTab>()
+              private var currentTabIndex = -1
+              private val currentTab: BrowserTab? get() = tabs.getOrNull(currentTabIndex)
 
               private val DEFAULT_WG_CONFIG = """
           [Interface]
@@ -594,7 +682,6 @@ jobs:
 
                   setContentView(R.layout.activity_main)
 
-                  webView = findViewById(R.id.webView)
                   addressBar = findViewById(R.id.addressBar)
                   homeSearchBar = findViewById(R.id.homeSearchBar)
                   progressBar = findViewById(R.id.progressBar)
@@ -604,145 +691,194 @@ jobs:
                   vpnShield = findViewById(R.id.vpnShield)
                   vpnButton = findViewById(R.id.vpnButton)
                   vpnInfoText = findViewById(R.id.vpnInfoText)
+                  contentContainer = findViewById(R.id.contentContainer)
+                  tabStrip = findViewById(R.id.tabStrip)
+                  tabScroll = findViewById(R.id.tabScroll)
 
                   try {
                       wgBackend = GoBackend(applicationContext)
-                  } catch (e: Throwable) {
-                      // Native lib load failed - VPN disabled
-                  }
+                  } catch (e: Throwable) {}
 
-                  setupWebView()
+                  setupInputs()
                   setupButtons()
-                  showHomePage()
+
+                  // Handle incoming intent (file/URL)
+                  val incoming = intent?.data
+                  newTab(if (incoming != null) "" else "about:blank", initialUri = incoming)
 
                   vpnButton.setOnClickListener { toggleVpn() }
               }
 
-              override fun onResume() {
-                  super.onResume()
-                  updateVpnUi()
+              // ===== Tab management =====
+              private fun newTab(url: String = "about:blank", initialUri: Uri? = null) {
+                  val tab = BrowserTab(isIncognito = false)
+                  val wv = WebView(this)
+                  configureWebView(wv, tab)
+                  wv.layoutParams = FrameLayout.LayoutParams(
+                      ViewGroup.LayoutParams.MATCH_PARENT,
+                      ViewGroup.LayoutParams.MATCH_PARENT
+                  )
+                  wv.visibility = View.GONE
+                  contentContainer.addView(wv, 0)
+                  tab.webView = wv
+                  tabs.add(tab)
+                  switchToTab(tabs.size - 1)
+                  if (initialUri != null) {
+                      loadIncoming(tab, initialUri)
+                  } else if (url != "about:blank") {
+                      tab.isHome = false
+                      wv.loadUrl(url)
+                  } else {
+                      showHome()
+                  }
               }
 
-              private fun showHomePage() {
-                  isHomeVisible = true
-                  homeOverlay.visibility = View.VISIBLE
-                  addressBar.setText("")
-                  webView.loadUrl("about:blank")
-                  updateVpnUi()
+              private fun closeTab(index: Int) {
+                  if (index < 0 || index >= tabs.size) return
+                  val tab = tabs.removeAt(index)
+                  contentContainer.removeView(tab.webView)
+                  tab.webView?.destroy()
+                  if (tabs.isEmpty()) {
+                      newTab()
+                      return
+                  }
+                  val newIdx = when {
+                      currentTabIndex > index -> currentTabIndex - 1
+                      currentTabIndex == index -> index.coerceAtMost(tabs.size - 1)
+                      else -> currentTabIndex
+                  }
+                  switchToTab(newIdx)
               }
 
-              private fun hideHomePage() {
+              private fun switchToTab(index: Int) {
+                  if (index < 0 || index >= tabs.size) return
+                  currentTabIndex = index
+                  tabs.forEachIndexed { i, tab ->
+                      tab.webView?.visibility = if (i == index) View.VISIBLE else View.GONE
+                  }
+                  val tab = tabs[index]
+                  if (tab.isHome) {
+                      homeOverlay.visibility = View.VISIBLE
+                      addressBar.setText("")
+                      if (tab.isIncognito) incognitoBadge.visibility = View.VISIBLE else incognitoBadge.visibility = View.GONE
+                      isHomeVisible = true
+                  } else {
+                      homeOverlay.visibility = View.GONE
+                      isHomeVisible = false
+                      addressBar.setText(tab.url)
+                      incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
+                  }
+                  updateBookmarkIcon()
+                  renderTabStrip()
+              }
+
+              private fun showHome() {
+                  val tab = currentTab ?: return
+                  tab.isHome = true
+                  tab.url = "about:blank"
+                  tab.title = "New Tab"
+                  tab.webView?.loadUrl("about:blank")
+                  switchToTab(currentTabIndex)
+              }
+
+              private fun hideHome() {
                   isHomeVisible = false
                   homeOverlay.visibility = View.GONE
               }
 
-              // ============ VPN ============
-              private fun toggleVpn() {
-                  if (isVpnUp()) stopVpn() else startVpn()
-              }
-
-              private fun isVpnUp(): Boolean {
-                  return try {
-                      val t = wgTunnel ?: return false
-                      val b = wgBackend ?: return false
-                      b.getState(t) == Tunnel.State.UP
-                  } catch (e: Throwable) { false }
-              }
-
-              private fun startVpn() {
-                  val configText = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
+              private fun loadIncoming(tab: BrowserTab, uri: Uri) {
                   try {
-                      val prepare = VpnService.prepare(this)
-                      if (prepare != null) {
-                          startActivityForResult(prepare, 1001)
-                      } else {
-                          connectVpn(configText)
+                      val scheme = uri.scheme?.lowercase() ?: ""
+                      when {
+                          scheme == "http" || scheme == "https" || scheme == "ftp" -> {
+                              tab.isHome = false
+                              tab.url = uri.toString()
+                              tab.webView?.loadUrl(uri.toString())
+                          }
+                          scheme == "file" || scheme == "content" -> {
+                              // Read HTML/text content and load as data
+                              val inputStream = contentResolver.openInputStream(uri)
+                              val content = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
+                              tab.isHome = false
+                              tab.title = uri.lastPathSegment ?: "Local file"
+                              tab.url = uri.toString()
+                              tab.webView?.loadDataWithBaseURL(
+                                  null, content, "text/html", "UTF-8", null
+                              )
+                          }
+                          else -> {
+                              tab.isHome = false
+                              tab.url = uri.toString()
+                              tab.webView?.loadUrl(uri.toString())
+                          }
                       }
-                  } catch (e: Throwable) {
-                      Toast.makeText(this, "VPN start error: ${e.message}", Toast.LENGTH_LONG).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Cannot open file: ${e.message}", Toast.LENGTH_LONG).show()
                   }
               }
 
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode == 1001) {
-                      if (resultCode == RESULT_OK) {
-                          val cfg = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
-                          connectVpn(cfg)
-                      } else {
-                          Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
-                      }
-                  }
-              }
-
-              private fun connectVpn(configText: String) {
-                  Thread {
-                      try {
-                          // FIX: Use ByteArrayInputStream instead of StringReader
-                          val config = Config.parse(
-                              ByteArrayInputStream(configText.toByteArray(Charsets.UTF_8))
+              // ===== Tab strip UI =====
+              private fun renderTabStrip() {
+                  tabStrip.removeAllViews()
+                  tabs.forEachIndexed { i, tab ->
+                      val isActive = i == currentTabIndex
+                      val chip = LinearLayout(this).apply {
+                          orientation = LinearLayout.HORIZONTAL
+                          gravity = Gravity.CENTER_VERTICAL
+                          setPadding(dp(10), 0, dp(6), 0)
+                          background = getDrawable(
+                              if (isActive) R.drawable.tab_chip_bg else R.drawable.tab_chip_inactive_bg
                           )
-                          val tunnel = NexusTunnel("nexus-warp")
-                          val backend = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
-                          val state = backend.setState(tunnel, Tunnel.State.UP, config)
-                          handler.post {
-                              if (state == Tunnel.State.UP) {
-                                  wgTunnel = tunnel
-                                  prefs.edit().putBoolean("vpn_enabled", true).apply()
-                                  updateVpnUi()
-                                  Toast.makeText(this, "🛡 VPN Connected!", Toast.LENGTH_SHORT).show()
-                              } else {
-                                  Toast.makeText(this, "VPN state: $state", Toast.LENGTH_LONG).show()
-                              }
-                          }
-                      } catch (e: Throwable) {
-                          handler.post {
-                              Toast.makeText(this, "VPN failed: ${e.message}", Toast.LENGTH_LONG).show()
-                          }
+                          layoutParams = LinearLayout.LayoutParams(
+                              dp(140), dp(30)
+                          ).apply { marginEnd = dp(4) }
                       }
-                  }.start()
-              }
-
-              private fun stopVpn() {
-                  Thread {
-                      try {
-                          val t = wgTunnel
-                          val b = wgBackend
-                          if (t != null && b != null) {
-                              b.setState(t, Tunnel.State.DOWN, null)
-                          }
-                          handler.post {
-                              wgTunnel = null
-                              prefs.edit().putBoolean("vpn_enabled", false).apply()
-                              updateVpnUi()
-                              Toast.makeText(this, "VPN Disconnected", Toast.LENGTH_SHORT).show()
-                          }
-                      } catch (e: Throwable) {
-                          handler.post {
-                              Toast.makeText(this, "VPN stop: ${e.message}", Toast.LENGTH_LONG).show()
-                          }
+                      val title = TextView(this).apply {
+                          text = if (tab.isIncognito) "🕵 ${tab.title}" else tab.title
+                          maxLines = 1
+                          ellipsize = android.text.TextUtils.TruncateAt.END
+                          setTextColor(if (isActive) Color.parseColor("#1565C0") else Color.WHITE)
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                          layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+                          gravity = Gravity.CENTER_VERTICAL
                       }
-                  }.start()
-              }
-
-              private fun updateVpnUi() {
-                  val up = isVpnUp()
-                  if (up) {
-                      vpnShield.text = "🛡"
-                      vpnStatusText.text = "VPN: PROTECTED"
-                      vpnButton.setBackgroundColor(getColor(R.color.vpn_on))
-                      vpnInfoText.text = "Cloudflare WARP active • Tap to disconnect"
-                  } else {
-                      vpnShield.text = "🛡"
-                      vpnStatusText.text = "TAP TO CONNECT VPN"
-                      vpnButton.setBackgroundColor(getColor(R.color.primary))
-                      vpnInfoText.text = "Cloudflare WARP • Built-in • Free"
+                      val close = TextView(this).apply {
+                          text = "✕"
+                          setTextColor(if (isActive) Color.parseColor("#1565C0") else Color.WHITE)
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                          setPadding(dp(6), 0, dp(6), 0)
+                          gravity = Gravity.CENTER_VERTICAL
+                          setOnClickListener { closeTab(i) }
+                      }
+                      chip.addView(title)
+                      chip.addView(close)
+                      chip.setOnClickListener { switchToTab(i) }
+                      tabStrip.addView(chip)
+                  }
+                  // + button
+                  val add = TextView(this).apply {
+                      text = "+"
+                      setTextColor(Color.WHITE)
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                      gravity = Gravity.CENTER
+                      setPadding(dp(12), 0, dp(12), 0)
+                      layoutParams = LinearLayout.LayoutParams(dp(40), dp(30)).apply { marginEnd = dp(4) }
+                      setOnClickListener { newTab() }
+                  }
+                  tabStrip.addView(add)
+                  // Scroll to active
+                  tabScroll.post {
+                      val active = tabStrip.getChildAt(currentTabIndex) ?: return@post
+                      tabScroll.smoothScrollTo(active.left - dp(20), 0)
                   }
               }
 
+              private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+              // ===== WebView configuration =====
               @SuppressLint("SetJavaScriptEnabled")
-              private fun setupWebView() {
-                  val s = webView.settings
+              private fun configureWebView(wv: WebView, tab: BrowserTab) {
+                  val s = wv.settings
                   s.javaScriptEnabled = prefs.getBoolean("javascript", true)
                   s.domStorageEnabled = true
                   s.databaseEnabled = true
@@ -755,13 +891,11 @@ jobs:
                   s.allowContentAccess = true
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
-                  s.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/1.0"
+                  s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+                  s.userAgentString = s.userAgentString + " NexusBrowser/2.0"
+                  s.setSupportMultipleWindows(true)
 
-                  CookieManager.getInstance().setAcceptCookie(!incognito)
-                  CookieManager.getInstance().setAcceptThirdPartyCookies(webView, !incognito)
-
-                  webView.webViewClient = object : WebViewClient() {
+                  wv.webViewClient = object : WebViewClient() {
                       override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                           val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
                           if (prefs.getBoolean("adblock", true)) {
@@ -788,33 +922,50 @@ jobs:
 
                       override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                           super.onPageStarted(view, url, favicon)
+                          tab.url = url ?: tab.url
                           if (url != null && url != "about:blank") {
-                              addressBar.setText(url)
-                              if (!incognito) saveHistory(url, view?.title ?: "")
+                              tab.isHome = false
+                              if (tab === currentTab) {
+                                  addressBar.setText(url)
+                                  homeOverlay.visibility = View.GONE
+                                  isHomeVisible = false
+                              }
                           }
                       }
 
                       override fun onPageFinished(view: WebView?, url: String?) {
                           super.onPageFinished(view, url)
-                          if (!incognito && url != null && url != "about:blank") saveHistory(url, view?.title ?: url)
-                          updateBookmarkIcon()
-                          if (url == null || url == "about:blank") return
-                          if (prefs.getBoolean("adblock", true)) {
-                              injectUniversalAdBlock()
-                              if (url.contains("youtube.com") || url.contains("youtu.be")) injectYouTubeAdBlock()
+                          tab.title = view?.title ?: (url ?: "Page")
+                          if (!tab.isIncognito && url != null && url != "about:blank") saveHistory(url, view?.title ?: url)
+                          if (tab === currentTab) {
+                              updateBookmarkIcon()
+                              renderTabStrip()
                           }
-                          if (prefs.getBoolean("hide_identity", false)) injectHideIdentity()
+                          if (url == null || url == "about:blank") {
+                              // Back to home blank page -> show home overlay
+                              if (tab === currentTab) {
+                                  showHome()
+                              }
+                              return
+                          }
+                          if (prefs.getBoolean("adblock", true)) {
+                              injectUniversalAdBlock(view)
+                              if (url.contains("youtube.com") || url.contains("youtu.be")) injectYouTubeAdBlock(view)
+                          }
+                          if (prefs.getBoolean("hide_identity", false)) injectHideIdentity(view)
                       }
                   }
 
-                  webView.webChromeClient = object : WebChromeClient() {
+                  wv.webChromeClient = object : WebChromeClient() {
                       override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                          progressBar.progress = newProgress
-                          progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+                          if (tab === currentTab) {
+                              progressBar.progress = newProgress
+                              progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+                          }
                       }
                   }
 
-                  webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                  wv.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
                       try {
                           val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
                           val request = DownloadManager.Request(Uri.parse(url))
@@ -832,22 +983,184 @@ jobs:
                           Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
                       }
                   })
+              }
 
+              private fun setupInputs() {
                   addressBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           navigate(addressBar.text.toString()); true
                       } else false
                   }
-
                   homeSearchBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           val q = homeSearchBar.text.toString()
-                          if (q.isNotEmpty()) { hideHomePage(); navigate(q); homeSearchBar.clearFocus() }
+                          if (q.isNotEmpty()) {
+                              navigate(q); homeSearchBar.clearFocus()
+                          }
                           true
                       } else false
                   }
               }
 
+              private fun navigate(input: String) {
+                  val text = input.trim()
+                  if (text.isEmpty()) return
+                  val url = when {
+                      text.startsWith("http://") || text.startsWith("https://") -> text
+                      text.contains(".") && !text.contains(" ") -> "https://$text"
+                      else -> {
+                          val engine = prefs.getString("search_engine", "google") ?: "google"
+                          val query = URLEncoder.encode(text, "UTF-8")
+                          when (engine) {
+                              "duckduckgo" -> "https://duckduckgo.com/?q=$query"
+                              "bing" -> "https://www.bing.com/search?q=$query"
+                              "brave" -> "https://search.brave.com/search?q=$query"
+                              else -> "https://www.google.com/search?q=$query"
+                          }
+                      }
+                  }
+                  val tab = currentTab ?: return
+                  tab.isHome = false
+                  hideHome()
+                  tab.webView?.loadUrl(url)
+                  renderTabStrip()
+              }
+
+              private fun setupButtons() {
+                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener { onBackPressed() }
+                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
+                      val wv = currentTab?.webView
+                      if (wv != null && wv.canGoForward()) wv.goForward()
+                  }
+                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener { currentTab?.webView?.reload() }
+                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHome() }
+                  findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBookmark() }
+                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { showTabsDialog() }
+                  findViewById<ImageButton>(R.id.btnIncognito).setOnClickListener { toggleIncognitoForTab() }
+                  findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettings() }
+                  findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
+              }
+
+              private fun showTabsDialog() {
+                  val items = tabs.mapIndexed { i, t ->
+                      val mark = if (i == currentTabIndex) "▶ " else "   "
+                      val incog = if (t.isIncognito) "🕵 " else ""
+                      "$mark$incog${t.title}"
+                  }.toTypedArray()
+
+                  val builder = AlertDialog.Builder(this)
+                  builder.setTitle("Tabs (${tabs.size})")
+                  builder.setItems(items) { _, which -> switchToTab(which) }
+                  builder.setPositiveButton("New Tab") { _, _ -> newTab() }
+                  builder.setNeutralButton("Close Tab") { _, _ ->
+                      closeTab(currentTabIndex)
+                  }
+                  builder.setNegativeButton("Cancel", null)
+                  builder.show()
+              }
+
+              private fun toggleIncognitoForTab() {
+                  // Close current tab, open new incognito tab
+                  val tab = BrowserTab(isIncognito = true, title = "Incognito", isHome = true)
+                  val wv = WebView(this)
+                  configureWebView(wv, tab)
+                  wv.layoutParams = FrameLayout.LayoutParams(
+                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+                  )
+                  wv.visibility = View.GONE
+                  contentContainer.addView(wv, 0)
+                  tab.webView = wv
+                  tabs.add(tab)
+                  switchToTab(tabs.size - 1)
+                  Toast.makeText(this, "🕵 Incognito Tab", Toast.LENGTH_SHORT).show()
+              }
+
+              // ===== VPN =====
+              private fun toggleVpn() { if (isVpnUp()) stopVpn() else startVpn() }
+
+              private fun isVpnUp(): Boolean {
+                  return try {
+                      val t = wgTunnel ?: return false
+                      val b = wgBackend ?: return false
+                      b.getState(t) == Tunnel.State.UP
+                  } catch (e: Throwable) { false }
+              }
+
+              private fun startVpn() {
+                  val configText = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
+                  try {
+                      val prepare = VpnService.prepare(this)
+                      if (prepare != null) startActivityForResult(prepare, 1001)
+                      else connectVpn(configText)
+                  } catch (e: Throwable) {
+                      Toast.makeText(this, "VPN start error: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
+              }
+
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (requestCode == 1001) {
+                      if (resultCode == RESULT_OK) {
+                          val cfg = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
+                          connectVpn(cfg)
+                      } else Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun connectVpn(configText: String) {
+                  Thread {
+                      try {
+                          val config = Config.parse(ByteArrayInputStream(configText.toByteArray(Charsets.UTF_8)))
+                          val tunnel = NexusTunnel("nexus-warp")
+                          val backend = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
+                          val state = backend.setState(tunnel, Tunnel.State.UP, config)
+                          handler.post {
+                              if (state == Tunnel.State.UP) {
+                                  wgTunnel = tunnel
+                                  prefs.edit().putBoolean("vpn_enabled", true).apply()
+                                  updateVpnUi()
+                                  Toast.makeText(this, "🛡 VPN Connected!", Toast.LENGTH_SHORT).show()
+                              } else Toast.makeText(this, "VPN state: $state", Toast.LENGTH_LONG).show()
+                          }
+                      } catch (e: Throwable) {
+                          handler.post { Toast.makeText(this, "VPN failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                      }
+                  }.start()
+              }
+
+              private fun stopVpn() {
+                  Thread {
+                      try {
+                          val t = wgTunnel; val b = wgBackend
+                          if (t != null && b != null) b.setState(t, Tunnel.State.DOWN, null)
+                          handler.post {
+                              wgTunnel = null
+                              prefs.edit().putBoolean("vpn_enabled", false).apply()
+                              updateVpnUi()
+                              Toast.makeText(this, "VPN Disconnected", Toast.LENGTH_SHORT).show()
+                          }
+                      } catch (e: Throwable) {
+                          handler.post { Toast.makeText(this, "VPN stop: ${e.message}", Toast.LENGTH_LONG).show() }
+                      }
+                  }.start()
+              }
+
+              private fun updateVpnUi() {
+                  val up = isVpnUp()
+                  if (up) {
+                      vpnShield.text = "🛡"
+                      vpnStatusText.text = "VPN: PROTECTED"
+                      vpnButton.setBackgroundColor(getColor(R.color.vpn_on))
+                      vpnInfoText.text = "Cloudflare WARP active • Tap to disconnect"
+                  } else {
+                      vpnShield.text = "🛡"
+                      vpnStatusText.text = "TAP TO CONNECT VPN"
+                      vpnButton.setBackgroundColor(getColor(R.color.primary))
+                      vpnInfoText.text = "Cloudflare WARP • Built-in • Free"
+                  }
+              }
+
+              // ===== Ad block / identity =====
               private fun isAdUrl(url: String): Boolean {
                   val lowerUrl = url.lowercase()
                   val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
@@ -862,7 +1175,8 @@ jobs:
                   return false
               }
 
-              private fun injectHideIdentity() {
+              private fun injectHideIdentity(wv: WebView?) {
+                  wv ?: return
                   val js = """
                       (function() {
                           if (window.__nexusHideIdLoaded) return;
@@ -913,10 +1227,11 @@ jobs:
                           } catch(e){}
                       })();
                   """.trimIndent()
-                  webView.evaluateJavascript(js, null)
+                  wv.evaluateJavascript(js, null)
               }
 
-              private fun injectUniversalAdBlock() {
+              private fun injectUniversalAdBlock(wv: WebView?) {
+                  wv ?: return
                   val js = """
                       (function() {
                           if (window.__nexusAdBlockLoaded) return;
@@ -928,10 +1243,11 @@ jobs:
                           (document.head || document.documentElement).appendChild(style);
                       })();
                   """.trimIndent()
-                  webView.evaluateJavascript(js, null)
+                  wv.evaluateJavascript(js, null)
               }
 
-              private fun injectYouTubeAdBlock() {
+              private fun injectYouTubeAdBlock(wv: WebView?) {
+                  wv ?: return
                   val js = """
                       (function() {
                           if (window.__nexusYtBlockLoaded) return;
@@ -968,46 +1284,15 @@ jobs:
                           setInterval(skip, 250);
                       })();
                   """.trimIndent()
-                  webView.evaluateJavascript(js, null)
+                  wv.evaluateJavascript(js, null)
               }
 
-              private fun navigate(input: String) {
-                  val text = input.trim()
-                  if (text.isEmpty()) return
-                  val url = when {
-                      text.startsWith("http://") || text.startsWith("https://") -> text
-                      text.contains(".") && !text.contains(" ") -> "https://$text"
-                      else -> {
-                          val engine = prefs.getString("search_engine", "google") ?: "google"
-                          val query = URLEncoder.encode(text, "UTF-8")
-                          when (engine) {
-                              "duckduckgo" -> "https://duckduckgo.com/?q=$query"
-                              "bing" -> "https://www.bing.com/search?q=$query"
-                              "brave" -> "https://search.brave.com/search?q=$query"
-                              else -> "https://www.google.com/search?q=$query"
-                          }
-                      }
-                  }
-                  hideHomePage()
-                  webView.loadUrl(url)
-              }
-
-              private fun setupButtons() {
-                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener { if (webView.canGoBack()) webView.goBack() }
-                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener { if (webView.canGoForward()) webView.goForward() }
-                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener { webView.reload() }
-                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHomePage() }
-                  findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBookmark() }
-                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { showHomePage() }
-                  findViewById<ImageButton>(R.id.btnIncognito).setOnClickListener { toggleIncognito() }
-                  findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettings() }
-                  findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
-              }
-
+              // ===== Bookmarks / History =====
               private fun toggleBookmark() {
-                  val url = webView.url ?: return
+                  val tab = currentTab ?: return
+                  val url = tab.url
                   if (url == "about:blank") return
-                  val title = webView.title ?: url
+                  val title = tab.title
                   val bm = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
                   val entry = "$title|$url"
                   val ex = bm.firstOrNull { it.endsWith("|$url") }
@@ -1018,7 +1303,7 @@ jobs:
               }
 
               private fun updateBookmarkIcon() {
-                  val url = webView.url ?: return
+                  val url = currentTab?.url ?: return
                   val bm = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
                   val marked = bm.any { it.endsWith("|$url") }
                   findViewById<ImageButton>(R.id.btnBookmark).setImageResource(
@@ -1035,20 +1320,32 @@ jobs:
                   } else prefs.edit().putStringSet("history_set", h).apply()
               }
 
-              private fun toggleIncognito() {
-                  incognito = !incognito
-                  incognitoBadge.visibility = if (incognito) View.VISIBLE else View.GONE
-                  CookieManager.getInstance().setAcceptCookie(!incognito)
-                  webView.settings.cacheMode = if (incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  webView.clearCache(incognito); webView.clearHistory(); showHomePage()
-                  Toast.makeText(this, if (incognito) "Incognito ON" else "Incognito OFF", Toast.LENGTH_SHORT).show()
+              private fun showBookmarksDialog() {
+                  val set = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
+                  if (set.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
+                  val items = set.map { val p = it.split("|", limit = 2); (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "") }
+                  AlertDialog.Builder(this).setTitle("Bookmarks")
+                      .setItems(items.map { it.first }.toTypedArray()) { _, w -> navigate(items[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("bookmarks_set").apply(); updateBookmarkIcon() }
+                      .show()
               }
 
+              private fun showHistoryDialog() {
+                  val set = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
+                  if (set.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
+                  val sorted = set.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
+                  val entries = sorted.map { val p = it.split("|", limit = 3); (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "") }
+                  AlertDialog.Builder(this).setTitle("History")
+                      .setItems(entries.map { it.first }.toTypedArray()) { _, w -> navigate(entries[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
+              }
+
+              // ===== Menu / Settings =====
               private fun showMainMenu() {
                   val opts = arrayOf("New Tab","Bookmarks","History","Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
                   AlertDialog.Builder(this).setTitle("Menu").setItems(opts) { _, w ->
                       when (w) {
-                          0 -> showHomePage()
+                          0 -> newTab()
                           1 -> showBookmarksDialog()
                           2 -> showHistoryDialog()
                           3 -> findOnPage()
@@ -1069,45 +1366,26 @@ jobs:
                       .setPositiveButton("OK", null).show()
               }
 
-              private fun showBookmarksDialog() {
-                  val set = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  if (set.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
-                  val items = set.map { val p = it.split("|", limit = 2); (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "") }
-                  AlertDialog.Builder(this).setTitle("Bookmarks")
-                      .setItems(items.map { it.first }.toTypedArray()) { _, w -> hideHomePage(); webView.loadUrl(items[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("bookmarks_set").apply(); updateBookmarkIcon() }
-                      .show()
-              }
-
-              private fun showHistoryDialog() {
-                  val set = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
-                  if (set.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
-                  val sorted = set.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
-                  val entries = sorted.map { val p = it.split("|", limit = 3); (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "") }
-                  AlertDialog.Builder(this).setTitle("History")
-                      .setItems(entries.map { it.first }.toTypedArray()) { _, w -> hideHomePage(); webView.loadUrl(entries[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
-              }
-
               private fun findOnPage() {
                   val i = EditText(this); i.hint = "Find text"
                   AlertDialog.Builder(this).setTitle("Find").setView(i)
-                      .setPositiveButton("Find") { _, _ -> webView.findAllAsync(i.text.toString()) }
+                      .setPositiveButton("Find") { _, _ -> currentTab?.webView?.findAllAsync(i.text.toString()) }
                       .setNegativeButton("Cancel", null).show()
               }
 
               private fun sharePage() {
-                  val url = webView.url ?: return
+                  val url = currentTab?.url ?: return
                   val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, url)
                   startActivity(Intent.createChooser(i, "Share via"))
               }
 
               private fun toggleDesktopMode() {
                   desktopMode = !desktopMode
-                  webView.settings.userAgentString = if (desktopMode)
+                  val ua = if (desktopMode)
                       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                   else "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                  webView.reload()
+                  tabs.forEach { it.webView?.settings?.userAgentString = ua }
+                  currentTab?.webView?.reload()
                   Toast.makeText(this, if (desktopMode) "Desktop mode" else "Mobile mode", Toast.LENGTH_SHORT).show()
               }
 
@@ -1147,19 +1425,19 @@ jobs:
                               val h = !prefs.getBoolean("hide_identity", false)
                               prefs.edit().putBoolean("hide_identity", h).apply()
                               Toast.makeText(this, if (h) "🛡 Protected" else "OFF", Toast.LENGTH_SHORT).show()
-                              if (h) webView.reload()
+                              if (h) currentTab?.webView?.reload()
                           }
                           3 -> {
                               val j = !prefs.getBoolean("javascript", true)
                               prefs.edit().putBoolean("javascript", j).apply()
-                              webView.settings.javaScriptEnabled = j
+                              tabs.forEach { it.webView?.settings?.javaScriptEnabled = j }
                               Toast.makeText(this, if (j) "JS ON" else "JS OFF", Toast.LENGTH_SHORT).show()
-                              webView.reload()
+                              currentTab?.webView?.reload()
                           }
                           4 -> toggleVpn()
                           5 -> editWgConfigDialog()
                           6 -> chooseSearchEngine()
-                          7 -> { webView.clearCache(true); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          7 -> { tabs.forEach { it.webView?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           9 -> {
                               prefs.edit().clear().apply()
@@ -1175,11 +1453,11 @@ jobs:
                   val input = EditText(this)
                   input.setText(prefs.getString("wg_config", DEFAULT_WG_CONFIG))
                   input.minLines = 6; input.maxLines = 14
-                  input.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                  input.gravity = Gravity.TOP or Gravity.START
                   input.setPadding(30, 30, 30, 30)
                   AlertDialog.Builder(this)
                       .setTitle("WireGuard Config")
-                      .setMessage("Cloudflare WARP config is pre-loaded. Paste another if needed.")
+                      .setMessage("Cloudflare WARP config pre-loaded. Change Endpoint IP for other countries.")
                       .setView(input)
                       .setPositiveButton("Save") { _, _ ->
                           prefs.edit().putString("wg_config", input.text.toString().trim()).apply()
@@ -1200,18 +1478,36 @@ jobs:
                   }.show()
               }
 
-              override fun onSaveInstanceState(outState: Bundle) {
-                  super.onSaveInstanceState(outState); webView.saveState(outState)
-              }
+              override fun onResume() { super.onResume(); updateVpnUi() }
 
               override fun onNewIntent(intent: Intent) {
-                  super.onNewIntent(intent); intent.data?.let { hideHomePage(); webView.loadUrl(it.toString()) }
+                  super.onNewIntent(intent)
+                  intent.data?.let { uri ->
+                      val tab = currentTab
+                      if (tab != null && tab.isHome) loadIncoming(tab, uri)
+                      else {
+                          newTab(initialUri = uri)
+                      }
+                  }
               }
 
               override fun onBackPressed() {
-                  if (!isHomeVisible && webView.canGoBack() && webView.url != "about:blank") webView.goBack()
-                  else if (!isHomeVisible) showHomePage()
-                  else super.onBackPressed()
+                  val tab = currentTab
+                  val wv = tab?.webView
+                  if (tab != null && !tab.isHome && wv != null && wv.canGoBack()) {
+                      wv.goBack()
+                      return
+                  }
+                  // If back would land on about:blank or go home
+                  if (tab != null && !tab.isHome) {
+                      showHome()
+                      return
+                  }
+                  if (tabs.size > 1) {
+                      closeTab(currentTabIndex)
+                      return
+                  }
+                  super.onBackPressed()
               }
           }
           KOTEOF
