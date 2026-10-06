@@ -77,8 +77,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 11
-                  versionName "3.6.0"
+                  versionCode 12
+                  versionName "3.7.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -384,7 +384,6 @@ jobs:
                           val ts = System.currentTimeMillis()
                           val assets = extractAssets(html, pageUrl)
                           onProgress(P("Found ${assets.size} assets", 0, assets.size))
-                          // ===== SAVE TO PUBLIC DOWNLOADS/NexusDownloads =====
                           var dir: File
                           try {
                               val publicDl = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -451,7 +450,7 @@ jobs:
               private fun dl(url: String, cookies: String?): ByteArray? = try {
                   val c = URL(url).openConnection() as HttpURLConnection
                   c.connectTimeout = 10000; c.readTimeout = 20000; c.instanceFollowRedirects = true
-                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.6")
+                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.7")
                   if (!cookies.isNullOrEmpty()) c.setRequestProperty("Cookie", cookies)
                   c.connect()
                   if (c.responseCode !in 200..299) { c.disconnect(); null }
@@ -532,6 +531,7 @@ jobs:
           import com.wireguard.android.backend.Tunnel
           import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
+          import java.io.File
           import java.net.HttpURLConnection
           import java.net.URL
           import java.net.URLEncoder
@@ -915,7 +915,7 @@ jobs:
                   @Suppress("DEPRECATION") s.blockNetworkImage = lowDataMode
                   s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
                                 else if (t.incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.6"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.7"
                   s.setSupportMultipleWindows(true)
                   wv.webViewClient = object : WebViewClient() {
                       override fun shouldInterceptRequest(v: WebView?, r: WebResourceRequest?): WebResourceResponse? {
@@ -1058,11 +1058,7 @@ jobs:
                           background = getDrawable(R.drawable.req_row_bg)
                           layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(4) }
                           isClickable = true; isFocusable = true
-                          setOnClickListener {
-                              val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                              cm.setPrimaryClip(ClipData.newPlainText("Nexus", "${r.method} ${r.url}\n\nType: ${r.rtype}\nBlocked: ${r.blocked}"))
-                              Toast.makeText(this@MainActivity, "Copied", Toast.LENGTH_SHORT).show()
-                          }
+                          setOnClickListener { showReqOptions(r) }
                       }
                       val hdr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                       hdr.addView(TextView(this).apply {
@@ -1103,6 +1099,125 @@ jobs:
                       }
                       .setNeutralButton("Clear") { _, _ -> synchronized(reqLog) { reqLog.clear() }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                       .setNegativeButton("Close", null).show()
+              }
+
+              private fun showReqOptions(r: ReqEntry) {
+                  val opts = arrayOf("📋 Copy URL", "🌐 Open in New Tab", "💾 Download Content", "👁 View Response")
+                  AlertDialog.Builder(this)
+                      .setTitle("${r.method} ${r.rtype}")
+                      .setItems(opts) { _, w ->
+                          when (w) {
+                              0 -> {
+                                  val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                  cm.setPrimaryClip(ClipData.newPlainText("Nexus", r.url))
+                                  Toast.makeText(this, "URL copied", Toast.LENGTH_SHORT).show()
+                              }
+                              1 -> {
+                                  newTab()
+                                  cur?.wv?.loadUrl(r.url)
+                                  cur?.isHome = false
+                                  homeOverlay.visibility = View.GONE
+                                  isHomeVisible = false
+                                  Toast.makeText(this, "Opening...", Toast.LENGTH_SHORT).show()
+                              }
+                              2 -> downloadRequestContent(r)
+                              3 -> viewRequestContent(r)
+                          }
+                      }
+                      .setNegativeButton("Close", null)
+                      .show()
+              }
+
+              private fun downloadRequestContent(r: ReqEntry) {
+                  Toast.makeText(this, "Downloading...", Toast.LENGTH_SHORT).show()
+                  Thread {
+                      try {
+                          val conn = URL(r.url).openConnection() as HttpURLConnection
+                          conn.requestMethod = r.method
+                          conn.connectTimeout = 15000
+                          conn.readTimeout = 30000
+                          conn.instanceFollowRedirects = true
+                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/3.7")
+                          val host = try { Uri.parse(r.url).host ?: "" } catch (e: Exception) { "" }
+                          val pageUrl = cur?.wv?.url ?: ""
+                          if (pageUrl.isNotEmpty() && pageUrl.contains(host)) {
+                              val cookies = CookieManager.getInstance().getCookie(pageUrl)
+                              if (!cookies.isNullOrEmpty()) conn.setRequestProperty("Cookie", cookies)
+                          }
+                          conn.connect()
+                          val code = conn.responseCode
+                          if (code !in 200..299) {
+                              handler.post { Toast.makeText(this, "HTTP $code", Toast.LENGTH_LONG).show() }
+                              return@Thread
+                          }
+                          var fname = Uri.parse(r.url).lastPathSegment ?: "response.dat"
+                          if (!fname.contains(".")) {
+                              fname = when (r.rtype) {
+                                  "xhr" -> "response.json"
+                                  "document" -> "page.html"
+                                  else -> "response.dat"
+                              }
+                          }
+                          fname = fname.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                          if (fname.length > 100) fname = fname.take(90) + ".dat"
+
+                          val bytes = conn.inputStream.readBytes()
+                          conn.disconnect()
+
+                          val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                          val nexusDir = File(dlDir, "NexusDownloads")
+                          if (!nexusDir.exists()) nexusDir.mkdirs()
+                          val out = File(nexusDir, fname)
+                          out.writeBytes(bytes)
+
+                          handler.post {
+                              AlertDialog.Builder(this)
+                                  .setTitle("✅ Downloaded")
+                                  .setMessage("File: ${out.name}\nSize: ${bytes.size} bytes\n\nPath:\n${out.absolutePath}")
+                                  .setPositiveButton("OK", null)
+                                  .setNeutralButton("Share") { _, _ ->
+                                      val i = Intent(Intent.ACTION_SEND)
+                                      i.type = "text/plain"
+                                      i.putExtra(Intent.EXTRA_TEXT, out.absolutePath)
+                                      startActivity(Intent.createChooser(i, "Share"))
+                                  }
+                                  .show()
+                          }
+                      } catch (e: Exception) {
+                          handler.post { Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                      }
+                  }.start()
+              }
+
+              private fun viewRequestContent(r: ReqEntry) {
+                  Toast.makeText(this, "Fetching...", Toast.LENGTH_SHORT).show()
+                  Thread {
+                      try {
+                          val conn = URL(r.url).openConnection() as HttpURLConnection
+                          conn.requestMethod = r.method
+                          conn.connectTimeout = 15000
+                          conn.readTimeout = 30000
+                          conn.instanceFollowRedirects = true
+                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/3.7")
+                          val host = try { Uri.parse(r.url).host ?: "" } catch (e: Exception) { "" }
+                          val pageUrl = cur?.wv?.url ?: ""
+                          if (pageUrl.isNotEmpty() && pageUrl.contains(host)) {
+                              val cookies = CookieManager.getInstance().getCookie(pageUrl)
+                              if (!cookies.isNullOrEmpty()) conn.setRequestProperty("Cookie", cookies)
+                          }
+                          conn.connect()
+                          val code = conn.responseCode
+                          val text = try {
+                              conn.inputStream.bufferedReader().use { it.readText() }
+                          } catch (e: Exception) { "Error: ${e.message}" }
+                          conn.disconnect()
+                          handler.post {
+                              showCode("Response (HTTP $code, ${text.length} chars)", text)
+                          }
+                      } catch (e: Exception) {
+                          handler.post { Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                      }
+                  }.start()
               }
 
               private fun menu() {
@@ -1203,7 +1318,7 @@ jobs:
                           val c = URL(url).openConnection() as HttpURLConnection
                           c.requestMethod = "HEAD"; c.connectTimeout = 10000; c.readTimeout = 10000
                           c.instanceFollowRedirects = false
-                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.6")
+                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.7")
                           c.connect()
                           sb.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
                           c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { sb.append("$k: $it\n") } }
@@ -1273,7 +1388,7 @@ jobs:
                               val c = URL(url).openConnection() as HttpURLConnection
                               c.requestMethod = "HEAD"; c.connectTimeout = 8000; c.readTimeout = 8000
                               c.instanceFollowRedirects = false
-                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.6")
+                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.7")
                               c.connect()
                               si.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
                               c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { si.append("$k: $it\n") } }
