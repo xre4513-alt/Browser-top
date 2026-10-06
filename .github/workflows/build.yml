@@ -77,8 +77,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 10
-                  versionName "3.5.0"
+                  versionCode 11
+                  versionName "3.6.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -276,6 +276,9 @@ jobs:
                   <ImageButton android:id="@+id/btnForward" android:layout_width="42dp" android:layout_height="42dp"
                       android:background="?android:attr/selectableItemBackgroundBorderless"
                       android:src="@android:drawable/ic_media_next" android:scaleType="centerInside" android:padding="10dp" />
+                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="42dp" android:layout_height="42dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_rotate" android:scaleType="centerInside" android:padding="10dp" />
                   <LinearLayout android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1"
                       android:orientation="horizontal" android:gravity="center_vertical"
                       android:background="@drawable/search_bg" android:layout_marginStart="2dp" android:layout_marginEnd="2dp">
@@ -361,6 +364,7 @@ jobs:
           package com.nexus.browser
           import android.content.Context
           import android.net.Uri
+          import android.os.Environment
           import java.io.BufferedOutputStream
           import java.io.File
           import java.io.FileOutputStream
@@ -380,8 +384,17 @@ jobs:
                           val ts = System.currentTimeMillis()
                           val assets = extractAssets(html, pageUrl)
                           onProgress(P("Found ${assets.size} assets", 0, assets.size))
-                          val dir = File(ctx.getExternalFilesDir(null), "SavedSites")
-                          if (!dir.exists()) dir.mkdirs()
+                          // ===== SAVE TO PUBLIC DOWNLOADS/NexusDownloads =====
+                          var dir: File
+                          try {
+                              val publicDl = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                              val nexusDir = File(publicDl, "NexusDownloads")
+                              if (!nexusDir.exists()) nexusDir.mkdirs()
+                              dir = if (nexusDir.exists() && nexusDir.canWrite()) nexusDir
+                                    else File(ctx.getExternalFilesDir(null), "SavedSites").also { if (!it.exists()) it.mkdirs() }
+                          } catch (e: Exception) {
+                              dir = File(ctx.getExternalFilesDir(null), "SavedSites").also { if (!it.exists()) it.mkdirs() }
+                          }
                           val zip = File(dir, "${host}_$ts.zip")
                           var ok = 0; var fail = 0
                           ZipOutputStream(BufferedOutputStream(FileOutputStream(zip))).use { zos ->
@@ -438,7 +451,7 @@ jobs:
               private fun dl(url: String, cookies: String?): ByteArray? = try {
                   val c = URL(url).openConnection() as HttpURLConnection
                   c.connectTimeout = 10000; c.readTimeout = 20000; c.instanceFollowRedirects = true
-                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.5")
+                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.6")
                   if (!cookies.isNullOrEmpty()) c.setRequestProperty("Cookie", cookies)
                   c.connect()
                   if (c.responseCode !in 200..299) { c.disconnect(); null }
@@ -644,6 +657,9 @@ jobs:
                   findViewById<ImageButton>(R.id.btnBack).setOnClickListener { onBackPressed() }
                   findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
                       cur?.wv?.let { if (it.canGoForward()) it.goForward() }
+                  }
+                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener {
+                      cur?.wv?.reload()
                   }
                   findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { menu() }
                   findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHome() }
@@ -899,7 +915,7 @@ jobs:
                   @Suppress("DEPRECATION") s.blockNetworkImage = lowDataMode
                   s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
                                 else if (t.incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.5"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.6"
                   s.setSupportMultipleWindows(true)
                   wv.webViewClient = object : WebViewClient() {
                       override fun shouldInterceptRequest(v: WebView?, r: WebResourceRequest?): WebResourceResponse? {
@@ -1187,7 +1203,7 @@ jobs:
                           val c = URL(url).openConnection() as HttpURLConnection
                           c.requestMethod = "HEAD"; c.connectTimeout = 10000; c.readTimeout = 10000
                           c.instanceFollowRedirects = false
-                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.5")
+                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.6")
                           c.connect()
                           sb.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
                           c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { sb.append("$k: $it\n") } }
@@ -1239,7 +1255,7 @@ jobs:
                   val url = wv.url ?: return
                   if (url == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
                   AlertDialog.Builder(this).setTitle("📦 Save Site as ZIP")
-                      .setMessage("Site ka poora code save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images (500 tak)\n• Server info, cookies\n• _metadata.txt\n\nLocation:\nAndroid/data/com.nexus.browser/files/SavedSites/\n\nSave karein?")
+                      .setMessage("Site ka poora code save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images (500 tak)\n• Server info, cookies\n• _metadata.txt\n\nLocation:\nInternal Storage / Download / NexusDownloads/\n\nSave karein?")
                       .setPositiveButton("Save") { _, _ -> doSave(url, wv) }
                       .setNegativeButton("Cancel", null).show()
               }
@@ -1257,7 +1273,7 @@ jobs:
                               val c = URL(url).openConnection() as HttpURLConnection
                               c.requestMethod = "HEAD"; c.connectTimeout = 8000; c.readTimeout = 8000
                               c.instanceFollowRedirects = false
-                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.5")
+                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.6")
                               c.connect()
                               si.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
                               c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { si.append("$k: $it\n") } }
