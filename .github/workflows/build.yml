@@ -91,8 +91,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 7
-                  versionName "3.2.0"
+                  versionCode 8
+                  versionName "3.3.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -170,7 +170,7 @@ jobs:
                   android:supportsRtl="true"
                   android:hardwareAccelerated="true"
                   android:usesCleartextTraffic="true"
-                  android:largeHeap="false"
+                  android:requestLegacyExternalStorage="true"
                   android:theme="@style/Theme.NexusBrowser"
                   tools:targetApi="34">
 
@@ -245,6 +245,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <paths>
               <external-path name="external_files" path="." />
+              <external-files-path name="external_app_files" path="." />
               <cache-path name="cache" path="." />
               <files-path name="files" path="." />
           </paths>
@@ -295,9 +296,9 @@ jobs:
               <color name="tab_strip_bg">#0D47A1</color>
               <color name="bottom_bar">#FFFFFF</color>
               <color name="code_bg">#1E1E1E</color>
-              <color name="mem_ok">#4CAF50</color>
-              <color name="mem_warn">#FF9800</color>
-              <color name="mem_high">#F44336</color>
+              <color name="data_ok">#4CAF50</color>
+              <color name="data_warn">#FF9800</color>
+              <color name="data_high">#F44336</color>
           </resources>
           EOF
 
@@ -529,9 +530,9 @@ jobs:
           </shape>
           EOF
 
-      - name: Write mem_pill_bg.xml
+      - name: Write data_pill_bg.xml
         run: |
-          cat > app/src/main/res/drawable/mem_pill_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/data_pill_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#22FFFFFF" /><corners android:radius="12dp" />
           </shape>
@@ -579,11 +580,11 @@ jobs:
                           android:importantForAutofill="no" />
                   </LinearLayout>
 
-                  <TextView android:id="@+id/memIndicator"
+                  <TextView android:id="@+id/dataIndicator"
                       android:layout_width="wrap_content" android:layout_height="26dp"
                       android:gravity="center" android:paddingStart="8dp" android:paddingEnd="8dp"
-                      android:background="@drawable/mem_pill_bg"
-                      android:text="0 MB" android:textColor="#FFFFFF" android:textSize="10sp"
+                      android:background="@drawable/data_pill_bg"
+                      android:text="0 KB" android:textColor="#FFFFFF" android:textSize="10sp"
                       android:textStyle="bold" android:layout_marginEnd="2dp" />
 
                   <ImageButton android:id="@+id/btnRefresh" android:layout_width="38dp" android:layout_height="42dp"
@@ -748,6 +749,201 @@ jobs:
           </LinearLayout>
           EOF
 
+      - name: Write SiteDownloader.kt
+        run: |
+          cat > app/src/main/java/com/nexus/browser/SiteDownloader.kt << 'KOTEOF'
+          package com.nexus.browser
+
+          import android.content.Context
+          import android.net.Uri
+          import java.io.BufferedOutputStream
+          import java.io.File
+          import java.io.FileOutputStream
+          import java.net.HttpURLConnection
+          import java.net.URI
+          import java.net.URL
+          import java.util.Date
+          import java.util.zip.ZipEntry
+          import java.util.zip.ZipOutputStream
+
+          class SiteDownloader(private val context: Context) {
+
+              data class Progress(val phase: String, val current: Int, val total: Int)
+
+              fun saveSiteAsZip(
+                  pageUrl: String,
+                  html: String,
+                  cookies: String?,
+                  serverInfo: String,
+                  pageInfo: String,
+                  links: String,
+                  onProgress: (Progress) -> Unit,
+                  onComplete: (File?, Int, Int) -> Unit
+              ) {
+                  Thread {
+                      try {
+                          val baseUri = Uri.parse(pageUrl)
+                          val hostSafe = (baseUri.host ?: "site").replace(".", "_").replace(":", "_")
+                          val timestamp = System.currentTimeMillis()
+
+                          val assetUrls = extractAssetUrls(html, pageUrl)
+                          onProgress(Progress("Found ${assetUrls.size} assets", 0, assetUrls.size))
+
+                          val outDir = File(context.getExternalFilesDir(null), "SavedSites")
+                          if (!outDir.exists()) outDir.mkdirs()
+                          val zipFile = File(outDir, "${hostSafe}_$timestamp.zip")
+
+                          var successCount = 0
+                          var failCount = 0
+
+                          ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zos ->
+                              // 1. Write index.html
+                              zos.putNextEntry(ZipEntry("index.html"))
+                              zos.write(html.toByteArray(Charsets.UTF_8))
+                              zos.closeEntry()
+
+                              // 2. Metadata
+                              val meta = buildString {
+                                  appendLine("Nexus Browser — Site Archive")
+                                  appendLine("════════════════════════════════")
+                                  appendLine("Saved at: ${Date()}")
+                                  appendLine("Page URL: $pageUrl")
+                                  appendLine("HTML size: ${html.length} chars")
+                                  appendLine("Assets found: ${assetUrls.size}")
+                                  appendLine()
+                                  appendLine("=== SERVER INFO ===")
+                                  appendLine(serverInfo)
+                                  appendLine()
+                                  appendLine("=== PAGE INFO ===")
+                                  appendLine(pageInfo)
+                                  appendLine()
+                                  appendLine("=== COOKIES ===")
+                                  appendLine(cookies ?: "(none)")
+                                  appendLine()
+                                  appendLine("=== ALL LINKS ON PAGE ===")
+                                  appendLine(links)
+                              }
+                              zos.putNextEntry(ZipEntry("_nexus_metadata.txt"))
+                              zos.write(meta.toByteArray(Charsets.UTF_8))
+                              zos.closeEntry()
+
+                              // 3. Download assets sequentially (safer, avoids overload)
+                              val failed = mutableListOf<String>()
+                              assetUrls.forEachIndexed { idx, url ->
+                                  onProgress(Progress("Downloading", idx, assetUrls.size))
+                                  try {
+                                      val bytes = downloadBytes(url, cookies)
+                                      if (bytes != null && bytes.isNotEmpty()) {
+                                          val path = "assets/${sanitize(url)}"
+                                          zos.putNextEntry(ZipEntry(path))
+                                          zos.write(bytes)
+                                          zos.closeEntry()
+                                          successCount++
+                                      } else {
+                                          failed.add(url)
+                                          failCount++
+                                      }
+                                  } catch (e: Exception) {
+                                      failed.add("$url → ${e.message}")
+                                      failCount++
+                                  }
+                              }
+
+                              if (failed.isNotEmpty()) {
+                                  zos.putNextEntry(ZipEntry("_failed_urls.txt"))
+                                  zos.write(failed.joinToString("\n").toByteArray())
+                                  zos.closeEntry()
+                              }
+                          }
+
+                          onComplete(zipFile, successCount, failCount)
+                      } catch (e: Exception) {
+                          e.printStackTrace()
+                          onComplete(null, 0, 0)
+                      }
+                  }.start()
+              }
+
+              private fun extractAssetUrls(html: String, baseUrl: String): Set<String> {
+                  val urls = mutableSetOf<String>()
+
+                  Regex("""src\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
+                      val u = resolveUrl(it.groupValues[1], baseUrl)
+                      if (u.isNotEmpty()) urls.add(u)
+                  }
+                  Regex("""<link[^>]+href\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
+                      val u = resolveUrl(it.groupValues[1], baseUrl)
+                      if (u.isNotEmpty()) urls.add(u)
+                  }
+                  Regex("""url\(['"]?([^'")]+)['"]?\)""", RegexOption.IGNORE_CASE).findAll(html).forEach {
+                      val u = resolveUrl(it.groupValues[1], baseUrl)
+                      if (u.isNotEmpty()) urls.add(u)
+                  }
+                  Regex("""srcset\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
+                      it.groupValues[1].split(",").forEach { part ->
+                          val u = part.trim().split(Regex("\\s+")).firstOrNull() ?: return@forEach
+                          val r = resolveUrl(u, baseUrl)
+                          if (r.isNotEmpty()) urls.add(r)
+                      }
+                  }
+                  // Also meta property og:image etc.
+                  Regex("""content\s*=\s*["'](https?://[^"']+\.(?:jpg|jpeg|png|gif|webp|svg))["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
+                      urls.add(it.groupValues[1])
+                  }
+
+                  return urls
+                      .filter { it.startsWith("http://") || it.startsWith("https://") }
+                      .filter { !it.contains("data:") }
+                      .take(500) // safety cap
+                      .toSet()
+              }
+
+              private fun resolveUrl(url: String, base: String): String {
+                  val trimmed = url.trim()
+                  if (trimmed.isEmpty()) return ""
+                  if (trimmed.startsWith("data:") || trimmed.startsWith("javascript:")
+                      || trimmed.startsWith("#") || trimmed.startsWith("mailto:")
+                      || trimmed.startsWith("tel:")) return ""
+                  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+                  return try {
+                      URI(base).resolve(trimmed).toString()
+                  } catch (e: Exception) { "" }
+              }
+
+              private fun sanitize(url: String): String {
+                  var s = url
+                      .replace("https://", "")
+                      .replace("http://", "")
+                      .replace(Regex("[?&=#]"), "_")
+                      .replace(Regex("[^a-zA-Z0-9._/-]"), "_")
+                  if (s.length > 200) {
+                      val ext = s.substringAfterLast('.', "")
+                      s = s.take(190) + "." + ext
+                  }
+                  return s
+              }
+
+              private fun downloadBytes(url: String, cookies: String?): ByteArray? {
+                  return try {
+                      val conn = URL(url).openConnection() as HttpURLConnection
+                      conn.connectTimeout = 10000
+                      conn.readTimeout = 20000
+                      conn.instanceFollowRedirects = true
+                      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 NexusBrowser/3.3")
+                      if (!cookies.isNullOrEmpty()) conn.setRequestProperty("Cookie", cookies)
+                      conn.connect()
+                      if (conn.responseCode !in 200..299) { conn.disconnect(); return null }
+                      val contentLength = conn.contentLengthLong
+                      if (contentLength > 30_000_000L) { conn.disconnect(); return null } // 30 MB per file max
+                      val bytes = conn.inputStream.readBytes()
+                      conn.disconnect()
+                      if (bytes.size > 30_000_000) return null
+                      bytes
+                  } catch (e: Exception) { null }
+              }
+          }
+          KOTEOF
+
       - name: Write MainActivity.kt
         run: |
           cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
@@ -765,9 +961,9 @@ jobs:
           import android.graphics.Bitmap
           import android.graphics.Color
           import android.graphics.Typeface
+          import android.net.TrafficStats
           import android.net.Uri
           import android.net.VpnService
-          import android.os.Build
           import android.os.Bundle
           import android.os.Debug
           import android.os.Environment
@@ -827,23 +1023,25 @@ jobs:
               private lateinit var contentContainer: FrameLayout
               private lateinit var tabStrip: LinearLayout
               private lateinit var tabScroll: HorizontalScrollView
-              private lateinit var memIndicator: TextView
+              private lateinit var dataIndicator: TextView
               private lateinit var prefs: SharedPreferences
 
               private var desktopMode = false
               private var isHomeVisible = true
-              private var lowMemoryMode = false
+              private var lowDataMode = false
 
               private var wgBackend: Backend? = null
               private var wgTunnel: NexusTunnel? = null
               private val handler = Handler(Looper.getMainLooper())
 
-              // ========= MEMORY MONITOR =========
-              private val memHandler = Handler(Looper.getMainLooper())
-              private val memRunnable = object : Runnable {
+              // ===== DATA MONITOR =====
+              private var startRx: Long = 0
+              private var startTx: Long = 0
+              private val dataHandler = Handler(Looper.getMainLooper())
+              private val dataRunnable = object : Runnable {
                   override fun run() {
-                      updateMemoryIndicator()
-                      memHandler.postDelayed(this, 2000)
+                      updateDataIndicator()
+                      dataHandler.postDelayed(this, 2000)
                   }
               }
 
@@ -930,7 +1128,15 @@ jobs:
                       prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
                   }
 
-                  lowMemoryMode = prefs.getBoolean("low_memory_mode", false)
+                  lowDataMode = prefs.getBoolean("low_data_mode", false)
+
+                  // Init data counters
+                  try {
+                      startRx = TrafficStats.getUidRxBytes(android.os.Process.myUid())
+                      startTx = TrafficStats.getUidTxBytes(android.os.Process.myUid())
+                      if (startRx < 0) startRx = 0
+                      if (startTx < 0) startTx = 0
+                  } catch (e: Exception) { startRx = 0; startTx = 0 }
 
                   AppCompatDelegate.setDefaultNightMode(
                       if (prefs.getBoolean("dark_mode", false)) AppCompatDelegate.MODE_NIGHT_YES
@@ -956,9 +1162,9 @@ jobs:
                   contentContainer = findViewById(R.id.contentContainer)
                   tabStrip = findViewById(R.id.tabStrip)
                   tabScroll = findViewById(R.id.tabScroll)
-                  memIndicator = findViewById(R.id.memIndicator)
+                  dataIndicator = findViewById(R.id.dataIndicator)
 
-                  memIndicator.setOnClickListener { showMemoryDetailDialog() }
+                  dataIndicator.setOnClickListener { showDataDetailDialog() }
 
                   try { wgBackend = GoBackend(applicationContext) } catch (e: Throwable) {}
 
@@ -978,30 +1184,126 @@ jobs:
                   homeSearchBar.clearFocus()
                   addressBar.clearFocus()
 
-                  // start memory monitor
-                  memHandler.post(memRunnable)
+                  dataHandler.post(dataRunnable)
               }
 
               override fun onDestroy() {
-                  memHandler.removeCallbacks(memRunnable)
+                  dataHandler.removeCallbacks(dataRunnable)
                   super.onDestroy()
               }
 
-              // ============ MEMORY MONITOR ============
+              // ============ INTERNET DATA MONITOR ============
+              private fun getSessionData(): Pair<Long, Long> {
+                  return try {
+                      val rx = TrafficStats.getUidRxBytes(android.os.Process.myUid())
+                      val tx = TrafficStats.getUidTxBytes(android.os.Process.myUid())
+                      if (rx < 0 || tx < 0) return Pair(0L, 0L)
+                      Pair((rx - startRx).coerceAtLeast(0), (tx - startTx).coerceAtLeast(0))
+                  } catch (e: Exception) { Pair(0L, 0L) }
+              }
+
+              private fun formatBytes(bytes: Long): String {
+                  return when {
+                      bytes < 1024 -> "$bytes B"
+                      bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
+                      bytes < 1024L * 1024 * 1024 -> "%.2f MB".format(bytes / (1024.0 * 1024))
+                      else -> "%.2f GB".format(bytes / (1024.0 * 1024 * 1024))
+                  }
+              }
+
+              private fun updateDataIndicator() {
+                  val (rx, tx) = getSessionData()
+                  val total = rx + tx
+                  dataIndicator.text = formatBytes(total)
+                  val mb = total / (1024.0 * 1024)
+                  val colorRes = when {
+                      mb < 20 -> R.color.data_ok
+                      mb < 100 -> R.color.data_warn
+                      else -> R.color.data_high
+                  }
+                  try { dataIndicator.setTextColor(getColor(colorRes)) } catch (e: Exception) {}
+              }
+
+              private fun showDataDetailDialog() {
+                  val (rx, tx) = getSessionData()
+                  val appMem = getAppMemoryMB()
+                  val freeMem = getDeviceFreeMemoryMB()
+
+                  val msg = """
+                      📊 Internet Data Usage
+                      ──────────────────────
+                      ⬇ Downloaded:  ${formatBytes(rx)}
+                      ⬆ Uploaded:    ${formatBytes(tx)}
+                      Σ Total used:  ${formatBytes(rx + tx)}
+
+                      ⚡ Low Data Mode: ${if (lowDataMode) "ON" else "OFF"}
+                      ${if (lowDataMode) "→ Images blocked, cache reduced" else "→ Normal browsing"}
+
+                      💾 RAM: $appMem MB (device free: $freeMem MB)
+                      📑 Tabs: ${tabs.size}
+                  """.trimIndent()
+
+                  AlertDialog.Builder(this)
+                      .setTitle("📊 Data & Memory")
+                      .setMessage(msg)
+                      .setPositiveButton("Reset Counter") { _, _ ->
+                          try {
+                              startRx = TrafficStats.getUidRxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+                              startTx = TrafficStats.getUidTxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+                              updateDataIndicator()
+                              Toast.makeText(this, "Counter reset", Toast.LENGTH_SHORT).show()
+                          } catch (e: Exception) {}
+                      }
+                      .setNeutralButton(if (lowDataMode) "Disable Low Data" else "Enable Low Data") { _, _ ->
+                          toggleLowDataMode()
+                      }
+                      .setNegativeButton("Close", null)
+                      .show()
+              }
+
+              private fun toggleLowDataMode() {
+                  lowDataMode = !lowDataMode
+                  prefs.edit().putBoolean("low_data_mode", lowDataMode).apply()
+                  applyLowDataMode()
+                  val msg = if (lowDataMode)
+                      "⚡ Low Data Mode ON\n\nImages blocked • Cache reduced • Data saved"
+                  else
+                      "Normal mode restored\n\nImages load • Normal cache"
+                  Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+              }
+
+              @SuppressLint("SetJavaScriptEnabled")
+              private fun applyLowDataMode() {
+                  tabs.forEach { tab ->
+                      val wv = tab.webView ?: return@forEach
+                      val s = wv.settings
+                      if (lowDataMode) {
+                          s.loadsImagesAutomatically = false
+                          @Suppress("DEPRECATION")
+                          s.blockNetworkImage = true
+                          s.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                          s.mediaPlaybackRequiresUserGesture = true
+                      } else {
+                          s.loadsImagesAutomatically = true
+                          @Suppress("DEPRECATION")
+                          s.blockNetworkImage = false
+                          s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+                          s.mediaPlaybackRequiresUserGesture = false
+                      }
+                  }
+              }
+
               private fun getAppMemoryMB(): Int {
                   return try {
-                      val runtime = Runtime.getRuntime()
-                      val usedBytes = runtime.totalMemory() - runtime.freeMemory()
                       val debugInfo = Debug.MemoryInfo()
                       Debug.getMemoryInfo(debugInfo)
                       val totalPss = debugInfo.totalPss
-                      if (totalPss > 0) totalPss / 1024 else (usedBytes / (1024 * 1024)).toInt()
-                  } catch (e: Exception) {
-                      try {
-                          val runtime = Runtime.getRuntime()
-                          ((runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)).toInt()
-                      } catch (e2: Exception) { 0 }
-                  }
+                      if (totalPss > 0) totalPss / 1024
+                      else {
+                          val rt = Runtime.getRuntime()
+                          ((rt.totalMemory() - rt.freeMemory()) / (1024 * 1024)).toInt()
+                      }
+                  } catch (e: Exception) { 0 }
               }
 
               private fun getDeviceFreeMemoryMB(): Int {
@@ -1013,106 +1315,7 @@ jobs:
                   } catch (e: Exception) { 0 }
               }
 
-              private fun updateMemoryIndicator() {
-                  val mem = getAppMemoryMB()
-                  memIndicator.text = "${mem} MB"
-                  val colorRes = when {
-                      mem < 150 -> R.color.mem_ok
-                      mem < 300 -> R.color.mem_warn
-                      else -> R.color.mem_high
-                  }
-                  try {
-                      memIndicator.setTextColor(getColor(colorRes))
-                  } catch (e: Exception) {}
-              }
-
-              private fun showMemoryDetailDialog() {
-                  val appMem = getAppMemoryMB()
-                  val freeMem = getDeviceFreeMemoryMB()
-                  val tabs = this.tabs.size
-                  val wvCount = this.tabs.count { it.webView != null }
-
-                  val msg = """
-                      💾 Memory Usage
-                      ────────────────
-                      Browser (this app): $appMem MB
-                      Device free RAM:    $freeMem MB
-                      Open tabs:          $tabs
-                      WebViews loaded:    $wvCount
-
-                      ⚡ Low Memory Mode: ${if (lowMemoryMode) "ON" else "OFF"}
-                      ${if (lowMemoryMode) "→ Cache reduced, background limited, images optional" else "→ Normal mode (full features)"}
-
-                      Tap "Free Memory" to clear caches and free up RAM.
-                  """.trimIndent()
-
-                  AlertDialog.Builder(this)
-                      .setTitle("💾 Memory Monitor")
-                      .setMessage(msg)
-                      .setPositiveButton("Free Memory") { _, _ ->
-                          freeMemoryNow()
-                      }
-                      .setNeutralButton(if (lowMemoryMode) "Disable Low Mem" else "Enable Low Mem") { _, _ ->
-                          toggleLowMemoryMode()
-                      }
-                      .setNegativeButton("Close", null)
-                      .show()
-              }
-
-              private fun freeMemoryNow() {
-                  try {
-                      tabs.forEach { it.webView?.clearCache(true) }
-                      System.gc()
-                      Runtime.getRuntime().gc()
-                      updateMemoryIndicator()
-                      Toast.makeText(this, "🧹 Memory freed!", Toast.LENGTH_SHORT).show()
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                  }
-              }
-
-              private fun toggleLowMemoryMode() {
-                  lowMemoryMode = !lowMemoryMode
-                  prefs.edit().putBoolean("low_memory_mode", lowMemoryMode).apply()
-                  applyLowMemoryMode()
-                  val msg = if (lowMemoryMode)
-                      "⚡ Low Memory Mode ON\n\nCache reduced • Background limited • Less RAM used"
-                  else
-                      "Normal mode restored\n\nFull features • Normal cache"
-                  Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                  updateMemoryIndicator()
-              }
-
-              @SuppressLint("SetJavaScriptEnabled")
-              private fun applyLowMemoryMode() {
-                  tabs.forEach { tab ->
-                      val wv = tab.webView ?: return@forEach
-                      val s = wv.settings
-                      if (lowMemoryMode) {
-                          s.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-                          s.blockNetworkImage = false
-                          s.loadsImagesAutomatically = true
-                          s.domStorageEnabled = false
-                          s.databaseEnabled = false
-                          s.setRenderPriority(WebSettings.RenderPriority.LOW)
-                          wv.clearCache(true)
-                      } else {
-                          s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                          s.domStorageEnabled = true
-                          s.databaseEnabled = true
-                          s.setRenderPriority(WebSettings.RenderPriority.NORMAL)
-                      }
-                  }
-                  // Kill extra unused renderer processes if API supports it
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && lowMemoryMode) {
-                      try {
-                          val wv = currentTab?.webView
-                          wv?.clearFormData()
-                          WebView.clearClientCertPreferences(null)
-                      } catch (e: Exception) {}
-                  }
-              }
-
+              // ============ TABS ============
               private fun createHomeTabInternal() {
                   val tab = BrowserTab(isIncognito = false)
                   val wv = WebView(this)
@@ -1131,7 +1334,7 @@ jobs:
                   incognitoBadge.visibility = View.GONE
                   renderTabStrip()
                   updateVpnUi()
-                  applyLowMemoryMode()
+                  applyLowDataMode()
               }
 
               private fun createTabInternal(loadUri: Uri) {
@@ -1198,7 +1401,6 @@ jobs:
                       else -> currentTabIndex
                   }
                   switchToTab(newIdx)
-                  if (lowMemoryMode) System.gc()
               }
 
               private fun switchToTab(index: Int) {
@@ -1269,16 +1471,13 @@ jobs:
                           }
                       }
                   } catch (e: Exception) {
-                      Toast.makeText(this, "Cannot open file: ${e.message}", Toast.LENGTH_LONG).show()
+                      Toast.makeText(this, "Cannot open: ${e.message}", Toast.LENGTH_LONG).show()
                   }
               }
 
               private fun renderTabStrip() {
                   tabStrip.removeAllViews()
-                  if (tabs.size <= 1) {
-                      tabScroll.visibility = View.GONE
-                      return
-                  }
+                  if (tabs.size <= 1) { tabScroll.visibility = View.GONE; return }
                   tabScroll.visibility = View.VISIBLE
                   tabs.forEachIndexed { i, tab ->
                       val isActive = i == currentTabIndex
@@ -1309,8 +1508,7 @@ jobs:
                           gravity = Gravity.CENTER_VERTICAL
                           setOnClickListener { closeTab(i) }
                       }
-                      chip.addView(title)
-                      chip.addView(close)
+                      chip.addView(title); chip.addView(close)
                       chip.setOnClickListener { switchToTab(i) }
                       tabStrip.addView(chip)
                   }
@@ -1373,8 +1571,8 @@ jobs:
               private fun configureWebView(wv: WebView, tab: BrowserTab) {
                   val s = wv.settings
                   s.javaScriptEnabled = prefs.getBoolean("javascript", true)
-                  s.domStorageEnabled = !lowMemoryMode
-                  s.databaseEnabled = !lowMemoryMode
+                  s.domStorageEnabled = true
+                  s.databaseEnabled = true
                   s.loadWithOverviewMode = true
                   s.useWideViewPort = true
                   s.builtInZoomControls = true
@@ -1383,10 +1581,13 @@ jobs:
                   s.allowFileAccess = true
                   s.allowContentAccess = true
                   s.javaScriptCanOpenWindowsAutomatically = true
-                  s.mediaPlaybackRequiresUserGesture = false
-                  s.cacheMode = if (lowMemoryMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
+                  s.mediaPlaybackRequiresUserGesture = lowDataMode
+                  s.loadsImagesAutomatically = !lowDataMode
+                  @Suppress("DEPRECATION")
+                  s.blockNetworkImage = lowDataMode
+                  s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
                                 else if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.2"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.3"
                   s.setSupportMultipleWindows(true)
 
                   wv.webViewClient = object : WebViewClient() {
@@ -1440,6 +1641,7 @@ jobs:
                           if (tab === currentTab) {
                               updateBookmarkIcon()
                               renderTabStrip()
+                              updateDataIndicator()
                           }
                           if (url == null || url == "about:blank") {
                               if (tab === currentTab && tab.isHome && homeOverlay.visibility != View.VISIBLE) {
@@ -1550,14 +1752,14 @@ jobs:
                       Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show(); return
                   }
                   val options = arrayOf(
-                      "📄 Page HTML Source (fast)",
+                      "📄 Page HTML Source (full)",
                       "🍪 Cookies",
                       "💾 LocalStorage",
                       "📊 Page Info",
                       "🖼️ All Links (href)",
                       "🔗 All Images (src)",
                       "📜 Scripts & Styles",
-                      "🌐 Server Info (headers, IP, CDN)"
+                      "🌐 Server Info"
                   )
                   AlertDialog.Builder(this)
                       .setTitle("🔍 Inspect: ${tab.title.take(30)}")
@@ -1576,11 +1778,11 @@ jobs:
                       .setNegativeButton("Close", null).show()
               }
 
-              // FIXED - Fast HTML inspector with 500KB cap + background thread
+              // NO LIMIT — full HTML, but safely displayed
               private fun inspectHtmlSource(wv: WebView) {
-                  Toast.makeText(this, "Extracting HTML (max 500 KB)...", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(this, "Extracting full HTML...", Toast.LENGTH_SHORT).show()
                   wv.evaluateJavascript(
-                      "(function(){ try { var h = document.documentElement.outerHTML; if (!h) return 'ERROR:empty'; if (h.length > 500000) { return h.substring(0, 500000) + '\\n\\n... [TRUNCATED at 500KB — total ' + h.length + ' chars]'; } return h; } catch(e) { return 'ERROR: ' + (e.message||'unknown'); } })()"
+                      "(function(){try{return document.documentElement.outerHTML;}catch(e){return 'ERROR: '+e.message;}})()"
                   ) { result ->
                       try {
                           val html = unescapeJsonString(result)
@@ -1604,15 +1806,15 @@ jobs:
 
               private fun inspectLocalStorage(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var out=''; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); out += k + ' = ' + localStorage.getItem(k) + '\\n\\n'; } return out || 'LocalStorage is empty.'; } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result -> showCodeDialog("LocalStorage", unescapeJsonString(result)) }
+                      "(function(){try{var out='';for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);out+=k+' = '+localStorage.getItem(k)+'\\n\\n';}return out||'LocalStorage is empty.';}catch(e){return 'ERROR: '+e.message;}})()"
+                  ) { r -> showCodeDialog("LocalStorage", unescapeJsonString(r)) }
               }
 
               private fun inspectPageInfo(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { return JSON.stringify({ title: document.title, url: location.href, host: location.host, protocol: location.protocol, referrer: document.referrer, charset: document.characterSet, size: document.documentElement.outerHTML.length, links: document.links.length, images: document.images.length, scripts: document.scripts.length, forms: document.forms.length, meta: document.querySelectorAll('meta').length }); } catch(e){ return '{}'; } })()"
-                  ) { result ->
-                      val info = unescapeJsonString(result)
+                      "(function(){try{return JSON.stringify({title:document.title,url:location.href,host:location.host,protocol:location.protocol,referrer:document.referrer,charset:document.characterSet,size:document.documentElement.outerHTML.length,links:document.links.length,images:document.images.length,scripts:document.scripts.length,forms:document.forms.length,meta:document.querySelectorAll('meta').length});}catch(e){return '{}';}})()"
+                  ) { r ->
+                      val info = unescapeJsonString(r)
                       val pretty = info.replace(",", ",\n").replace("{", "{\n").replace("}", "\n}")
                       showCodeDialog("Page Info", pretty)
                   }
@@ -1620,69 +1822,53 @@ jobs:
 
               private fun inspectLinks(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var arr=[]; var links=document.querySelectorAll('a[href]'); for(var i=0;i<links.length && i<300;i++){ arr.push(links[i].href); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result -> showCodeDialog("Links Found", unescapeJsonString(result)) }
+                      "(function(){try{var arr=[];var links=document.querySelectorAll('a[href]');for(var i=0;i<links.length && i<500;i++){arr.push(links[i].href);}return arr.join('\\n');}catch(e){return 'ERROR: '+e.message;}})()"
+                  ) { r -> showCodeDialog("Links Found", unescapeJsonString(r)) }
               }
 
               private fun inspectImages(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var arr=[]; var imgs=document.querySelectorAll('img[src]'); for(var i=0;i<imgs.length && i<300;i++){ arr.push(imgs[i].src + '  [' + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ']'); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result -> showCodeDialog("Images Found", unescapeJsonString(result)) }
+                      "(function(){try{var arr=[];var imgs=document.querySelectorAll('img[src]');for(var i=0;i<imgs.length && i<500;i++){arr.push(imgs[i].src+'  ['+imgs[i].naturalWidth+'x'+imgs[i].naturalHeight+']');}return arr.join('\\n');}catch(e){return 'ERROR: '+e.message;}})()"
+                  ) { r -> showCodeDialog("Images Found", unescapeJsonString(r)) }
               }
 
               private fun inspectScriptsStyles(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var out='=== SCRIPTS ===\\n'; var s=document.querySelectorAll('script[src]'); for(var i=0;i<s.length;i++){ out += s[i].src + '\\n'; } out += '\\n=== STYLESHEETS ===\\n'; var st=document.querySelectorAll('link[rel=\"stylesheet\"]'); for(var i=0;i<st.length;i++){ out += st[i].href + '\\n'; } return out; } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result -> showCodeDialog("Scripts & Stylesheets", unescapeJsonString(result)) }
+                      "(function(){try{var out='=== SCRIPTS ===\\n';var s=document.querySelectorAll('script[src]');for(var i=0;i<s.length;i++){out+=s[i].src+'\\n';}out+='\\n=== STYLESHEETS ===\\n';var st=document.querySelectorAll('link[rel=\"stylesheet\"]');for(var i=0;i<st.length;i++){out+=st[i].href+'\\n';}return out;}catch(e){return 'ERROR: '+e.message;}})()"
+                  ) { r -> showCodeDialog("Scripts & Stylesheets", unescapeJsonString(r)) }
               }
 
-              // ============ SERVER INFO ============
               private fun inspectServerInfo(url: String) {
                   Toast.makeText(this, "Fetching server info...", Toast.LENGTH_SHORT).show()
                   Thread {
                       val sb = StringBuilder()
                       try {
                           sb.append("URL: ").append(url).append("\n\n")
-                          // Resolve IP first
                           try {
                               val host = Uri.parse(url).host ?: ""
-                              sb.append("=== DNS ===\n")
-                              sb.append("Host: ").append(host).append("\n")
+                              sb.append("=== DNS ===\nHost: ").append(host).append("\n")
                               val addrs = java.net.InetAddress.getAllByName(host)
-                              addrs.forEachIndexed { i, a ->
-                                  sb.append("IP ${i+1}: ").append(a.hostAddress).append("\n")
-                              }
+                              addrs.forEachIndexed { i, a -> sb.append("IP ${i+1}: ").append(a.hostAddress).append("\n") }
                               sb.append("\n")
-                          } catch (e: Exception) {
-                              sb.append("DNS lookup failed: ").append(e.message).append("\n\n")
-                          }
+                          } catch (e: Exception) { sb.append("DNS failed: ${e.message}\n\n") }
 
-                          // HEAD request
                           sb.append("=== SERVER HEADERS ===\n")
                           val conn = URL(url).openConnection() as HttpURLConnection
                           conn.requestMethod = "HEAD"
                           conn.connectTimeout = 10000
                           conn.readTimeout = 10000
                           conn.instanceFollowRedirects = false
-                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.2")
+                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.3")
                           conn.connect()
-
                           sb.append("Status: ").append(conn.responseCode).append(" ").append(conn.responseMessage).append("\n\n")
-                          conn.headerFields.forEach { (key, values) ->
-                              if (key != null && values != null) {
-                                  values.forEach { v -> sb.append(key).append(": ").append(v).append("\n") }
-                              }
+                          conn.headerFields.forEach { (k, v) ->
+                              if (k != null && v != null) v.forEach { sb.append(k).append(": ").append(it).append("\n") }
                           }
                           conn.disconnect()
-
-                          handler.post {
-                              showCodeDialog("🌐 Server Info", sb.toString())
-                          }
+                          handler.post { showCodeDialog("🌐 Server Info", sb.toString()) }
                       } catch (e: Exception) {
                           sb.append("\nERROR: ").append(e.message)
-                          handler.post {
-                              showCodeDialog("🌐 Server Info", sb.toString())
-                          }
+                          handler.post { showCodeDialog("🌐 Server Info", sb.toString()) }
                       }
                   }.start()
               }
@@ -1704,15 +1890,14 @@ jobs:
                       .replace("\\u0026", "&")
               }
 
-              // Chunked code dialog — prevents crash on big content
+              // Safe code dialog - no cap, chunks if needed
               private fun showCodeDialog(title: String, content: String) {
-                  val safe = if (content.length > 400000) content.substring(0, 400000) + "\n\n... [truncated]" else content
                   val container = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(20, 20, 20, 20)
                   }
                   val code = TextView(this).apply {
-                      text = safe
+                      text = content
                       setTextIsSelectable(true)
                       setTextColor(Color.parseColor("#D4D4D4"))
                       setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
@@ -1731,31 +1916,143 @@ jobs:
                       .setView(container)
                       .setPositiveButton("Copy") { _, _ ->
                           val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", safe))
-                          Toast.makeText(this, "Copied ${safe.length} chars", Toast.LENGTH_SHORT).show()
+                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", content))
+                          Toast.makeText(this, "Copied ${content.length} chars", Toast.LENGTH_SHORT).show()
                       }
                       .setNeutralButton("Share") { _, _ ->
                           val i = Intent(Intent.ACTION_SEND)
-                          i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, safe)
+                          i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, content)
                           startActivity(Intent.createChooser(i, "Share"))
                       }
                       .setNegativeButton("Close", null)
                       .show()
               }
 
-              // ============ REQUEST LOG ============
+              // ============ SAVE SITE AS ZIP ============
+              private fun showSaveSiteDialog() {
+                  val tab = currentTab ?: return
+                  val wv = tab.webView ?: return
+                  val url = wv.url ?: return
+                  if (url == "about:blank" || tab.isHome) {
+                      Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show(); return
+                  }
+                  AlertDialog.Builder(this)
+                      .setTitle("📦 Save Site as ZIP")
+                      .setMessage("Ye feature site ka poora code ZIP me save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images\n• Server info, cookies, links\n• _nexus_metadata.txt\n\nZIP yahan save hoga:\nAndroid/data/com.nexus.browser/files/SavedSites/\n\nSave karein?")
+                      .setPositiveButton("Save") { _, _ -> startSaveSite(url, wv) }
+                      .setNegativeButton("Cancel", null)
+                      .show()
+              }
+
+              private fun startSaveSite(url: String, wv: WebView) {
+                  Toast.makeText(this, "Fetching page source...", Toast.LENGTH_SHORT).show()
+                  wv.evaluateJavascript(
+                      "(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()"
+                  ) { result ->
+                      val html = unescapeJsonString(result)
+                      if (html.isEmpty()) {
+                          Toast.makeText(this, "Failed to get HTML", Toast.LENGTH_SHORT).show(); return@evaluateJavascript
+                      }
+                      val cookie = CookieManager.getInstance().getCookie(url) ?: ""
+
+                      // Build links list
+                      wv.evaluateJavascript(
+                          "(function(){try{var arr=[];var l=document.querySelectorAll('a[href]');for(var i=0;i<l.length && i<500;i++){arr.push(l[i].href);}return arr.join('\\n');}catch(e){return '';}})()"
+                      ) { linkRes ->
+                          val links = unescapeJsonString(linkRes)
+
+                          val dialog = AlertDialog.Builder(this)
+                              .setTitle("📦 Saving site...")
+                              .setMessage("Preparing...")
+                              .setCancelable(false)
+                              .create()
+                          dialog.show()
+
+                          // Fetch server info first (quick, then start download)
+                          Thread {
+                              val serverInfo = StringBuilder()
+                              try {
+                                  val conn = URL(url).openConnection() as HttpURLConnection
+                                  conn.requestMethod = "HEAD"
+                                  conn.connectTimeout = 8000
+                                  conn.readTimeout = 8000
+                                  conn.instanceFollowRedirects = false
+                                  conn.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.3")
+                                  conn.connect()
+                                  serverInfo.append("Status: ${conn.responseCode} ${conn.responseMessage}\n\n")
+                                  conn.headerFields.forEach { (k, v) ->
+                                      if (k != null && v != null) v.forEach { serverInfo.append("$k: $it\n") }
+                                  }
+                                  conn.disconnect()
+                              } catch (e: Exception) {
+                                  serverInfo.append("Error: ${e.message}")
+                              }
+
+                              val pageInfo = buildString {
+                                  appendLine("URL: $url")
+                                  appendLine("HTML size: ${html.length} chars")
+                                  appendLine("Cookies present: ${cookie.isNotEmpty()}")
+                              }
+
+                              handler.post {
+                                  val downloader = SiteDownloader(this)
+                                  downloader.saveSiteAsZip(
+                                      pageUrl = url,
+                                      html = html,
+                                      cookies = cookie,
+                                      serverInfo = serverInfo.toString(),
+                                      pageInfo = pageInfo,
+                                      links = links,
+                                      onProgress = { p ->
+                                          handler.post {
+                                              try { dialog.setMessage("${p.phase} (${p.current}/${p.total})") } catch (e: Exception) {}
+                                          }
+                                      },
+                                      onComplete = { file, ok, fail ->
+                                          handler.post {
+                                              try { dialog.dismiss() } catch (e: Exception) {}
+                                              if (file != null) {
+                                                  val sizeMB = file.length() / (1024.0 * 1024)
+                                                  AlertDialog.Builder(this)
+                                                      .setTitle("✅ Site Saved!")
+                                                      .setMessage(
+                                                          "File: ${file.name}\n" +
+                                                          "Size: %.2f MB\n".format(sizeMB) +
+                                                          "Files inside: $ok assets\n" +
+                                                          "Failed: $fail\n\n" +
+                                                          "Path:\n${file.absolutePath}\n\n" +
+                                                          "Open with ZArchiver or Files app to view."
+                                                      )
+                                                      .setPositiveButton("OK", null)
+                                                      .setNeutralButton("Share Path") { _, _ ->
+                                                          val i = Intent(Intent.ACTION_SEND)
+                                                          i.type = "text/plain"
+                                                          i.putExtra(Intent.EXTRA_TEXT, file.absolutePath)
+                                                          startActivity(Intent.createChooser(i, "Share"))
+                                                      }
+                                                      .show()
+                                              } else {
+                                                  Toast.makeText(this, "❌ Save failed", Toast.LENGTH_LONG).show()
+                                              }
+                                          }
+                                      }
+                                  )
+                              }
+                          }.start()
+                      }
+                  }
+              }
+
               private fun showRequestLogDialog() {
                   if (requestLog.isEmpty()) {
-                      AlertDialog.Builder(this)
-                          .setTitle("📡 Network Requests")
+                      AlertDialog.Builder(this).setTitle("📡 Network Requests")
                           .setMessage("No requests logged yet.\n\nBrowse a website and come back.")
                           .setPositiveButton("OK", null).show()
                       return
                   }
                   val snapshot = synchronized(requestLog) { requestLog.toList().reversed() }
                   val container = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(20, 20, 20, 20)
+                      orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20)
                   }
                   val summary = TextView(this).apply {
                       val blocked = snapshot.count { it.blocked }
@@ -1784,7 +2081,7 @@ jobs:
                               val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                               val text = "${req.method} ${req.url}\n\nType: ${req.resourceType}\nTime: ${timeFmt.format(Date(req.timestamp))}\nBlocked: ${req.blocked}"
                               cm.setPrimaryClip(ClipData.newPlainText("Nexus", text))
-                              Toast.makeText(this@MainActivity, "Request copied", Toast.LENGTH_SHORT).show()
+                              Toast.makeText(this@MainActivity, "Copied", Toast.LENGTH_SHORT).show()
                           }
                       }
                       val header = LinearLayout(this).apply {
@@ -1831,8 +2128,7 @@ jobs:
                   scroll.addView(listLayout)
                   container.addView(scroll)
 
-                  AlertDialog.Builder(this)
-                      .setTitle("📡 Network Requests")
+                  AlertDialog.Builder(this).setTitle("📡 Network Requests")
                       .setView(container)
                       .setPositiveButton("Copy All") { _, _ ->
                           val sb = StringBuilder()
@@ -1890,7 +2186,6 @@ jobs:
               }
 
               private fun toggleVpn() { if (isVpnUp()) stopVpn() else startVpn() }
-
               private fun isVpnUp(): Boolean = try {
                   val t = wgTunnel ?: return false
                   val b = wgBackend ?: return false
@@ -1904,7 +2199,7 @@ jobs:
                       if (prepare != null) startActivityForResult(prepare, 1001)
                       else connectVpn(configText)
                   } catch (e: Throwable) {
-                      Toast.makeText(this, "VPN start error: ${e.message}", Toast.LENGTH_LONG).show()
+                      Toast.makeText(this, "VPN error: ${e.message}", Toast.LENGTH_LONG).show()
                   }
               }
 
@@ -1914,7 +2209,7 @@ jobs:
                       if (resultCode == RESULT_OK) {
                           val cfg = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
                           connectVpn(cfg)
-                      } else Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
+                      } else Toast.makeText(this, "VPN denied", Toast.LENGTH_SHORT).show()
                   }
               }
 
@@ -1986,377 +2281,7 @@ jobs:
               private fun injectHideIdentity(wv: WebView?) {
                   wv ?: return
                   val js = """
-                      (function() {
-                          if (window.__nexusHideIdLoaded) return;
-                          window.__nexusHideIdLoaded = true;
-                          try { Object.defineProperty(navigator, 'platform', {get: function(){return 'Linux x86_64';}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'vendor', {get: function(){return 'Google Inc.';}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'hardwareConcurrency', {get: function(){return 4;}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'deviceMemory', {get: function(){return 8;}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'languages', {get: function(){return ['en-US','en'];}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'doNotTrack', {get: function(){return '1';}}); } catch(e){}
-                          try { Object.defineProperty(navigator, 'plugins', {get: function(){return [];}}); } catch(e){}
-                          try {
-                              if (window.RTCPeerConnection) window.RTCPeerConnection = undefined;
-                              if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = undefined;
-                          } catch(e){}
-                          try {
-                              if (navigator.mediaDevices) {
-                                  navigator.mediaDevices.enumerateDevices = function(){ return Promise.resolve([]); };
-                              }
-                          } catch(e){}
-                          try {
-                              if (navigator.geolocation) {
-                                  navigator.geolocation.getCurrentPosition = function(){};
-                                  navigator.geolocation.watchPosition = function(){return 0;};
-                              }
-                          } catch(e){}
-                          try {
-                              var og = CanvasRenderingContext2D.prototype.getImageData;
-                              CanvasRenderingContext2D.prototype.getImageData = function(){
-                                  var d = og.apply(this, arguments);
-                                  for (var i = 0; i < d.data.length; i += 100) d.data[i] = d.data[i] ^ 1;
-                                  return d;
-                              };
-                          } catch(e){}
-                          try {
-                              var gp = WebGLRenderingContext.prototype.getParameter;
-                              WebGLRenderingContext.prototype.getParameter = function(p){
-                                  if (p === 37445) return 'Intel Inc.';
-                                  if (p === 37446) return 'Intel Iris OpenGL Engine';
-                                  return gp.apply(this, arguments);
-                              };
-                          } catch(e){}
-                          try {
-                              var ro = Intl.DateTimeFormat.prototype.resolvedOptions;
-                              Intl.DateTimeFormat.prototype.resolvedOptions = function(){
-                                  var o = ro.apply(this, arguments); o.timeZone = 'UTC'; return o;
-                              };
-                          } catch(e){}
-                      })();
-                  """.trimIndent()
-                  wv.evaluateJavascript(js, null)
-              }
-
-              private fun injectUniversalAdBlock(wv: WebView?) {
-                  wv ?: return
-                  val js = """
-                      (function() {
-                          if (window.__nexusAdBlockLoaded) return;
-                          window.__nexusAdBlockLoaded = true;
-                          var css = '.adsbygoogle,.ad-container,.ad-wrapper,.advertisement,.sponsored,.promoted,[id^="google_ads_"],[id*="ad-slot"],iframe[src*="doubleclick"],iframe[src*="googlesyndication"],iframe[src*="googleadservices"]{display:none !important;height:0 !important;}';
-                          var style = document.createElement('style');
-                          style.type = 'text/css';
-                          style.appendChild(document.createTextNode(css));
-                          (document.head || document.documentElement).appendChild(style);
-                      })();
-                  """.trimIndent()
-                  wv.evaluateJavascript(js, null)
-              }
-
-              private fun injectYouTubeAdBlock(wv: WebView?) {
-                  wv ?: return
-                  val js = """
-                      (function() {
-                          if (window.__nexusYtBlockLoaded) return;
-                          window.__nexusYtBlockLoaded = true;
-                          var op = JSON.parse;
-                          JSON.parse = function(text, reviver) {
-                              var r = op(text, reviver);
-                              try {
-                                  if (r) {
-                                      if (r.adPlacements) delete r.adPlacements;
-                                      if (r.playerAds) delete r.playerAds;
-                                      if (r.adSlots) delete r.adSlots;
-                                      if (r.adBreakHeartbeatParams) delete r.adBreakHeartbeatParams;
-                                      if (r.playerResponse) {
-                                          if (r.playerResponse.adPlacements) delete r.playerResponse.adPlacements;
-                                          if (r.playerResponse.playerAds) delete r.playerResponse.playerAds;
-                                      }
-                                  }
-                              } catch(e){}
-                              return r;
-                          };
-                          var css = '.video-ads,.ytp-ad-module,.ytp-ad-overlay-container,.ytp-ad-progress-list,#player-ads,#masthead-ad,ytd-promoted-sparkles-web-renderer,ytd-display-ad-renderer,ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-compact-promoted-video-renderer,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytp-ad-overlay-slot,.ytp-ad-player-overlay,.ytp-featured-product,.ytp-suggested-action,ytd-enforcement-message-view-model{display:none !important;height:0 !important;}';
-                          var st = document.createElement('style');
-                          st.type = 'text/css';
-                          st.appendChild(document.createTextNode(css));
-                          (document.head || document.documentElement).appendChild(st);
-                          function skip() {
-                              document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad-button').forEach(function(b){try{b.click();}catch(e){}});
-                              var v = document.querySelector('video');
-                              if (v && document.querySelector('.ad-showing')) {
-                                  try { v.currentTime = v.duration; v.playbackRate = 16; } catch(e){}
-                              }
-                          }
-                          setInterval(skip, 250);
-                      })();
-                  """.trimIndent()
-                  wv.evaluateJavascript(js, null)
-              }
-
-              private fun toggleBookmark() {
-                  val tab = currentTab ?: return
-                  val url = tab.url
-                  if (url == "about:blank") return
-                  val title = tab.title
-                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                  val entry = "$title|$url"
-                  val ex = bm.firstOrNull { it.endsWith("|$url") }
-                  if (ex != null) { bm.remove(ex); Toast.makeText(this, R.string.remove_bookmark, Toast.LENGTH_SHORT).show() }
-                  else { bm.add(entry); Toast.makeText(this, R.string.add_bookmark, Toast.LENGTH_SHORT).show() }
-                  prefs.edit().putStringSet("bookmarks_set", bm).apply()
-                  updateBookmarkIcon()
-              }
-
-              private fun updateBookmarkIcon() {
-                  val url = currentTab?.url ?: return
-                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  val marked = bm.any { it.endsWith("|$url") }
-                  findViewById<ImageButton>(R.id.btnBookmark).setImageResource(
-                      if (marked) R.drawable.ic_star_filled else R.drawable.ic_star_outline)
-              }
-
-              private fun saveHistory(url: String, title: String) {
-                  if (url.startsWith("about:") || url.startsWith("data:")) return
-                  val h = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                  h.add("${System.currentTimeMillis()}|$title|$url")
-                  if (h.size > 500) {
-                      val s = h.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
-                      prefs.edit().putStringSet("history_set", s.take(300).toMutableSet()).apply()
-                  } else prefs.edit().putStringSet("history_set", h).apply()
-              }
-
-              private fun showBookmarksDialog() {
-                  val set = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  if (set.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
-                  val items = set.map { val p = it.split("|", limit = 2); (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "") }
-                  AlertDialog.Builder(this).setTitle("Bookmarks")
-                      .setItems(items.map { it.first }.toTypedArray()) { _, w -> navigate(items[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("bookmarks_set").apply(); updateBookmarkIcon() }
-                      .show()
-              }
-
-              private fun showHistoryDialog() {
-                  val set = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
-                  if (set.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
-                  val sorted = set.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
-                  val entries = sorted.map { val p = it.split("|", limit = 3); (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "") }
-                  AlertDialog.Builder(this).setTitle("History")
-                      .setItems(entries.map { it.first }.toTypedArray()) { _, w -> navigate(entries[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
-              }
-
-              private fun showMainMenu() {
-                  val opts = arrayOf(
-                      "New Tab",
-                      "Bookmarks",
-                      "History",
-                      "🔍 Inspect Mode",
-                      "📡 Network Requests Log",
-                      "💾 Memory Details",
-                      "⚡ ${if (lowMemoryMode) "Disable" else "Enable"} Low Memory Mode",
-                      "Find on page",
-                      "Share page",
-                      "Desktop site",
-                      "Downloads",
-                      "Ad Block Stats",
-                      "Exit"
-                  )
-                  AlertDialog.Builder(this).setTitle("Menu").setItems(opts) { _, w ->
-                      when (w) {
-                          0 -> newTab()
-                          1 -> showBookmarksDialog()
-                          2 -> showHistoryDialog()
-                          3 -> showInspectDialog()
-                          4 -> showRequestLogDialog()
-                          5 -> showMemoryDetailDialog()
-                          6 -> toggleLowMemoryMode()
-                          7 -> findOnPage()
-                          8 -> sharePage()
-                          9 -> toggleDesktopMode()
-                          10 -> openDownloads()
-                          11 -> showAdBlockStats()
-                          12 -> finish()
-                      }
-                  }.show()
-              }
-
-              private fun showAdBlockStats() {
-                  val b = blockedCount.get(); val t = totalCount.get()
-                  val p = if (t > 0) (b * 100 / t) else 0
-                  AlertDialog.Builder(this).setTitle("Ad Block Stats")
-                      .setMessage("Total: $t\nBlocked: $b\nRate: $p%")
-                      .setPositiveButton("OK", null).show()
-              }
-
-              private fun findOnPage() {
-                  val i = EditText(this); i.hint = "Find text"
-                  AlertDialog.Builder(this).setTitle("Find").setView(i)
-                      .setPositiveButton("Find") { _, _ -> currentTab?.webView?.findAllAsync(i.text.toString()) }
-                      .setNegativeButton("Cancel", null).show()
-              }
-
-              private fun sharePage() {
-                  val url = currentTab?.url ?: return
-                  val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, url)
-                  startActivity(Intent.createChooser(i, "Share via"))
-              }
-
-              private fun toggleDesktopMode() {
-                  desktopMode = !desktopMode
-                  val ua = if (desktopMode)
-                      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                  else "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                  tabs.forEach { it.webView?.settings?.userAgentString = ua }
-                  currentTab?.webView?.reload()
-                  Toast.makeText(this, if (desktopMode) "Desktop mode" else "Mobile mode", Toast.LENGTH_SHORT).show()
-              }
-
-              private fun openDownloads() {
-                  try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
-                  catch (e: Exception) { Toast.makeText(this, "Unavailable", Toast.LENGTH_SHORT).show() }
-              }
-
-              private fun showSettings() {
-                  val hideId = prefs.getBoolean("hide_identity", false)
-                  val js = prefs.getBoolean("javascript", true)
-                  val vpn = isVpnUp()
-                  val opts = arrayOf(
-                      "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
-                      "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
-                      "🛡 Hide Identity: ${if (hideId) "ON" else "OFF"}",
-                      "🔒 JavaScript: ${if (js) "ON" else "OFF"}",
-                      "⚡ Low Memory Mode: ${if (lowMemoryMode) "ON" else "OFF"}",
-                      "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"}",
-                      "🔧 Edit WireGuard Config",
-                      "Search engine: ${prefs.getString("search_engine", "google")}",
-                      "Clear cache", "Clear cookies", "Reset all"
-                  )
-                  AlertDialog.Builder(this).setTitle("Settings").setItems(opts) { _, w ->
-                      when (w) {
-                          0 -> {
-                              val d = !prefs.getBoolean("dark_mode", false)
-                              prefs.edit().putBoolean("dark_mode", d).apply()
-                              AppCompatDelegate.setDefaultNightMode(if (d) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
-                              recreate()
-                          }
-                          1 -> {
-                              val a = !prefs.getBoolean("adblock", true)
-                              prefs.edit().putBoolean("adblock", a).apply()
-                              Toast.makeText(this, if (a) "ON" else "OFF", Toast.LENGTH_SHORT).show()
-                          }
-                          2 -> {
-                              val h = !prefs.getBoolean("hide_identity", false)
-                              prefs.edit().putBoolean("hide_identity", h).apply()
-                              Toast.makeText(this, if (h) "🛡 Protected" else "OFF", Toast.LENGTH_SHORT).show()
-                              if (h) currentTab?.webView?.reload()
-                          }
-                          3 -> {
-                              val j = !prefs.getBoolean("javascript", true)
-                              prefs.edit().putBoolean("javascript", j).apply()
-                              tabs.forEach { it.webView?.settings?.javaScriptEnabled = j }
-                              Toast.makeText(this, if (j) "JS ON" else "JS OFF", Toast.LENGTH_SHORT).show()
-                              currentTab?.webView?.reload()
-                          }
-                          4 -> toggleLowMemoryMode()
-                          5 -> toggleVpn()
-                          6 -> editWgConfigDialog()
-                          7 -> chooseSearchEngine()
-                          8 -> { tabs.forEach { it.webView?.clearCache(true) }; System.gc(); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          9 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          10 -> {
-                              prefs.edit().clear().apply()
-                              prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
-                              Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show()
-                              recreate()
-                          }
-                      }
-                  }.show()
-              }
-
-              private fun editWgConfigDialog() {
-                  val input = EditText(this)
-                  input.setText(prefs.getString("wg_config", DEFAULT_WG_CONFIG))
-                  input.minLines = 6; input.maxLines = 14
-                  input.gravity = Gravity.TOP or Gravity.START
-                  input.setPadding(30, 30, 30, 30)
-                  AlertDialog.Builder(this)
-                      .setTitle("WireGuard Config")
-                      .setMessage("Cloudflare WARP config pre-loaded.")
-                      .setView(input)
-                      .setPositiveButton("Save") { _, _ ->
-                          prefs.edit().putString("wg_config", input.text.toString().trim()).apply()
-                          Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
-                      }
-                      .setNeutralButton("Reset WARP") { _, _ ->
-                          prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
-                          Toast.makeText(this, "WARP restored", Toast.LENGTH_SHORT).show()
-                      }
-                      .setNegativeButton("Cancel", null).show()
-              }
-
-              private fun chooseSearchEngine() {
-                  val engines = arrayOf("google", "duckduckgo", "bing", "brave")
-                  AlertDialog.Builder(this).setTitle("Search engine").setItems(engines) { _, w ->
-                      prefs.edit().putString("search_engine", engines[w]).apply()
-                      Toast.makeText(this, "Set to ${engines[w]}", Toast.LENGTH_SHORT).show()
-                  }.show()
-              }
-
-              override fun onResume() { super.onResume(); updateVpnUi(); updateMemoryIndicator() }
-
-              override fun onNewIntent(intent: Intent) {
-                  super.onNewIntent(intent)
-                  intent.data?.let { uri ->
-                      val tab = currentTab
-                      if (tab != null && tab.isHome) loadIncoming(tab, uri)
-                      else newTab(initialUri = uri)
-                  }
-              }
-
-              override fun onBackPressed() {
-                  val tab = currentTab
-                  val wv = tab?.webView
-                  if (tab != null && !tab.isHome && wv != null && wv.canGoBack()) { wv.goBack(); return }
-                  if (tab != null && !tab.isHome) { showHome(); return }
-                  if (tabs.size > 1) { closeTab(currentTabIndex); return }
-                  super.onBackPressed()
-              }
-          }
-          KOTEOF
-
-      - name: Write NexusTunnel.kt
-        run: |
-          cat > app/src/main/java/com/nexus/browser/NexusTunnel.kt << 'KOTEOF'
-          package com.nexus.browser
-          import com.wireguard.android.backend.Tunnel
-          class NexusTunnel(private val tunnelName: String) : Tunnel {
-              override fun getName(): String = tunnelName
-              override fun onStateChange(newState: Tunnel.State) { }
-          }
-          KOTEOF
-
-      - name: Write NexusVpnService.kt
-        run: |
-          cat > app/src/main/java/com/nexus/browser/NexusVpnService.kt << 'KOTEOF'
-          package com.nexus.browser
-          import com.wireguard.android.backend.GoBackend
-          class NexusVpnService : GoBackend.VpnService() { }
-          KOTEOF
-
-      - name: Build APK
-        run: |
-          gradle assembleDebug --stacktrace --no-daemon
-
-      - name: Find APK
-        run: |
-          find . -name "*.apk" -type f
-
-      - name: Upload APK as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: NexusBrowser-APK
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 30
+                      (function(){if(window.__nexusHideIdLoaded)return;window.__nexusHideIdLoaded=true;
+                      try{Object.defineProperty(navigator,'platform',{get:function(){return 'Linux x86_64';}});}catch(e){}
+                      try{Object.defineProperty(navigator,'vendor',{get:function(){return 'Google Inc.';}});}catch(e){}
+                      try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 4;}}
