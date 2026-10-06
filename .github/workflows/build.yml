@@ -48,19 +48,10 @@ jobs:
       - name: Write settings.gradle
         run: |
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
           rootProject.name = "NexusBrowser"
           include ':app'
@@ -100,8 +91,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 6
-                  versionName "3.1.0"
+                  versionCode 7
+                  versionName "3.2.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -109,9 +100,7 @@ jobs:
                       minifyEnabled false
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
                   }
-                  debug {
-                      applicationIdSuffix ".debug"
-                  }
+                  debug { applicationIdSuffix ".debug" }
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -142,15 +131,11 @@ jobs:
         run: |
           cat > app/proguard-rules.pro << 'EOF'
           -keep class com.nexus.browser.** { *; }
-          -keepclassmembers class * {
-              @android.webkit.JavascriptInterface <methods>;
-          }
+          -keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
           -keep class com.wireguard.** { *; }
-          -keepclassmembers class com.wireguard.** { *; }
           -dontwarn com.wireguard.**
           -keep class go.** { *; }
           -dontwarn go.**
-          -keep class com.wireguard.android.backend.GoBackend$VpnService { *; }
           EOF
 
       - name: Write AndroidManifest.xml
@@ -185,6 +170,7 @@ jobs:
                   android:supportsRtl="true"
                   android:hardwareAccelerated="true"
                   android:usesCleartextTraffic="true"
+                  android:largeHeap="false"
                   android:theme="@style/Theme.NexusBrowser"
                   tools:targetApi="34">
 
@@ -295,30 +281,23 @@ jobs:
           <resources>
               <color name="primary">#1565C0</color>
               <color name="primary_dark">#0D47A1</color>
-              <color name="primary_light">#42A5F5</color>
               <color name="accent">#00BFA5</color>
               <color name="background">#F5F5F5</color>
-              <color name="background_dark">#121212</color>
               <color name="surface">#FFFFFF</color>
-              <color name="surface_dark">#1E1E1E</color>
               <color name="text_primary">#212121</color>
-              <color name="text_primary_dark">#FFFFFF</color>
               <color name="text_secondary">#757575</color>
-              <color name="divider">#E0E0E0</color>
               <color name="incognito_color">#311B92</color>
               <color name="white">#FFFFFF</color>
               <color name="black">#000000</color>
               <color name="home_bg_light">#F0F4F8</color>
               <color name="vpn_on">#00C853</color>
               <color name="vpn_off">#F44336</color>
-              <color name="tab_active">#FFFFFF</color>
-              <color name="tab_inactive">#0D47A1</color>
               <color name="tab_strip_bg">#0D47A1</color>
               <color name="bottom_bar">#FFFFFF</color>
               <color name="code_bg">#1E1E1E</color>
-              <color name="code_text">#D4D4D4</color>
-              <color name="req_allowed">#4CAF50</color>
-              <color name="req_blocked">#F44336</color>
+              <color name="mem_ok">#4CAF50</color>
+              <color name="mem_warn">#FF9800</color>
+              <color name="mem_high">#F44336</color>
           </resources>
           EOF
 
@@ -354,11 +333,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_back.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24"
-              android:tint="#FFFFFF">
-              <path android:fillColor="@android:color/white"
-                  android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
           </vector>
           EOF
 
@@ -366,11 +342,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_forward.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24"
-              android:tint="#FFFFFF">
-              <path android:fillColor="@android:color/white"
-                  android:pathData="M12,4l-1.41,1.41L16.17,11H4v2h12.17l-5.58,5.59L12,20l8,-8z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M12,4l-1.41,1.41L16.17,11H4v2h12.17l-5.58,5.59L12,20l8,-8z"/>
           </vector>
           EOF
 
@@ -378,11 +351,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_refresh.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24"
-              android:tint="#FFFFFF">
-              <path android:fillColor="@android:color/white"
-                  android:pathData="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/>
           </vector>
           EOF
 
@@ -390,11 +360,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_menu.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24"
-              android:tint="#FFFFFF">
-              <path android:fillColor="@android:color/white"
-                  android:pathData="M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2zM12,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2zM12,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z"/>
           </vector>
           EOF
 
@@ -402,10 +369,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_home.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368"
-                  android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368" android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z"/>
           </vector>
           EOF
 
@@ -413,10 +378,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_star_outline.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368"
-                  android:pathData="M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24zM12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368" android:pathData="M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24zM12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z"/>
           </vector>
           EOF
 
@@ -424,10 +387,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_star_filled.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#1565C0"
-                  android:pathData="M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#1565C0" android:pathData="M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z"/>
           </vector>
           EOF
 
@@ -435,10 +396,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_tabs.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368"
-                  android:pathData="M2,4h10v2H2zM2,8h10v2H2zM2,12h10v2H2zM14,4h8v2h-8zM14,8h8v2h-8zM14,12h8v2h-8zM2,16h20v2H2zM2,20h20v2H2z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368" android:pathData="M2,4h10v2H2zM2,8h10v2H2zM2,12h10v2H2zM14,4h8v2h-8zM14,8h8v2h-8zM14,12h8v2h-8zM2,16h20v2H2zM2,20h20v2H2z"/>
           </vector>
           EOF
 
@@ -446,10 +405,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_incognito.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368"
-                  android:pathData="M17.06,10L19,6h1V4H4v2h1l1.94,4H2v2h2.13c0.08,0.7 0.27,1.35 0.57,1.93C5.4,15.16 6.64,16 8.5,16c1.86,0 3.1,-0.84 3.8,-2.07C12.6,14.16 13.84,15 15.7,15c1.86,0 3.1,-0.84 3.8,-2.07 0.3,-0.58 0.49,-1.23 0.57,-1.93H22v-2zM8.5,14c-1.1,0 -1.99,-0.5 -2.4,-1.3C5.94,12.4 5.8,12 5.7,11.6L5.1,10h6.8l-0.6,1.6c-0.1,0.4 -0.24,0.8 -0.4,1.1C10.49,13.5 9.6,14 8.5,14zM15.7,13.7C15.5,14 15.34,14 15.24,14c-0.1,0 -0.26,0 -0.4,-0.3c-0.16,-0.3 -0.3,-0.7 -0.4,-1.1L13.84,11h6.8l-0.6,1.6c-0.1,0.4 -0.24,0.8 -0.4,1.1C19.24,14.5 18.35,15 17.25,15c-1.1,0 -1.99,-0.5 -2.4,-1.3z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368" android:pathData="M17.06,10L19,6h1V4H4v2h1l1.94,4H2v2h2.13c0.08,0.7 0.27,1.35 0.57,1.93C5.4,15.16 6.64,16 8.5,16c1.86,0 3.1,-0.84 3.8,-2.07C12.6,14.16 13.84,15 15.7,15c1.86,0 3.1,-0.84 3.8,-2.07 0.3,-0.58 0.49,-1.23 0.57,-1.93H22v-2z"/>
           </vector>
           EOF
 
@@ -457,10 +414,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_settings.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368"
-                  android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#5F6368" android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/>
           </vector>
           EOF
 
@@ -468,10 +423,8 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/ic_search.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp"
-              android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#757575"
-                  android:pathData="M15.5,14h-0.79l-0.28,-0.27C15.41,12.59 16,11.11 16,9.5 16,5.91 13.09,3 9.5,3S3,5.91 3,9.5 5.91,16 9.5,16c1.61,0 3.09,-0.59 4.23,-1.57l0.27,0.28v0.79l5,4.99L20.49,19l-4.99,-5zM9.5,14C7.01,14 5,11.99 5,9.5S7.01,5 9.5,5 14,7.01 14,9.5 11.99,14 9.5,14z"/>
+              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#757575" android:pathData="M15.5,14h-0.79l-0.28,-0.27C15.41,12.59 16,11.11 16,9.5 16,5.91 13.09,3 9.5,3S3,5.91 3,9.5 5.91,16 9.5,16c1.61,0 3.09,-0.59 4.23,-1.57l0.27,0.28v0.79l5,4.99L20.49,19l-4.99,-5zM9.5,14C7.01,14 5,11.99 5,9.5S7.01,5 9.5,5 14,7.01 14,9.5 11.99,14 9.5,14z"/>
           </vector>
           EOF
 
@@ -481,12 +434,9 @@ jobs:
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="72dp" android:height="72dp"
               android:viewportWidth="108" android:viewportHeight="108">
-              <path android:fillColor="#FFFFFF"
-                  android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
-              <path android:fillColor="#00BFA5"
-                  android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
-              <path android:fillColor="#FFFFFF"
-                  android:pathData="M50,44 L50,64 L66,54 Z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
+              <path android:fillColor="#00BFA5" android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M50,44 L50,64 L66,54 Z"/>
           </vector>
           EOF
 
@@ -494,8 +444,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/tab_chip_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="18dp" />
+              <solid android:color="#FFFFFF" /><corners android:radius="18dp" />
           </shape>
           EOF
 
@@ -503,8 +452,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/tab_chip_inactive_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#22FFFFFF" />
-              <corners android:radius="18dp" />
+              <solid android:color="#22FFFFFF" /><corners android:radius="18dp" />
           </shape>
           EOF
 
@@ -512,8 +460,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/search_bar_modern_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="24dp" />
+              <solid android:color="#FFFFFF" /><corners android:radius="24dp" />
           </shape>
           EOF
 
@@ -521,8 +468,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/home_search_modern_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="28dp" />
+              <solid android:color="#FFFFFF" /><corners android:radius="28dp" />
           </shape>
           EOF
 
@@ -530,12 +476,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/home_gradient_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <gradient
-                  android:angle="270"
-                  android:startColor="#0D47A1"
-                  android:centerColor="#1565C0"
-                  android:endColor="#1E88E5"
-                  android:type="linear" />
+              <gradient android:angle="270" android:startColor="#0D47A1" android:centerColor="#1565C0" android:endColor="#1E88E5" android:type="linear" />
           </shape>
           EOF
 
@@ -543,8 +484,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/tile_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" />
-              <corners android:radius="16dp" />
+              <solid android:color="#FFFFFF" /><corners android:radius="16dp" />
           </shape>
           EOF
 
@@ -560,8 +500,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/vpn_pill_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#00C853" />
-              <corners android:radius="20dp" />
+              <solid android:color="#00C853" /><corners android:radius="20dp" />
           </shape>
           EOF
 
@@ -569,8 +508,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/vpn_pill_off_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#F44336" />
-              <corners android:radius="20dp" />
+              <solid android:color="#F44336" /><corners android:radius="20dp" />
           </shape>
           EOF
 
@@ -578,8 +516,7 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/code_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#1E1E1E" />
-              <corners android:radius="8dp" />
+              <solid android:color="#1E1E1E" /><corners android:radius="8dp" />
           </shape>
           EOF
 
@@ -587,9 +524,16 @@ jobs:
         run: |
           cat > app/src/main/res/drawable/req_row_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FAFAFA" />
-              <corners android:radius="6dp" />
+              <solid android:color="#FAFAFA" /><corners android:radius="6dp" />
               <stroke android:width="1dp" android:color="#E0E0E0" />
+          </shape>
+          EOF
+
+      - name: Write mem_pill_bg.xml
+        run: |
+          cat > app/src/main/res/drawable/mem_pill_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#22FFFFFF" /><corners android:radius="12dp" />
           </shape>
           EOF
 
@@ -599,75 +543,65 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent" android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:background="?android:attr/colorBackground"
+              android:orientation="vertical" android:background="?android:attr/colorBackground"
               android:animateLayoutChanges="false">
 
               <LinearLayout android:id="@+id/navBar"
                   android:layout_width="match_parent" android:layout_height="56dp"
                   android:orientation="horizontal" android:background="@color/primary"
-                  android:gravity="center_vertical"
-                  android:elevation="4dp"
+                  android:gravity="center_vertical" android:elevation="4dp"
                   android:paddingStart="4dp" android:paddingEnd="4dp">
 
-                  <ImageButton android:id="@+id/btnBack" android:layout_width="44dp" android:layout_height="44dp"
+                  <ImageButton android:id="@+id/btnBack" android:layout_width="42dp" android:layout_height="42dp"
                       android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_back"
-                      android:contentDescription="@string/back" android:scaleType="centerInside"
-                      android:padding="10dp" />
+                      android:contentDescription="@string/back" android:scaleType="centerInside" android:padding="10dp" />
 
-                  <ImageButton android:id="@+id/btnForward" android:layout_width="44dp" android:layout_height="44dp"
+                  <ImageButton android:id="@+id/btnForward" android:layout_width="42dp" android:layout_height="42dp"
                       android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_forward"
-                      android:contentDescription="@string/forward" android:scaleType="centerInside"
-                      android:padding="10dp" />
+                      android:contentDescription="@string/forward" android:scaleType="centerInside" android:padding="10dp" />
 
                   <LinearLayout
                       android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1"
                       android:orientation="horizontal" android:gravity="center_vertical"
                       android:background="@drawable/search_bar_modern_bg"
-                      android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
+                      android:layout_marginStart="2dp" android:layout_marginEnd="2dp"
                       android:elevation="2dp">
 
-                      <ImageView
-                          android:layout_width="20dp" android:layout_height="20dp"
-                          android:src="@drawable/ic_search"
-                          android:layout_marginStart="14dp"
-                          android:layout_marginEnd="6dp" />
+                      <ImageView android:layout_width="18dp" android:layout_height="18dp"
+                          android:src="@drawable/ic_search" android:layout_marginStart="12dp" android:layout_marginEnd="6dp" />
 
                       <EditText android:id="@+id/addressBar"
                           android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                          android:background="@android:color/transparent"
-                          android:hint="@string/search_hint"
-                          android:textColorHint="#9E9E9E"
-                          android:textColor="@color/text_primary"
-                          android:paddingStart="0dp" android:paddingEnd="12dp"
-                          android:imeOptions="actionGo"
-                          android:inputType="textUri"
-                          android:maxLines="1"
-                          android:textSize="14sp"
+                          android:background="@android:color/transparent" android:hint="@string/search_hint"
+                          android:textColorHint="#9E9E9E" android:textColor="@color/text_primary"
+                          android:paddingStart="0dp" android:paddingEnd="8dp" android:imeOptions="actionGo"
+                          android:inputType="textUri" android:maxLines="1" android:textSize="13sp"
                           android:importantForAutofill="no" />
                   </LinearLayout>
 
-                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="44dp" android:layout_height="44dp"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_refresh"
-                      android:contentDescription="@string/refresh" android:scaleType="centerInside"
-                      android:padding="10dp" />
+                  <TextView android:id="@+id/memIndicator"
+                      android:layout_width="wrap_content" android:layout_height="26dp"
+                      android:gravity="center" android:paddingStart="8dp" android:paddingEnd="8dp"
+                      android:background="@drawable/mem_pill_bg"
+                      android:text="0 MB" android:textColor="#FFFFFF" android:textSize="10sp"
+                      android:textStyle="bold" android:layout_marginEnd="2dp" />
 
-                  <ImageButton android:id="@+id/btnMenu" android:layout_width="44dp" android:layout_height="44dp"
+                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="38dp" android:layout_height="42dp"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_refresh"
+                      android:contentDescription="@string/refresh" android:scaleType="centerInside" android:padding="10dp" />
+
+                  <ImageButton android:id="@+id/btnMenu" android:layout_width="38dp" android:layout_height="42dp"
                       android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_menu"
-                      android:contentDescription="@string/menu" android:scaleType="centerInside"
-                      android:padding="10dp" />
+                      android:contentDescription="@string/menu" android:scaleType="centerInside" android:padding="10dp" />
               </LinearLayout>
 
               <HorizontalScrollView android:id="@+id/tabScroll"
                   android:layout_width="match_parent" android:layout_height="40dp"
-                  android:background="@color/tab_strip_bg"
-                  android:scrollbars="none"
-                  android:fillViewport="false">
+                  android:background="@color/tab_strip_bg" android:scrollbars="none" android:fillViewport="false">
                   <LinearLayout android:id="@+id/tabStrip"
                       android:layout_width="wrap_content" android:layout_height="match_parent"
                       android:orientation="horizontal" android:gravity="center_vertical"
-                      android:paddingStart="6dp" android:paddingEnd="6dp"
-                      android:animateLayoutChanges="false" />
+                      android:paddingStart="6dp" android:paddingEnd="6dp" android:animateLayoutChanges="false" />
               </HorizontalScrollView>
 
               <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
@@ -680,154 +614,96 @@ jobs:
 
                   <LinearLayout android:id="@+id/homeOverlay"
                       android:layout_width="match_parent" android:layout_height="match_parent"
-                      android:orientation="vertical"
-                      android:gravity="top|center_horizontal"
-                      android:background="@drawable/home_gradient_bg"
-                      android:visibility="visible"
-                      android:animateLayoutChanges="false"
-                      android:focusableInTouchMode="true"
-                      android:paddingStart="20dp"
-                      android:paddingEnd="20dp">
+                      android:orientation="vertical" android:gravity="top|center_horizontal"
+                      android:background="@drawable/home_gradient_bg" android:visibility="visible"
+                      android:animateLayoutChanges="false" android:focusableInTouchMode="true"
+                      android:paddingStart="20dp" android:paddingEnd="20dp">
 
-                      <LinearLayout
-                          android:layout_width="match_parent" android:layout_height="wrap_content"
+                      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                           android:orientation="horizontal" android:gravity="center_vertical"
                           android:paddingTop="60dp" android:paddingBottom="20dp">
-
-                          <ImageView
-                              android:layout_width="56dp" android:layout_height="56dp"
-                              android:src="@drawable/ic_nexus_logo" />
-
-                          <LinearLayout
-                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                          <ImageView android:layout_width="56dp" android:layout_height="56dp" android:src="@drawable/ic_nexus_logo" />
+                          <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                               android:orientation="vertical" android:layout_marginStart="14dp">
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Nexus"
-                                  android:textColor="#FFFFFF"
-                                  android:textSize="28sp"
-                                  android:textStyle="bold" />
+                                  android:text="Nexus" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Private • Fast • Secure"
-                                  android:textColor="#B0C4DE"
-                                  android:textSize="11sp" />
+                                  android:text="Private • Fast • Secure" android:textColor="#B0C4DE" android:textSize="11sp" />
                           </LinearLayout>
-
                           <LinearLayout android:id="@+id/vpnPill"
                               android:layout_width="wrap_content" android:layout_height="32dp"
                               android:orientation="horizontal" android:gravity="center_vertical"
                               android:paddingStart="12dp" android:paddingEnd="12dp"
                               android:background="@drawable/vpn_pill_off_bg"
                               android:clickable="true" android:focusable="true">
-
-                              <TextView android:id="@+id/vpnShield"
-                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
+                              <TextView android:id="@+id/vpnShield" android:layout_width="wrap_content" android:layout_height="wrap_content"
                                   android:text="🛡" android:textSize="12sp" android:layout_marginEnd="4dp" />
-
-                              <TextView android:id="@+id/vpnStatusText"
-                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="VPN OFF"
-                                  android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
+                              <TextView android:id="@+id/vpnStatusText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:text="VPN OFF" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
                           </LinearLayout>
                       </LinearLayout>
 
-                      <LinearLayout
-                          android:layout_width="match_parent" android:layout_height="54dp"
+                      <LinearLayout android:layout_width="match_parent" android:layout_height="54dp"
                           android:orientation="horizontal" android:gravity="center_vertical"
-                          android:background="@drawable/home_search_modern_bg"
-                          android:elevation="6dp">
-
-                          <ImageView
-                              android:layout_width="22dp" android:layout_height="22dp"
-                              android:src="@drawable/ic_search"
-                              android:layout_marginStart="18dp"
-                              android:layout_marginEnd="8dp" />
-
+                          android:background="@drawable/home_search_modern_bg" android:elevation="6dp">
+                          <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_search"
+                              android:layout_marginStart="18dp" android:layout_marginEnd="8dp" />
                           <EditText android:id="@+id/homeSearchBar"
                               android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                              android:background="@android:color/transparent"
-                              android:hint="@string/home_search_hint"
-                              android:textColorHint="#9E9E9E"
-                              android:textColor="@color/text_primary"
-                              android:paddingStart="0dp" android:paddingEnd="18dp"
-                              android:imeOptions="actionGo"
-                              android:inputType="textUri"
-                              android:maxLines="1"
-                              android:textSize="15sp"
+                              android:background="@android:color/transparent" android:hint="@string/home_search_hint"
+                              android:textColorHint="#9E9E9E" android:textColor="@color/text_primary"
+                              android:paddingStart="0dp" android:paddingEnd="18dp" android:imeOptions="actionGo"
+                              android:inputType="textUri" android:maxLines="1" android:textSize="15sp"
                               android:importantForAutofill="no" />
                       </LinearLayout>
 
-                      <LinearLayout
-                          android:layout_width="match_parent" android:layout_height="wrap_content"
-                          android:orientation="horizontal" android:gravity="center"
-                          android:layout_marginTop="28dp">
-
+                      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="horizontal" android:gravity="center" android:layout_marginTop="28dp">
                           <LinearLayout android:id="@+id/tileYoutube"
-                              android:layout_width="0dp" android:layout_height="wrap_content"
-                              android:layout_weight="1" android:orientation="vertical"
-                              android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg"
-                              android:layout_marginEnd="6dp"
+                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg" android:layout_marginEnd="6dp"
                               android:clickable="true" android:focusable="true">
-
-                              <View android:layout_width="44dp" android:layout_height="44dp"
-                                  android:background="@drawable/tile_circle_bg" />
+                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                   android:text="YouTube" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
-
                           <LinearLayout android:id="@+id/tileGoogle"
-                              android:layout_width="0dp" android:layout_height="wrap_content"
-                              android:layout_weight="1" android:orientation="vertical"
-                              android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg"
-                              android:layout_marginStart="3dp" android:layout_marginEnd="3dp"
+                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg" android:layout_marginStart="3dp" android:layout_marginEnd="3dp"
                               android:clickable="true" android:focusable="true">
-
-                              <View android:layout_width="44dp" android:layout_height="44dp"
-                                  android:background="@drawable/tile_circle_bg" />
+                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                   android:text="Google" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
-
                           <LinearLayout android:id="@+id/tileWikipedia"
-                              android:layout_width="0dp" android:layout_height="wrap_content"
-                              android:layout_weight="1" android:orientation="vertical"
-                              android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg"
-                              android:layout_marginEnd="3dp" android:layout_marginStart="3dp"
+                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg" android:layout_marginEnd="3dp" android:layout_marginStart="3dp"
                               android:clickable="true" android:focusable="true">
-
-                              <View android:layout_width="44dp" android:layout_height="44dp"
-                                  android:background="@drawable/tile_circle_bg" />
+                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                   android:text="Wikipedia" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
-
                           <LinearLayout android:id="@+id/tileGithub"
-                              android:layout_width="0dp" android:layout_height="wrap_content"
-                              android:layout_weight="1" android:orientation="vertical"
-                              android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg"
-                              android:layout_marginStart="6dp"
+                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
+                              android:background="@drawable/tile_bg" android:layout_marginStart="6dp"
                               android:clickable="true" android:focusable="true">
-
-                              <View android:layout_width="44dp" android:layout_height="44dp"
-                                  android:background="@drawable/tile_circle_bg" />
+                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
                               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                   android:text="GitHub" android:textSize="12sp" android:textColor="@color/primary"
                                   android:layout_marginTop="6dp" android:textStyle="bold" />
                           </LinearLayout>
                       </LinearLayout>
 
-                      <TextView android:id="@+id/vpnInfoText"
-                          android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="20dp"
-                          android:text="Cloudflare WARP • Built-in"
-                          android:textColor="#80FFFFFF"
-                          android:textSize="11sp" />
+                      <TextView android:id="@+id/vpnInfoText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:layout_marginTop="20dp" android:text="Cloudflare WARP • Built-in"
+                          android:textColor="#80FFFFFF" android:textSize="11sp" />
                   </LinearLayout>
 
                   <TextView android:id="@+id/incognitoBadge"
@@ -841,43 +717,32 @@ jobs:
               <LinearLayout android:id="@+id/bottomBar"
                   android:layout_width="match_parent" android:layout_height="56dp"
                   android:orientation="horizontal" android:background="@color/bottom_bar"
-                  android:gravity="center_vertical"
-                  android:elevation="8dp"
+                  android:gravity="center_vertical" android:elevation="8dp"
                   android:animateLayoutChanges="false">
 
-                  <ImageButton android:id="@+id/btnHome"
-                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_home"
-                      android:contentDescription="@string/home"
+                  <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent"
+                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_home" android:contentDescription="@string/home"
                       android:scaleType="centerInside" android:padding="14dp" />
 
-                  <ImageButton android:id="@+id/btnBookmark"
-                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_star_outline"
-                      android:contentDescription="@string/bookmarks"
+                  <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent"
+                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_star_outline" android:contentDescription="@string/bookmarks"
                       android:scaleType="centerInside" android:padding="14dp" />
 
-                  <ImageButton android:id="@+id/btnTabs"
-                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_tabs"
-                      android:contentDescription="@string/new_tab"
+                  <ImageButton android:id="@+id/btnTabs" android:layout_width="0dp" android:layout_height="match_parent"
+                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_tabs" android:contentDescription="@string/new_tab"
                       android:scaleType="centerInside" android:padding="14dp" />
 
-                  <ImageButton android:id="@+id/btnIncognito"
-                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_incognito"
-                      android:contentDescription="@string/incognito"
+                  <ImageButton android:id="@+id/btnIncognito" android:layout_width="0dp" android:layout_height="match_parent"
+                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_incognito" android:contentDescription="@string/incognito"
                       android:scaleType="centerInside" android:padding="14dp" />
 
-                  <ImageButton android:id="@+id/btnSettings"
-                      android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                      android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_settings"
-                      android:contentDescription="@string/settings"
+                  <ImageButton android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="match_parent"
+                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@drawable/ic_settings" android:contentDescription="@string/settings"
                       android:scaleType="centerInside" android:padding="14dp" />
               </LinearLayout>
           </LinearLayout>
@@ -889,6 +754,7 @@ jobs:
           package com.nexus.browser
 
           import android.annotation.SuppressLint
+          import android.app.ActivityManager
           import android.app.AlertDialog
           import android.app.DownloadManager
           import android.content.ClipData
@@ -901,11 +767,12 @@ jobs:
           import android.graphics.Typeface
           import android.net.Uri
           import android.net.VpnService
+          import android.os.Build
           import android.os.Bundle
+          import android.os.Debug
           import android.os.Environment
           import android.os.Handler
           import android.os.Looper
-          import android.text.InputType
           import android.util.TypedValue
           import android.view.Gravity
           import android.view.KeyEvent
@@ -938,6 +805,8 @@ jobs:
           import com.wireguard.android.backend.Tunnel
           import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
+          import java.net.HttpURLConnection
+          import java.net.URL
           import java.net.URLEncoder
           import java.text.SimpleDateFormat
           import java.util.Date
@@ -958,16 +827,26 @@ jobs:
               private lateinit var contentContainer: FrameLayout
               private lateinit var tabStrip: LinearLayout
               private lateinit var tabScroll: HorizontalScrollView
+              private lateinit var memIndicator: TextView
               private lateinit var prefs: SharedPreferences
 
               private var desktopMode = false
               private var isHomeVisible = true
+              private var lowMemoryMode = false
 
               private var wgBackend: Backend? = null
               private var wgTunnel: NexusTunnel? = null
               private val handler = Handler(Looper.getMainLooper())
 
-              // ============ REQUEST LOG ============
+              // ========= MEMORY MONITOR =========
+              private val memHandler = Handler(Looper.getMainLooper())
+              private val memRunnable = object : Runnable {
+                  override fun run() {
+                      updateMemoryIndicator()
+                      memHandler.postDelayed(this, 2000)
+                  }
+              }
+
               data class RequestLogEntry(
                   val timestamp: Long,
                   val url: String,
@@ -1051,6 +930,8 @@ jobs:
                       prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
                   }
 
+                  lowMemoryMode = prefs.getBoolean("low_memory_mode", false)
+
                   AppCompatDelegate.setDefaultNightMode(
                       if (prefs.getBoolean("dark_mode", false)) AppCompatDelegate.MODE_NIGHT_YES
                       else AppCompatDelegate.MODE_NIGHT_NO
@@ -1075,6 +956,9 @@ jobs:
                   contentContainer = findViewById(R.id.contentContainer)
                   tabStrip = findViewById(R.id.tabStrip)
                   tabScroll = findViewById(R.id.tabScroll)
+                  memIndicator = findViewById(R.id.memIndicator)
+
+                  memIndicator.setOnClickListener { showMemoryDetailDialog() }
 
                   try { wgBackend = GoBackend(applicationContext) } catch (e: Throwable) {}
 
@@ -1093,6 +977,140 @@ jobs:
                   vpnPill.setOnClickListener { toggleVpn() }
                   homeSearchBar.clearFocus()
                   addressBar.clearFocus()
+
+                  // start memory monitor
+                  memHandler.post(memRunnable)
+              }
+
+              override fun onDestroy() {
+                  memHandler.removeCallbacks(memRunnable)
+                  super.onDestroy()
+              }
+
+              // ============ MEMORY MONITOR ============
+              private fun getAppMemoryMB(): Int {
+                  return try {
+                      val runtime = Runtime.getRuntime()
+                      val usedBytes = runtime.totalMemory() - runtime.freeMemory()
+                      val debugInfo = Debug.MemoryInfo()
+                      Debug.getMemoryInfo(debugInfo)
+                      val totalPss = debugInfo.totalPss
+                      if (totalPss > 0) totalPss / 1024 else (usedBytes / (1024 * 1024)).toInt()
+                  } catch (e: Exception) {
+                      try {
+                          val runtime = Runtime.getRuntime()
+                          ((runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)).toInt()
+                      } catch (e2: Exception) { 0 }
+                  }
+              }
+
+              private fun getDeviceFreeMemoryMB(): Int {
+                  return try {
+                      val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                      val mi = ActivityManager.MemoryInfo()
+                      am.getMemoryInfo(mi)
+                      (mi.availMem / (1024 * 1024)).toInt()
+                  } catch (e: Exception) { 0 }
+              }
+
+              private fun updateMemoryIndicator() {
+                  val mem = getAppMemoryMB()
+                  memIndicator.text = "${mem} MB"
+                  val colorRes = when {
+                      mem < 150 -> R.color.mem_ok
+                      mem < 300 -> R.color.mem_warn
+                      else -> R.color.mem_high
+                  }
+                  try {
+                      memIndicator.setTextColor(getColor(colorRes))
+                  } catch (e: Exception) {}
+              }
+
+              private fun showMemoryDetailDialog() {
+                  val appMem = getAppMemoryMB()
+                  val freeMem = getDeviceFreeMemoryMB()
+                  val tabs = this.tabs.size
+                  val wvCount = this.tabs.count { it.webView != null }
+
+                  val msg = """
+                      💾 Memory Usage
+                      ────────────────
+                      Browser (this app): $appMem MB
+                      Device free RAM:    $freeMem MB
+                      Open tabs:          $tabs
+                      WebViews loaded:    $wvCount
+
+                      ⚡ Low Memory Mode: ${if (lowMemoryMode) "ON" else "OFF"}
+                      ${if (lowMemoryMode) "→ Cache reduced, background limited, images optional" else "→ Normal mode (full features)"}
+
+                      Tap "Free Memory" to clear caches and free up RAM.
+                  """.trimIndent()
+
+                  AlertDialog.Builder(this)
+                      .setTitle("💾 Memory Monitor")
+                      .setMessage(msg)
+                      .setPositiveButton("Free Memory") { _, _ ->
+                          freeMemoryNow()
+                      }
+                      .setNeutralButton(if (lowMemoryMode) "Disable Low Mem" else "Enable Low Mem") { _, _ ->
+                          toggleLowMemoryMode()
+                      }
+                      .setNegativeButton("Close", null)
+                      .show()
+              }
+
+              private fun freeMemoryNow() {
+                  try {
+                      tabs.forEach { it.webView?.clearCache(true) }
+                      System.gc()
+                      Runtime.getRuntime().gc()
+                      updateMemoryIndicator()
+                      Toast.makeText(this, "🧹 Memory freed!", Toast.LENGTH_SHORT).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun toggleLowMemoryMode() {
+                  lowMemoryMode = !lowMemoryMode
+                  prefs.edit().putBoolean("low_memory_mode", lowMemoryMode).apply()
+                  applyLowMemoryMode()
+                  val msg = if (lowMemoryMode)
+                      "⚡ Low Memory Mode ON\n\nCache reduced • Background limited • Less RAM used"
+                  else
+                      "Normal mode restored\n\nFull features • Normal cache"
+                  Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                  updateMemoryIndicator()
+              }
+
+              @SuppressLint("SetJavaScriptEnabled")
+              private fun applyLowMemoryMode() {
+                  tabs.forEach { tab ->
+                      val wv = tab.webView ?: return@forEach
+                      val s = wv.settings
+                      if (lowMemoryMode) {
+                          s.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                          s.blockNetworkImage = false
+                          s.loadsImagesAutomatically = true
+                          s.domStorageEnabled = false
+                          s.databaseEnabled = false
+                          s.setRenderPriority(WebSettings.RenderPriority.LOW)
+                          wv.clearCache(true)
+                      } else {
+                          s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+                          s.domStorageEnabled = true
+                          s.databaseEnabled = true
+                          s.setRenderPriority(WebSettings.RenderPriority.NORMAL)
+                      }
+                  }
+                  // Kill extra unused renderer processes if API supports it
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && lowMemoryMode) {
+                      try {
+                          val wv = currentTab?.webView
+                          wv?.clearFormData()
+                          WebView.clearClientCertPreferences(null)
+                      } catch (e: Exception) {}
+                  }
               }
 
               private fun createHomeTabInternal() {
@@ -1113,6 +1131,7 @@ jobs:
                   incognitoBadge.visibility = View.GONE
                   renderTabStrip()
                   updateVpnUi()
+                  applyLowMemoryMode()
               }
 
               private fun createTabInternal(loadUri: Uri) {
@@ -1179,6 +1198,7 @@ jobs:
                       else -> currentTabIndex
                   }
                   switchToTab(newIdx)
+                  if (lowMemoryMode) System.gc()
               }
 
               private fun switchToTab(index: Int) {
@@ -1314,7 +1334,6 @@ jobs:
 
               private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-              // ============ REQUEST TYPE DETECTOR ============
               private fun guessResourceType(url: String, isMainFrame: Boolean): String {
                   if (isMainFrame) return "document"
                   val lower = url.lowercase().substringBefore("?")
@@ -1340,17 +1359,13 @@ jobs:
                   if (logPaused) return
                   val entry = RequestLogEntry(
                       timestamp = System.currentTimeMillis(),
-                      url = url,
-                      method = method,
+                      url = url, method = method,
                       resourceType = guessResourceType(url, isMainFrame),
-                      blocked = blocked,
-                      isMainFrame = isMainFrame
+                      blocked = blocked, isMainFrame = isMainFrame
                   )
                   synchronized(requestLog) {
                       requestLog.add(entry)
-                      if (requestLog.size > MAX_LOG_SIZE) {
-                          requestLog.removeAt(0)
-                      }
+                      if (requestLog.size > MAX_LOG_SIZE) requestLog.removeAt(0)
                   }
               }
 
@@ -1358,8 +1373,8 @@ jobs:
               private fun configureWebView(wv: WebView, tab: BrowserTab) {
                   val s = wv.settings
                   s.javaScriptEnabled = prefs.getBoolean("javascript", true)
-                  s.domStorageEnabled = true
-                  s.databaseEnabled = true
+                  s.domStorageEnabled = !lowMemoryMode
+                  s.databaseEnabled = !lowMemoryMode
                   s.loadWithOverviewMode = true
                   s.useWideViewPort = true
                   s.builtInZoomControls = true
@@ -1369,8 +1384,9 @@ jobs:
                   s.allowContentAccess = true
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = false
-                  s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.1"
+                  s.cacheMode = if (lowMemoryMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
+                                else if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.2"
                   s.setSupportMultipleWindows(true)
 
                   wv.webViewClient = object : WebViewClient() {
@@ -1393,8 +1409,7 @@ jobs:
                       override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                           val url = request?.url?.toString() ?: return false
                           if (prefs.getBoolean("adblock", true) && isAdUrl(url)) {
-                              logRequest(url, "GET", true, true)
-                              return true
+                              logRequest(url, "GET", true, true); return true
                           }
                           if (url.startsWith("intent://")) {
                               try {
@@ -1474,18 +1489,13 @@ jobs:
               private fun setupInputs() {
                   addressBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                          navigate(addressBar.text.toString())
-                          addressBar.clearFocus()
-                          true
+                          navigate(addressBar.text.toString()); addressBar.clearFocus(); true
                       } else false
                   }
                   homeSearchBar.setOnEditorActionListener { _, actionId, event ->
                       if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
                           val q = homeSearchBar.text.toString()
-                          if (q.isNotEmpty()) {
-                              navigate(q)
-                              homeSearchBar.clearFocus()
-                          }
+                          if (q.isNotEmpty()) { navigate(q); homeSearchBar.clearFocus() }
                           true
                       } else false
                   }
@@ -1531,30 +1541,24 @@ jobs:
                   findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
               }
 
-              // ============================================================
-              // INSPECT MODE - See HTML source, cookies, storage, DOM
-              // ============================================================
+              // ============ INSPECT MODE ============
               private fun showInspectDialog() {
                   val tab = currentTab ?: return
                   val wv = tab.webView ?: return
                   val url = wv.url ?: "about:blank"
-
                   if (url == "about:blank" || tab.isHome) {
-                      Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show()
-                      return
+                      Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show(); return
                   }
-
                   val options = arrayOf(
-                      "📄 Page HTML Source",
+                      "📄 Page HTML Source (fast)",
                       "🍪 Cookies",
                       "💾 LocalStorage",
                       "📊 Page Info",
                       "🖼️ All Links (href)",
                       "🔗 All Images (src)",
                       "📜 Scripts & Styles",
-                      "🎯 Element at tap (Point & Inspect)"
+                      "🌐 Server Info (headers, IP, CDN)"
                   )
-
                   AlertDialog.Builder(this)
                       .setTitle("🔍 Inspect: ${tab.title.take(30)}")
                       .setItems(options) { _, which ->
@@ -1562,30 +1566,36 @@ jobs:
                               0 -> inspectHtmlSource(wv)
                               1 -> inspectCookies(url)
                               2 -> inspectLocalStorage(wv)
-                              3 -> inspectPageInfo(wv, tab)
+                              3 -> inspectPageInfo(wv)
                               4 -> inspectLinks(wv)
                               5 -> inspectImages(wv)
                               6 -> inspectScriptsStyles(wv)
-                              7 -> inspectByTap(wv)
+                              7 -> inspectServerInfo(url)
                           }
                       }
-                      .setNegativeButton("Close", null)
-                      .show()
+                      .setNegativeButton("Close", null).show()
               }
 
+              // FIXED - Fast HTML inspector with 500KB cap + background thread
               private fun inspectHtmlSource(wv: WebView) {
+                  Toast.makeText(this, "Extracting HTML (max 500 KB)...", Toast.LENGTH_SHORT).show()
                   wv.evaluateJavascript(
-                      "(function(){ try { return document.documentElement.outerHTML; } catch(e) { return 'ERROR: ' + e.message; } })()"
+                      "(function(){ try { var h = document.documentElement.outerHTML; if (!h) return 'ERROR:empty'; if (h.length > 500000) { return h.substring(0, 500000) + '\\n\\n... [TRUNCATED at 500KB — total ' + h.length + ' chars]'; } return h; } catch(e) { return 'ERROR: ' + (e.message||'unknown'); } })()"
                   ) { result ->
-                      val html = unescapeJsonString(result)
-                      showCodeDialog("Page HTML Source (${html.length} chars)", html)
+                      try {
+                          val html = unescapeJsonString(result)
+                          showCodeDialog("HTML Source (${html.length} chars)", html)
+                      } catch (e: Throwable) {
+                          Toast.makeText(this, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
+                      }
                   }
               }
 
               private fun inspectCookies(url: String) {
                   try {
                       val cookie = CookieManager.getInstance().getCookie(url)
-                      val text = if (cookie.isNullOrEmpty()) "No cookies for this site.\n\n$url" else cookie.split(";").joinToString("\n\n") { it.trim() }
+                      val text = if (cookie.isNullOrEmpty()) "No cookies for this site.\n\n$url"
+                                 else cookie.split(";").joinToString("\n\n") { it.trim() }
                       showCodeDialog("Cookies (${if (cookie.isNullOrEmpty()) 0 else cookie.split(";").size})", text)
                   } catch (e: Exception) {
                       Toast.makeText(this, "Cookie error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -1595,82 +1605,86 @@ jobs:
               private fun inspectLocalStorage(wv: WebView) {
                   wv.evaluateJavascript(
                       "(function(){ try { var out=''; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); out += k + ' = ' + localStorage.getItem(k) + '\\n\\n'; } return out || 'LocalStorage is empty.'; } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result ->
-                      val text = unescapeJsonString(result)
-                      showCodeDialog("LocalStorage", text)
-                  }
+                  ) { result -> showCodeDialog("LocalStorage", unescapeJsonString(result)) }
               }
 
-              private fun inspectPageInfo(wv: WebView, tab: BrowserTab) {
+              private fun inspectPageInfo(wv: WebView) {
                   wv.evaluateJavascript(
                       "(function(){ try { return JSON.stringify({ title: document.title, url: location.href, host: location.host, protocol: location.protocol, referrer: document.referrer, charset: document.characterSet, size: document.documentElement.outerHTML.length, links: document.links.length, images: document.images.length, scripts: document.scripts.length, forms: document.forms.length, meta: document.querySelectorAll('meta').length }); } catch(e){ return '{}'; } })()"
                   ) { result ->
                       val info = unescapeJsonString(result)
-                      val pretty = info.replace(",", ",\n")
-                          .replace("{", "{\n")
-                          .replace("}", "\n}")
+                      val pretty = info.replace(",", ",\n").replace("{", "{\n").replace("}", "\n}")
                       showCodeDialog("Page Info", pretty)
                   }
               }
 
               private fun inspectLinks(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var arr=[]; var links=document.querySelectorAll('a[href]'); for(var i=0;i<links.length && i<200;i++){ arr.push(links[i].href); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result ->
-                      val text = unescapeJsonString(result)
-                      val count = text.split("\n").size
-                      showCodeDialog("Links Found (${if (text.startsWith("ERROR")) 0 else count})", text)
-                  }
+                      "(function(){ try { var arr=[]; var links=document.querySelectorAll('a[href]'); for(var i=0;i<links.length && i<300;i++){ arr.push(links[i].href); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result -> showCodeDialog("Links Found", unescapeJsonString(result)) }
               }
 
               private fun inspectImages(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var arr=[]; var imgs=document.querySelectorAll('img[src]'); for(var i=0;i<imgs.length && i<200;i++){ arr.push(imgs[i].src + '  [' + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ']'); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result ->
-                      val text = unescapeJsonString(result)
-                      val count = text.split("\n").size
-                      showCodeDialog("Images Found (${if (text.startsWith("ERROR")) 0 else count})", text)
-                  }
+                      "(function(){ try { var arr=[]; var imgs=document.querySelectorAll('img[src]'); for(var i=0;i<imgs.length && i<300;i++){ arr.push(imgs[i].src + '  [' + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ']'); } return arr.join('\\n'); } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result -> showCodeDialog("Images Found", unescapeJsonString(result)) }
               }
 
               private fun inspectScriptsStyles(wv: WebView) {
                   wv.evaluateJavascript(
-                      "(function(){ try { var out='=== SCRIPTS ===\\n'; var scripts=document.querySelectorAll('script[src]'); for(var i=0;i<scripts.length;i++){ out += scripts[i].src + '\\n'; } out += '\\n=== STYLESHEETS ===\\n'; var styles=document.querySelectorAll('link[rel=\"stylesheet\"]'); for(var i=0;i<styles.length;i++){ out += styles[i].href + '\\n'; } return out; } catch(e){ return 'ERROR: '+e.message; } })()"
-                  ) { result ->
-                      val text = unescapeJsonString(result)
-                      showCodeDialog("Scripts & Stylesheets", text)
-                  }
+                      "(function(){ try { var out='=== SCRIPTS ===\\n'; var s=document.querySelectorAll('script[src]'); for(var i=0;i<s.length;i++){ out += s[i].src + '\\n'; } out += '\\n=== STYLESHEETS ===\\n'; var st=document.querySelectorAll('link[rel=\"stylesheet\"]'); for(var i=0;i<st.length;i++){ out += st[i].href + '\\n'; } return out; } catch(e){ return 'ERROR: '+e.message; } })()"
+                  ) { result -> showCodeDialog("Scripts & Stylesheets", unescapeJsonString(result)) }
               }
 
-              private fun inspectByTap(wv: WebView) {
-                  // Inject a temporary tap-inspector
-                  val js = """
-                      (function(){
-                          if (window.__nexusInspector) { document.removeEventListener('click', window.__nexusInspector, true); }
-                          window.__nexusInspector = function(e) {
-                              e.preventDefault(); e.stopPropagation();
-                              var el = e.target;
-                              var info = '=== ELEMENT INSPECTED ===\n';
-                              info += 'Tag: ' + el.tagName + '\n';
-                              info += 'ID: ' + (el.id || '(none)') + '\n';
-                              info += 'Classes: ' + (el.className || '(none)') + '\n';
-                              info += 'Text: ' + (el.innerText ? el.innerText.substring(0, 200) : '(none)') + '\n';
-                              info += 'Href: ' + (el.href || '(none)') + '\n';
-                              info += 'Src: ' + (el.src || '(none)') + '\n';
-                              info += '\n=== OUTER HTML (first 3000 chars) ===\n';
-                              info += el.outerHTML.substring(0, 3000);
-                              window.NexusInspect.onElement(info);
-                              return false;
-                          };
-                          document.addEventListener('click', window.__nexusInspector, true);
-                          return 'OK';
-                      })();
-                  """.trimIndent()
-                  wv.evaluateJavascript(js, null)
-                  Toast.makeText(this, "Tap any element on the page to inspect it", Toast.LENGTH_LONG).show()
-                  // Note: To fully receive callback, you'd need a JS interface.
-                  // For simplicity, we show toast + let user use other inspect options.
-                  // A production version would add addJavascriptInterface().
+              // ============ SERVER INFO ============
+              private fun inspectServerInfo(url: String) {
+                  Toast.makeText(this, "Fetching server info...", Toast.LENGTH_SHORT).show()
+                  Thread {
+                      val sb = StringBuilder()
+                      try {
+                          sb.append("URL: ").append(url).append("\n\n")
+                          // Resolve IP first
+                          try {
+                              val host = Uri.parse(url).host ?: ""
+                              sb.append("=== DNS ===\n")
+                              sb.append("Host: ").append(host).append("\n")
+                              val addrs = java.net.InetAddress.getAllByName(host)
+                              addrs.forEachIndexed { i, a ->
+                                  sb.append("IP ${i+1}: ").append(a.hostAddress).append("\n")
+                              }
+                              sb.append("\n")
+                          } catch (e: Exception) {
+                              sb.append("DNS lookup failed: ").append(e.message).append("\n\n")
+                          }
+
+                          // HEAD request
+                          sb.append("=== SERVER HEADERS ===\n")
+                          val conn = URL(url).openConnection() as HttpURLConnection
+                          conn.requestMethod = "HEAD"
+                          conn.connectTimeout = 10000
+                          conn.readTimeout = 10000
+                          conn.instanceFollowRedirects = false
+                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.2")
+                          conn.connect()
+
+                          sb.append("Status: ").append(conn.responseCode).append(" ").append(conn.responseMessage).append("\n\n")
+                          conn.headerFields.forEach { (key, values) ->
+                              if (key != null && values != null) {
+                                  values.forEach { v -> sb.append(key).append(": ").append(v).append("\n") }
+                              }
+                          }
+                          conn.disconnect()
+
+                          handler.post {
+                              showCodeDialog("🌐 Server Info", sb.toString())
+                          }
+                      } catch (e: Exception) {
+                          sb.append("\nERROR: ").append(e.message)
+                          handler.post {
+                              showCodeDialog("🌐 Server Info", sb.toString())
+                          }
+                      }
+                  }.start()
               }
 
               private fun unescapeJsonString(s: String?): String {
@@ -1690,13 +1704,15 @@ jobs:
                       .replace("\\u0026", "&")
               }
 
+              // Chunked code dialog — prevents crash on big content
               private fun showCodeDialog(title: String, content: String) {
+                  val safe = if (content.length > 400000) content.substring(0, 400000) + "\n\n... [truncated]" else content
                   val container = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(20, 20, 20, 20)
                   }
                   val code = TextView(this).apply {
-                      text = content
+                      text = safe
                       setTextIsSelectable(true)
                       setTextColor(Color.parseColor("#D4D4D4"))
                       setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
@@ -1706,10 +1722,7 @@ jobs:
                   }
                   val scroll = ScrollView(this).apply {
                       addView(code)
-                      layoutParams = LinearLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT,
-                          dp(420)
-                      )
+                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(440))
                   }
                   container.addView(scroll)
 
@@ -1718,40 +1731,32 @@ jobs:
                       .setView(container)
                       .setPositiveButton("Copy") { _, _ ->
                           val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", content))
-                          Toast.makeText(this, "Copied ${content.length} chars", Toast.LENGTH_SHORT).show()
+                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", safe))
+                          Toast.makeText(this, "Copied ${safe.length} chars", Toast.LENGTH_SHORT).show()
                       }
                       .setNeutralButton("Share") { _, _ ->
                           val i = Intent(Intent.ACTION_SEND)
-                          i.type = "text/plain"
-                          i.putExtra(Intent.EXTRA_TEXT, content)
+                          i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, safe)
                           startActivity(Intent.createChooser(i, "Share"))
                       }
                       .setNegativeButton("Close", null)
                       .show()
               }
 
-              // ============================================================
-              // NETWORK REQUEST LOG
-              // ============================================================
+              // ============ REQUEST LOG ============
               private fun showRequestLogDialog() {
                   if (requestLog.isEmpty()) {
                       AlertDialog.Builder(this)
                           .setTitle("📡 Network Requests")
                           .setMessage("No requests logged yet.\n\nBrowse a website and come back.")
-                          .setPositiveButton("OK", null)
-                          .show()
+                          .setPositiveButton("OK", null).show()
                       return
                   }
-
                   val snapshot = synchronized(requestLog) { requestLog.toList().reversed() }
-
-                  // Build list display
                   val container = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(20, 20, 20, 20)
                   }
-
                   val summary = TextView(this).apply {
                       val blocked = snapshot.count { it.blocked }
                       text = "Total: ${snapshot.size}  |  Allowed: ${snapshot.size - blocked}  |  Blocked: $blocked"
@@ -1760,31 +1765,21 @@ jobs:
                       setPadding(0, 0, 0, 12)
                   }
                   container.addView(summary)
-
                   val scroll = ScrollView(this).apply {
-                      layoutParams = LinearLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT,
-                          dp(430)
-                      )
+                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(430))
                   }
-                  val listLayout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                  }
-
+                  val listLayout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                   val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-                  // Show last 300 requests max
                   snapshot.take(300).forEach { req ->
                       val row = LinearLayout(this).apply {
                           orientation = LinearLayout.VERTICAL
                           setPadding(dp(10), dp(8), dp(10), dp(8))
                           background = getDrawable(R.drawable.req_row_bg)
                           layoutParams = LinearLayout.LayoutParams(
-                              ViewGroup.LayoutParams.MATCH_PARENT,
-                              ViewGroup.LayoutParams.WRAP_CONTENT
+                              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
                           ).apply { bottomMargin = dp(4) }
-                          isClickable = true
-                          isFocusable = true
+                          isClickable = true; isFocusable = true
                           setOnClickListener {
                               val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                               val text = "${req.method} ${req.url}\n\nType: ${req.resourceType}\nTime: ${timeFmt.format(Date(req.timestamp))}\nBlocked: ${req.blocked}"
@@ -1792,29 +1787,22 @@ jobs:
                               Toast.makeText(this@MainActivity, "Request copied", Toast.LENGTH_SHORT).show()
                           }
                       }
-
                       val header = LinearLayout(this).apply {
-                          orientation = LinearLayout.HORIZONTAL
-                          gravity = Gravity.CENTER_VERTICAL
+                          orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                       }
-
                       val badge = TextView(this).apply {
                           text = if (req.blocked) "⛔" else "✓"
                           setTextColor(if (req.blocked) Color.parseColor("#F44336") else Color.parseColor("#4CAF50"))
-                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                          setPadding(0, 0, dp(8), 0)
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); setPadding(0, 0, dp(8), 0)
                       }
                       header.addView(badge)
-
                       val method = TextView(this).apply {
                           text = req.method
                           setTextColor(Color.parseColor("#1565C0"))
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                          typeface = Typeface.DEFAULT_BOLD
-                          setPadding(0, 0, dp(8), 0)
+                          typeface = Typeface.DEFAULT_BOLD; setPadding(0, 0, dp(8), 0)
                       }
                       header.addView(method)
-
                       val type = TextView(this).apply {
                           text = req.resourceType
                           setTextColor(Color.parseColor("#757575"))
@@ -1822,14 +1810,12 @@ jobs:
                           layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                       }
                       header.addView(type)
-
                       val time = TextView(this).apply {
                           text = timeFmt.format(Date(req.timestamp))
                           setTextColor(Color.parseColor("#9E9E9E"))
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
                       }
                       header.addView(time)
-
                       val urlView = TextView(this).apply {
                           text = req.url
                           setTextColor(if (req.blocked) Color.parseColor("#B71C1C") else Color.parseColor("#424242"))
@@ -1839,12 +1825,9 @@ jobs:
                           setPadding(0, dp(4), 0, 0)
                           typeface = Typeface.MONOSPACE
                       }
-
-                      row.addView(header)
-                      row.addView(urlView)
+                      row.addView(header); row.addView(urlView)
                       listLayout.addView(row)
                   }
-
                   scroll.addView(listLayout)
                   container.addView(scroll)
 
@@ -1854,15 +1837,10 @@ jobs:
                       .setPositiveButton("Copy All") { _, _ ->
                           val sb = StringBuilder()
                           snapshot.forEach { r ->
-                              sb.append(timeFmt.format(Date(r.timestamp)))
-                                  .append("  ")
+                              sb.append(timeFmt.format(Date(r.timestamp))).append("  ")
                                   .append(if (r.blocked) "[BLOCKED] " else "[OK]      ")
-                                  .append(r.method)
-                                  .append("  ")
-                                  .append(r.resourceType)
-                                  .append("  ")
-                                  .append(r.url)
-                                  .append("\n")
+                                  .append(r.method).append("  ").append(r.resourceType).append("  ")
+                                  .append(r.url).append("\n")
                           }
                           val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                           cm.setPrimaryClip(ClipData.newPlainText("Nexus", sb.toString()))
@@ -1872,26 +1850,20 @@ jobs:
                           synchronized(requestLog) { requestLog.clear() }
                           Toast.makeText(this, "Log cleared", Toast.LENGTH_SHORT).show()
                       }
-                      .setNegativeButton("Close", null)
-                      .show()
+                      .setNegativeButton("Close", null).show()
               }
 
-              // ============================================================
-              // TABS / HOME / VPN / MISC
-              // ============================================================
               private fun showTabsDialog() {
                   val items = tabs.mapIndexed { i, t ->
                       val mark = if (i == currentTabIndex) "▶ " else "   "
                       val incog = if (t.isIncognito) "🕵 " else ""
                       "$mark$incog${t.title}"
                   }.toTypedArray()
-                  AlertDialog.Builder(this)
-                      .setTitle("Tabs (${tabs.size})")
+                  AlertDialog.Builder(this).setTitle("Tabs (${tabs.size})")
                       .setItems(items) { _, which -> switchToTab(which) }
                       .setPositiveButton("New Tab") { _, _ -> newTab() }
                       .setNeutralButton("Close Tab") { _, _ -> closeTab(currentTabIndex) }
-                      .setNegativeButton("Cancel", null)
-                      .show()
+                      .setNegativeButton("Cancel", null).show()
               }
 
               private fun toggleIncognitoForTab() {
@@ -1919,13 +1891,11 @@ jobs:
 
               private fun toggleVpn() { if (isVpnUp()) stopVpn() else startVpn() }
 
-              private fun isVpnUp(): Boolean {
-                  return try {
-                      val t = wgTunnel ?: return false
-                      val b = wgBackend ?: return false
-                      b.getState(t) == Tunnel.State.UP
-                  } catch (e: Throwable) { false }
-              }
+              private fun isVpnUp(): Boolean = try {
+                  val t = wgTunnel ?: return false
+                  val b = wgBackend ?: return false
+                  b.getState(t) == Tunnel.State.UP
+              } catch (e: Throwable) { false }
 
               private fun startVpn() {
                   val configText = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
@@ -2182,8 +2152,10 @@ jobs:
                       "New Tab",
                       "Bookmarks",
                       "History",
-                      "🔍 Inspect Mode (Source/Cookies/Storage)",
+                      "🔍 Inspect Mode",
                       "📡 Network Requests Log",
+                      "💾 Memory Details",
+                      "⚡ ${if (lowMemoryMode) "Disable" else "Enable"} Low Memory Mode",
                       "Find on page",
                       "Share page",
                       "Desktop site",
@@ -2198,12 +2170,14 @@ jobs:
                           2 -> showHistoryDialog()
                           3 -> showInspectDialog()
                           4 -> showRequestLogDialog()
-                          5 -> findOnPage()
-                          6 -> sharePage()
-                          7 -> toggleDesktopMode()
-                          8 -> openDownloads()
-                          9 -> showAdBlockStats()
-                          10 -> finish()
+                          5 -> showMemoryDetailDialog()
+                          6 -> toggleLowMemoryMode()
+                          7 -> findOnPage()
+                          8 -> sharePage()
+                          9 -> toggleDesktopMode()
+                          10 -> openDownloads()
+                          11 -> showAdBlockStats()
+                          12 -> finish()
                       }
                   }.show()
               }
@@ -2253,7 +2227,8 @@ jobs:
                       "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
                       "🛡 Hide Identity: ${if (hideId) "ON" else "OFF"}",
                       "🔒 JavaScript: ${if (js) "ON" else "OFF"}",
-                      "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"} (tap to toggle)",
+                      "⚡ Low Memory Mode: ${if (lowMemoryMode) "ON" else "OFF"}",
+                      "🌐 VPN: ${if (vpn) "CONNECTED" else "OFF"}",
                       "🔧 Edit WireGuard Config",
                       "Search engine: ${prefs.getString("search_engine", "google")}",
                       "Clear cache", "Clear cookies", "Reset all"
@@ -2284,12 +2259,13 @@ jobs:
                               Toast.makeText(this, if (j) "JS ON" else "JS OFF", Toast.LENGTH_SHORT).show()
                               currentTab?.webView?.reload()
                           }
-                          4 -> toggleVpn()
-                          5 -> editWgConfigDialog()
-                          6 -> chooseSearchEngine()
-                          7 -> { tabs.forEach { it.webView?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          8 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          9 -> {
+                          4 -> toggleLowMemoryMode()
+                          5 -> toggleVpn()
+                          6 -> editWgConfigDialog()
+                          7 -> chooseSearchEngine()
+                          8 -> { tabs.forEach { it.webView?.clearCache(true) }; System.gc(); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          9 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          10 -> {
                               prefs.edit().clear().apply()
                               prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
                               Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show()
@@ -2328,7 +2304,7 @@ jobs:
                   }.show()
               }
 
-              override fun onResume() { super.onResume(); updateVpnUi() }
+              override fun onResume() { super.onResume(); updateVpnUi(); updateMemoryIndicator() }
 
               override fun onNewIntent(intent: Intent) {
                   super.onNewIntent(intent)
@@ -2342,10 +2318,7 @@ jobs:
               override fun onBackPressed() {
                   val tab = currentTab
                   val wv = tab?.webView
-                  if (tab != null && !tab.isHome && wv != null && wv.canGoBack()) {
-                      wv.goBack()
-                      return
-                  }
+                  if (tab != null && !tab.isHome && wv != null && wv.canGoBack()) { wv.goBack(); return }
                   if (tab != null && !tab.isHome) { showHome(); return }
                   if (tabs.size > 1) { closeTab(currentTabIndex); return }
                   super.onBackPressed()
@@ -2357,9 +2330,7 @@ jobs:
         run: |
           cat > app/src/main/java/com/nexus/browser/NexusTunnel.kt << 'KOTEOF'
           package com.nexus.browser
-
           import com.wireguard.android.backend.Tunnel
-
           class NexusTunnel(private val tunnelName: String) : Tunnel {
               override fun getName(): String = tunnelName
               override fun onStateChange(newState: Tunnel.State) { }
@@ -2370,9 +2341,7 @@ jobs:
         run: |
           cat > app/src/main/java/com/nexus/browser/NexusVpnService.kt << 'KOTEOF'
           package com.nexus.browser
-
           import com.wireguard.android.backend.GoBackend
-
           class NexusVpnService : GoBackend.VpnService() { }
           KOTEOF
 
