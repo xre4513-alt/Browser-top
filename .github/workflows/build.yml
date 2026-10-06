@@ -11,41 +11,30 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
-
-      - name: Install Android SDK packages
+      - name: Install SDK
         run: |
           sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-
-      - name: Set up Gradle 8.5
-        uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
-
-      - name: Create project structure
+      - name: Create structure
         run: |
           mkdir -p app/src/main/java/com/nexus/browser
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/xml
-
-      - name: Write settings.gradle
+      - name: settings.gradle
         run: |
           cat > settings.gradle << 'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
@@ -56,8 +45,7 @@ jobs:
           rootProject.name = "NexusBrowser"
           include ':app'
           EOF
-
-      - name: Write root build.gradle
+      - name: root build.gradle
         run: |
           cat > build.gradle << 'EOF'
           plugins {
@@ -65,8 +53,7 @@ jobs:
               id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
           }
           EOF
-
-      - name: Write gradle.properties
+      - name: gradle.properties
         run: |
           cat > gradle.properties << 'EOF'
           android.useAndroidX=true
@@ -76,8 +63,7 @@ jobs:
           org.gradle.parallel=true
           org.gradle.caching=true
           EOF
-
-      - name: Write app/build.gradle
+      - name: app build.gradle
         run: |
           cat > app/build.gradle << 'EOF'
           plugins {
@@ -91,8 +77,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 8
-                  versionName "3.3.0"
+                  versionCode 10
+                  versionName "3.5.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -126,8 +112,7 @@ jobs:
               implementation 'androidx.collection:collection:1.4.0'
           }
           EOF
-
-      - name: Write proguard-rules.pro
+      - name: proguard
         run: |
           cat > app/proguard-rules.pro << 'EOF'
           -keep class com.nexus.browser.** { *; }
@@ -137,14 +122,12 @@ jobs:
           -keep class go.** { *; }
           -dontwarn go.**
           EOF
-
-      - name: Write AndroidManifest.xml
+      - name: Manifest
         run: |
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               xmlns:tools="http://schemas.android.com/tools">
-
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -154,30 +137,20 @@ jobs:
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
               <queries>
-                  <intent>
-                      <action android:name="android.intent.action.VIEW" />
-                      <data android:scheme="https" />
-                  </intent>
+                  <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
               </queries>
-
               <application
                   android:allowBackup="true"
                   android:icon="@drawable/ic_launcher"
-                  android:label="@string/app_name"
-                  android:roundIcon="@drawable/ic_launcher"
+                  android:label="Nexus Browser"
                   android:supportsRtl="true"
                   android:hardwareAccelerated="true"
                   android:usesCleartextTraffic="true"
                   android:requestLegacyExternalStorage="true"
-                  android:theme="@style/Theme.NexusBrowser"
+                  android:theme="@style/AppTheme"
                   tools:targetApi="34">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
+                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"
                       android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
                       android:windowSoftInputMode="adjustNothing">
                       <intent-filter>
@@ -188,572 +161,204 @@ jobs:
                           <action android:name="android.intent.action.VIEW" />
                           <category android:name="android.intent.category.DEFAULT" />
                           <category android:name="android.intent.category.BROWSABLE" />
-                          <data android:scheme="http" />
-                          <data android:scheme="https" />
-                          <data android:scheme="ftp" />
+                          <data android:scheme="http" /><data android:scheme="https" />
                       </intent-filter>
                       <intent-filter>
                           <action android:name="android.intent.action.VIEW" />
                           <category android:name="android.intent.category.DEFAULT" />
-                          <category android:name="android.intent.category.BROWSABLE" />
-                          <data android:scheme="file" />
-                          <data android:scheme="content" />
-                          <data android:mimeType="text/html" />
-                          <data android:mimeType="text/plain" />
-                          <data android:mimeType="application/xhtml+xml" />
-                      </intent-filter>
-                      <intent-filter>
-                          <action android:name="android.intent.action.VIEW" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                          <data android:scheme="file" />
-                          <data android:host="*" />
-                          <data android:pathPattern=".*\\.html" />
-                          <data android:pathPattern=".*\\.htm" />
-                          <data android:pathPattern=".*\\.mhtml" />
+                          <data android:scheme="file" /><data android:mimeType="text/html" />
                       </intent-filter>
                   </activity>
-
-                  <service
-                      android:name=".NexusVpnService"
+                  <service android:name=".VpnServiceX"
                       android:permission="android.permission.BIND_VPN_SERVICE"
-                      android:exported="false"
-                      android:foregroundServiceType="specialUse">
-                      <intent-filter>
-                          <action android:name="android.net.VpnService" />
-                      </intent-filter>
-                      <property
-                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                          android:value="vpn" />
+                      android:exported="false" android:foregroundServiceType="specialUse">
+                      <intent-filter><action android:name="android.net.VpnService" /></intent-filter>
+                      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="vpn" />
                   </service>
-
-                  <provider
-                      android:name="androidx.core.content.FileProvider"
+                  <provider android:name="androidx.core.content.FileProvider"
                       android:authorities="${applicationId}.fileprovider"
-                      android:exported="false"
-                      android:grantUriPermissions="true">
-                      <meta-data
-                          android:name="android.support.FILE_PROVIDER_PATHS"
-                          android:resource="@xml/file_paths" />
+                      android:exported="false" android:grantUriPermissions="true">
+                      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
                   </provider>
               </application>
           </manifest>
           EOF
-
-      - name: Write xml/file_paths.xml
+      - name: file_paths
         run: |
           cat > app/src/main/res/xml/file_paths.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <paths>
-              <external-path name="external_files" path="." />
-              <external-files-path name="external_app_files" path="." />
+              <external-path name="ext" path="." />
+              <external-files-path name="extapp" path="." />
               <cache-path name="cache" path="." />
               <files-path name="files" path="." />
           </paths>
           EOF
-
-      - name: Write strings.xml
+      - name: strings
         run: |
           cat > app/src/main/res/values/strings.xml << 'EOF'
-          <resources>
-              <string name="app_name">Nexus Browser</string>
-              <string name="search_hint">Search or type URL</string>
-              <string name="home_search_hint">Search the web</string>
-              <string name="menu">Menu</string>
-              <string name="back">Back</string>
-              <string name="forward">Forward</string>
-              <string name="refresh">Refresh</string>
-              <string name="home">Home</string>
-              <string name="bookmarks">Bookmarks</string>
-              <string name="history">History</string>
-              <string name="incognito">Incognito</string>
-              <string name="settings">Settings</string>
-              <string name="new_tab">New Tab</string>
-              <string name="close">Close</string>
-              <string name="add_bookmark">Add Bookmark</string>
-              <string name="remove_bookmark">Remove Bookmark</string>
-              <string name="download_started">Download started</string>
-              <string name="ad_blocked">Ad blocked</string>
-          </resources>
+          <resources><string name="app_name">Nexus Browser</string></resources>
           EOF
-
-      - name: Write colors.xml
+      - name: colors
         run: |
           cat > app/src/main/res/values/colors.xml << 'EOF'
           <resources>
               <color name="primary">#1565C0</color>
               <color name="primary_dark">#0D47A1</color>
               <color name="accent">#00BFA5</color>
-              <color name="background">#F5F5F5</color>
-              <color name="surface">#FFFFFF</color>
-              <color name="text_primary">#212121</color>
-              <color name="text_secondary">#757575</color>
-              <color name="incognito_color">#311B92</color>
               <color name="white">#FFFFFF</color>
               <color name="black">#000000</color>
-              <color name="home_bg_light">#F0F4F8</color>
+              <color name="incognito">#311B92</color>
               <color name="vpn_on">#00C853</color>
               <color name="vpn_off">#F44336</color>
-              <color name="tab_strip_bg">#0D47A1</color>
-              <color name="bottom_bar">#FFFFFF</color>
-              <color name="code_bg">#1E1E1E</color>
               <color name="data_ok">#4CAF50</color>
               <color name="data_warn">#FF9800</color>
               <color name="data_high">#F44336</color>
           </resources>
           EOF
-
-      - name: Write themes.xml
+      - name: theme
         run: |
           cat > app/src/main/res/values/themes.xml << 'EOF'
           <resources xmlns:tools="http://schemas.android.com/tools">
-              <style name="Theme.NexusBrowser" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+              <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorPrimary">@color/primary</item>
                   <item name="colorPrimaryDark">@color/primary_dark</item>
                   <item name="colorAccent">@color/accent</item>
                   <item name="android:statusBarColor">@color/primary_dark</item>
-                  <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
                   <item name="android:navigationBarColor">@color/primary_dark</item>
               </style>
           </resources>
           EOF
-
-      - name: Write ic_launcher.xml
+      - name: icons
         run: |
           cat > app/src/main/res/drawable/ic_launcher.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp" android:height="108dp"
-              android:viewportWidth="108" android:viewportHeight="108">
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
               <path android:fillColor="#1565C0" android:pathData="M0,0h108v108h-108z"/>
               <path android:fillColor="#FFFFFF" android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
               <path android:fillColor="#00BFA5" android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
               <path android:fillColor="#FFFFFF" android:pathData="M50,44 L50,64 L66,54 Z"/>
           </vector>
           EOF
-
-      - name: Write ic_back.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_back.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#FFFFFF" android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_forward.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_forward.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#FFFFFF" android:pathData="M12,4l-1.41,1.41L16.17,11H4v2h12.17l-5.58,5.59L12,20l8,-8z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_refresh.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_refresh.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#FFFFFF" android:pathData="M17.65,6.35C16.2,4.9 14.21,4 12,4c-4.42,0 -7.99,3.58 -7.99,8s3.57,8 7.99,8c3.73,0 6.84,-2.55 7.73,-6h-2.08c-0.82,2.33 -3.04,4 -5.65,4 -3.31,0 -6,-2.69 -6,-6s2.69,-6 6,-6c1.66,0 3.14,0.69 4.22,1.78L13,11h7V4l-2.35,2.35z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_menu.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_menu.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#FFFFFF" android:pathData="M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2zM12,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_home.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_home.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368" android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_star_outline.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_star_outline.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368" android:pathData="M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24zM12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_star_filled.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_star_filled.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#1565C0" android:pathData="M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_tabs.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_tabs.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368" android:pathData="M2,4h10v2H2zM2,8h10v2H2zM2,12h10v2H2zM14,4h8v2h-8zM14,8h8v2h-8zM14,12h8v2h-8zM2,16h20v2H2zM2,20h20v2H2z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_incognito.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_incognito.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368" android:pathData="M17.06,10L19,6h1V4H4v2h1l1.94,4H2v2h2.13c0.08,0.7 0.27,1.35 0.57,1.93C5.4,15.16 6.64,16 8.5,16c1.86,0 3.1,-0.84 3.8,-2.07C12.6,14.16 13.84,15 15.7,15c1.86,0 3.1,-0.84 3.8,-2.07 0.3,-0.58 0.49,-1.23 0.57,-1.93H22v-2z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_settings.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_settings.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#5F6368" android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_search.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_search.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-              <path android:fillColor="#757575" android:pathData="M15.5,14h-0.79l-0.28,-0.27C15.41,12.59 16,11.11 16,9.5 16,5.91 13.09,3 9.5,3S3,5.91 3,9.5 5.91,16 9.5,16c1.61,0 3.09,-0.59 4.23,-1.57l0.27,0.28v0.79l5,4.99L20.49,19l-4.99,-5zM9.5,14C7.01,14 5,11.99 5,9.5S7.01,5 9.5,5 14,7.01 14,9.5 11.99,14 9.5,14z"/>
-          </vector>
-          EOF
-
-      - name: Write ic_nexus_logo.xml
-        run: |
-          cat > app/src/main/res/drawable/ic_nexus_logo.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="72dp" android:height="72dp"
-              android:viewportWidth="108" android:viewportHeight="108">
-              <path android:fillColor="#FFFFFF" android:pathData="M54,20 C35,20 20,35 20,54 C20,73 35,88 54,88 C73,88 88,73 88,54 C88,35 73,20 54,20 Z M54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 Z"/>
-              <path android:fillColor="#00BFA5" android:pathData="M54,34 C43,34 34,43 34,54 C34,65 43,74 54,74 C65,74 74,65 74,54 C74,43 65,34 54,34 Z"/>
-              <path android:fillColor="#FFFFFF" android:pathData="M50,44 L50,64 L66,54 Z"/>
-          </vector>
-          EOF
-
-      - name: Write tab_chip_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/tab_chip_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/pill.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" /><corners android:radius="18dp" />
+              <solid android:color="#22FFFFFF" /><corners android:radius="14dp" />
           </shape>
           EOF
-
-      - name: Write tab_chip_inactive_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/tab_chip_inactive_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#22FFFFFF" /><corners android:radius="18dp" />
-          </shape>
-          EOF
-
-      - name: Write search_bar_modern_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/search_bar_modern_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/search_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FFFFFF" /><corners android:radius="24dp" />
           </shape>
           EOF
-
-      - name: Write home_search_modern_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/home_search_modern_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" /><corners android:radius="28dp" />
-          </shape>
-          EOF
-
-      - name: Write home_gradient_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/home_gradient_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <gradient android:angle="270" android:startColor="#0D47A1" android:centerColor="#1565C0" android:endColor="#1E88E5" android:type="linear" />
-          </shape>
-          EOF
-
-      - name: Write tile_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/tile_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#FFFFFF" /><corners android:radius="16dp" />
-          </shape>
-          EOF
-
-      - name: Write tile_circle_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/tile_circle_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
-              <solid android:color="#E3F2FD" />
-          </shape>
-          EOF
-
-      - name: Write vpn_pill_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/vpn_pill_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#00C853" /><corners android:radius="20dp" />
-          </shape>
-          EOF
-
-      - name: Write vpn_pill_off_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/vpn_pill_off_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#F44336" /><corners android:radius="20dp" />
-          </shape>
-          EOF
-
-      - name: Write code_bg.xml
-        run: |
           cat > app/src/main/res/drawable/code_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#1E1E1E" /><corners android:radius="8dp" />
           </shape>
           EOF
-
-      - name: Write req_row_bg.xml
-        run: |
           cat > app/src/main/res/drawable/req_row_bg.xml << 'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
               <solid android:color="#FAFAFA" /><corners android:radius="6dp" />
               <stroke android:width="1dp" android:color="#E0E0E0" />
           </shape>
           EOF
-
-      - name: Write data_pill_bg.xml
-        run: |
-          cat > app/src/main/res/drawable/data_pill_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#22FFFFFF" /><corners android:radius="12dp" />
-          </shape>
-          EOF
-
-      - name: Write activity_main.xml
+      - name: Layout
         run: |
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent" android:layout_height="match_parent"
-              android:orientation="vertical" android:background="?android:attr/colorBackground"
-              android:animateLayoutChanges="false">
-
-              <LinearLayout android:id="@+id/navBar"
-                  android:layout_width="match_parent" android:layout_height="56dp"
-                  android:orientation="horizontal" android:background="@color/primary"
-                  android:gravity="center_vertical" android:elevation="4dp"
-                  android:paddingStart="4dp" android:paddingEnd="4dp">
-
+              android:orientation="vertical" android:background="#F0F4F8">
+              <LinearLayout android:id="@+id/navBar" android:layout_width="match_parent" android:layout_height="56dp"
+                  android:orientation="horizontal" android:background="@color/primary" android:gravity="center_vertical"
+                  android:elevation="4dp" android:paddingStart="4dp" android:paddingEnd="4dp">
                   <ImageButton android:id="@+id/btnBack" android:layout_width="42dp" android:layout_height="42dp"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_back"
-                      android:contentDescription="@string/back" android:scaleType="centerInside" android:padding="10dp" />
-
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_media_previous" android:scaleType="centerInside" android:padding="10dp" />
                   <ImageButton android:id="@+id/btnForward" android:layout_width="42dp" android:layout_height="42dp"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_forward"
-                      android:contentDescription="@string/forward" android:scaleType="centerInside" android:padding="10dp" />
-
-                  <LinearLayout
-                      android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_media_next" android:scaleType="centerInside" android:padding="10dp" />
+                  <LinearLayout android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1"
                       android:orientation="horizontal" android:gravity="center_vertical"
-                      android:background="@drawable/search_bar_modern_bg"
-                      android:layout_marginStart="2dp" android:layout_marginEnd="2dp"
-                      android:elevation="2dp">
-
-                      <ImageView android:layout_width="18dp" android:layout_height="18dp"
-                          android:src="@drawable/ic_search" android:layout_marginStart="12dp" android:layout_marginEnd="6dp" />
-
-                      <EditText android:id="@+id/addressBar"
-                          android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                          android:background="@android:color/transparent" android:hint="@string/search_hint"
-                          android:textColorHint="#9E9E9E" android:textColor="@color/text_primary"
-                          android:paddingStart="0dp" android:paddingEnd="8dp" android:imeOptions="actionGo"
-                          android:inputType="textUri" android:maxLines="1" android:textSize="13sp"
-                          android:importantForAutofill="no" />
+                      android:background="@drawable/search_bg" android:layout_marginStart="2dp" android:layout_marginEnd="2dp">
+                      <EditText android:id="@+id/addressBar" android:layout_width="match_parent" android:layout_height="match_parent"
+                          android:background="@android:color/transparent" android:hint="Search or type URL"
+                          android:textColorHint="#9E9E9E" android:textColor="#212121"
+                          android:paddingStart="16dp" android:paddingEnd="16dp" android:imeOptions="actionGo"
+                          android:inputType="textUri" android:maxLines="1" android:textSize="13sp" />
                   </LinearLayout>
-
-                  <TextView android:id="@+id/dataIndicator"
-                      android:layout_width="wrap_content" android:layout_height="26dp"
+                  <TextView android:id="@+id/dataIndicator" android:layout_width="wrap_content" android:layout_height="26dp"
                       android:gravity="center" android:paddingStart="8dp" android:paddingEnd="8dp"
-                      android:background="@drawable/data_pill_bg"
-                      android:text="0 KB" android:textColor="#FFFFFF" android:textSize="10sp"
-                      android:textStyle="bold" android:layout_marginEnd="2dp" />
-
-                  <ImageButton android:id="@+id/btnRefresh" android:layout_width="38dp" android:layout_height="42dp"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_refresh"
-                      android:contentDescription="@string/refresh" android:scaleType="centerInside" android:padding="10dp" />
-
+                      android:background="@drawable/pill" android:text="0 B" android:textColor="#FFFFFF"
+                      android:textSize="10sp" android:textStyle="bold" android:layout_marginEnd="2dp" />
                   <ImageButton android:id="@+id/btnMenu" android:layout_width="38dp" android:layout_height="42dp"
-                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@drawable/ic_menu"
-                      android:contentDescription="@string/menu" android:scaleType="centerInside" android:padding="10dp" />
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:src="@android:drawable/ic_menu_more" android:scaleType="centerInside" android:padding="10dp" />
               </LinearLayout>
-
-              <HorizontalScrollView android:id="@+id/tabScroll"
-                  android:layout_width="match_parent" android:layout_height="40dp"
-                  android:background="@color/tab_strip_bg" android:scrollbars="none" android:fillViewport="false">
-                  <LinearLayout android:id="@+id/tabStrip"
-                      android:layout_width="wrap_content" android:layout_height="match_parent"
+              <HorizontalScrollView android:id="@+id/tabScroll" android:layout_width="match_parent" android:layout_height="38dp"
+                  android:background="@color/primary_dark" android:scrollbars="none">
+                  <LinearLayout android:id="@+id/tabStrip" android:layout_width="wrap_content" android:layout_height="match_parent"
                       android:orientation="horizontal" android:gravity="center_vertical"
-                      android:paddingStart="6dp" android:paddingEnd="6dp" android:animateLayoutChanges="false" />
+                      android:paddingStart="6dp" android:paddingEnd="6dp" />
               </HorizontalScrollView>
-
               <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
                   android:layout_width="match_parent" android:layout_height="3dp" android:max="100"
                   android:progressTint="@color/accent" android:visibility="gone" />
-
-              <FrameLayout android:id="@+id/contentContainer"
-                  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
-                  android:animateLayoutChanges="false">
-
-                  <LinearLayout android:id="@+id/homeOverlay"
-                      android:layout_width="match_parent" android:layout_height="match_parent"
+              <FrameLayout android:id="@+id/contentContainer" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+                  <LinearLayout android:id="@+id/homeOverlay" android:layout_width="match_parent" android:layout_height="match_parent"
                       android:orientation="vertical" android:gravity="top|center_horizontal"
-                      android:background="@drawable/home_gradient_bg" android:visibility="visible"
-                      android:animateLayoutChanges="false" android:focusableInTouchMode="true"
-                      android:paddingStart="20dp" android:paddingEnd="20dp">
-
-                      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                          android:orientation="horizontal" android:gravity="center_vertical"
-                          android:paddingTop="60dp" android:paddingBottom="20dp">
-                          <ImageView android:layout_width="56dp" android:layout_height="56dp" android:src="@drawable/ic_nexus_logo" />
-                          <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                              android:orientation="vertical" android:layout_marginStart="14dp">
-                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Nexus" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" />
-                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Private • Fast • Secure" android:textColor="#B0C4DE" android:textSize="11sp" />
-                          </LinearLayout>
-                          <LinearLayout android:id="@+id/vpnPill"
-                              android:layout_width="wrap_content" android:layout_height="32dp"
-                              android:orientation="horizontal" android:gravity="center_vertical"
-                              android:paddingStart="12dp" android:paddingEnd="12dp"
-                              android:background="@drawable/vpn_pill_off_bg"
-                              android:clickable="true" android:focusable="true">
-                              <TextView android:id="@+id/vpnShield" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="🛡" android:textSize="12sp" android:layout_marginEnd="4dp" />
-                              <TextView android:id="@+id/vpnStatusText" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="VPN OFF" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
-                          </LinearLayout>
-                      </LinearLayout>
-
+                      android:background="@color/primary_dark" android:paddingStart="20dp" android:paddingEnd="20dp">
+                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Nexus" android:textColor="#FFFFFF" android:textSize="42sp" android:textStyle="bold"
+                          android:layout_marginTop="100dp" android:layout_marginBottom="8dp" />
+                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Private • Fast • Secure" android:textColor="#B0C4DE" android:textSize="13sp"
+                          android:layout_marginBottom="40dp" />
                       <LinearLayout android:layout_width="match_parent" android:layout_height="54dp"
                           android:orientation="horizontal" android:gravity="center_vertical"
-                          android:background="@drawable/home_search_modern_bg" android:elevation="6dp">
-                          <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_search"
-                              android:layout_marginStart="18dp" android:layout_marginEnd="8dp" />
-                          <EditText android:id="@+id/homeSearchBar"
-                              android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-                              android:background="@android:color/transparent" android:hint="@string/home_search_hint"
-                              android:textColorHint="#9E9E9E" android:textColor="@color/text_primary"
-                              android:paddingStart="0dp" android:paddingEnd="18dp" android:imeOptions="actionGo"
-                              android:inputType="textUri" android:maxLines="1" android:textSize="15sp"
-                              android:importantForAutofill="no" />
+                          android:background="@drawable/search_bg" android:elevation="6dp">
+                          <EditText android:id="@+id/homeSearchBar" android:layout_width="match_parent" android:layout_height="match_parent"
+                              android:background="@android:color/transparent" android:hint="Search the web"
+                              android:textColorHint="#9E9E9E" android:textColor="#212121"
+                              android:paddingStart="20dp" android:paddingEnd="20dp" android:imeOptions="actionGo"
+                              android:inputType="textUri" android:maxLines="1" android:textSize="15sp" />
                       </LinearLayout>
-
-                      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                          android:orientation="horizontal" android:gravity="center" android:layout_marginTop="28dp">
-                          <LinearLayout android:id="@+id/tileYoutube"
-                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg" android:layout_marginEnd="6dp"
-                              android:clickable="true" android:focusable="true">
-                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
-                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="YouTube" android:textSize="12sp" android:textColor="@color/primary"
-                                  android:layout_marginTop="6dp" android:textStyle="bold" />
-                          </LinearLayout>
-                          <LinearLayout android:id="@+id/tileGoogle"
-                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg" android:layout_marginStart="3dp" android:layout_marginEnd="3dp"
-                              android:clickable="true" android:focusable="true">
-                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
-                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Google" android:textSize="12sp" android:textColor="@color/primary"
-                                  android:layout_marginTop="6dp" android:textStyle="bold" />
-                          </LinearLayout>
-                          <LinearLayout android:id="@+id/tileWikipedia"
-                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg" android:layout_marginEnd="3dp" android:layout_marginStart="3dp"
-                              android:clickable="true" android:focusable="true">
-                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
-                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="Wikipedia" android:textSize="12sp" android:textColor="@color/primary"
-                                  android:layout_marginTop="6dp" android:textStyle="bold" />
-                          </LinearLayout>
-                          <LinearLayout android:id="@+id/tileGithub"
-                              android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                              android:orientation="vertical" android:gravity="center" android:padding="10dp"
-                              android:background="@drawable/tile_bg" android:layout_marginStart="6dp"
-                              android:clickable="true" android:focusable="true">
-                              <View android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/tile_circle_bg" />
-                              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                  android:text="GitHub" android:textSize="12sp" android:textColor="@color/primary"
-                                  android:layout_marginTop="6dp" android:textStyle="bold" />
-                          </LinearLayout>
+                      <LinearLayout android:id="@+id/vpnPill" android:layout_width="wrap_content" android:layout_height="36dp"
+                          android:orientation="horizontal" android:gravity="center_vertical"
+                          android:paddingStart="14dp" android:paddingEnd="14dp" android:layout_marginTop="24dp"
+                          android:background="@drawable/pill" android:clickable="true" android:focusable="true">
+                          <TextView android:id="@+id/vpnStatusText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                              android:text="🛡 TAP TO CONNECT VPN" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" />
                       </LinearLayout>
-
-                      <TextView android:id="@+id/vpnInfoText" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                          android:layout_marginTop="20dp" android:text="Cloudflare WARP • Built-in"
-                          android:textColor="#80FFFFFF" android:textSize="11sp" />
                   </LinearLayout>
-
-                  <TextView android:id="@+id/incognitoBadge"
-                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  <TextView android:id="@+id/incognitoBadge" android:layout_width="wrap_content" android:layout_height="wrap_content"
                       android:layout_gravity="top|end" android:layout_margin="8dp"
-                      android:background="@color/incognito_color" android:paddingHorizontal="10dp" android:paddingVertical="4dp"
-                      android:text="INCOGNITO" android:textColor="@color/white" android:textSize="10sp"
+                      android:background="@color/incognito" android:paddingHorizontal="10dp" android:paddingVertical="4dp"
+                      android:text="INCOGNITO" android:textColor="#FFFFFF" android:textSize="10sp"
                       android:textStyle="bold" android:visibility="gone" />
               </FrameLayout>
-
-              <LinearLayout android:id="@+id/bottomBar"
-                  android:layout_width="match_parent" android:layout_height="56dp"
-                  android:orientation="horizontal" android:background="@color/bottom_bar"
-                  android:gravity="center_vertical" android:elevation="8dp"
-                  android:animateLayoutChanges="false">
-
-                  <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent"
-                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_home" android:contentDescription="@string/home"
+              <LinearLayout android:id="@+id/bottomBar" android:layout_width="match_parent" android:layout_height="56dp"
+                  android:orientation="horizontal" android:background="#FFFFFF" android:gravity="center_vertical" android:elevation="8dp">
+                  <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_view"
                       android:scaleType="centerInside" android:padding="14dp" />
-
-                  <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent"
-                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_star_outline" android:contentDescription="@string/bookmarks"
+                  <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/btn_star_big_off"
                       android:scaleType="centerInside" android:padding="14dp" />
-
-                  <ImageButton android:id="@+id/btnTabs" android:layout_width="0dp" android:layout_height="match_parent"
-                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_tabs" android:contentDescription="@string/new_tab"
+                  <ImageButton android:id="@+id/btnTabs" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_agenda"
                       android:scaleType="centerInside" android:padding="14dp" />
-
-                  <ImageButton android:id="@+id/btnIncognito" android:layout_width="0dp" android:layout_height="match_parent"
-                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_incognito" android:contentDescription="@string/incognito"
+                  <ImageButton android:id="@+id/btnIncognito" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_crop"
                       android:scaleType="centerInside" android:padding="14dp" />
-
-                  <ImageButton android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="match_parent"
-                      android:layout_weight="1" android:background="?android:attr/selectableItemBackgroundBorderless"
-                      android:src="@drawable/ic_settings" android:contentDescription="@string/settings"
+                  <ImageButton android:id="@+id/btnSettings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless" android:src="@android:drawable/ic_menu_preferences"
                       android:scaleType="centerInside" android:padding="14dp" />
               </LinearLayout>
           </LinearLayout>
           EOF
-
-      - name: Write SiteDownloader.kt
+      - name: SiteDownloader
         run: |
           cat > app/src/main/java/com/nexus/browser/SiteDownloader.kt << 'KOTEOF'
           package com.nexus.browser
-
           import android.content.Context
           import android.net.Uri
           import java.io.BufferedOutputStream
@@ -765,192 +370,106 @@ jobs:
           import java.util.Date
           import java.util.zip.ZipEntry
           import java.util.zip.ZipOutputStream
-
-          class SiteDownloader(private val context: Context) {
-
-              data class Progress(val phase: String, val current: Int, val total: Int)
-
-              fun saveSiteAsZip(
-                  pageUrl: String,
-                  html: String,
-                  cookies: String?,
-                  serverInfo: String,
-                  pageInfo: String,
-                  links: String,
-                  onProgress: (Progress) -> Unit,
-                  onComplete: (File?, Int, Int) -> Unit
-              ) {
+          class SiteDownloader(private val ctx: Context) {
+              data class P(val phase: String, val cur: Int, val tot: Int)
+              fun save(pageUrl: String, html: String, cookies: String?, serverInfo: String,
+                       onProgress: (P) -> Unit, onDone: (File?, Int, Int) -> Unit) {
                   Thread {
                       try {
-                          val baseUri = Uri.parse(pageUrl)
-                          val hostSafe = (baseUri.host ?: "site").replace(".", "_").replace(":", "_")
-                          val timestamp = System.currentTimeMillis()
-
-                          val assetUrls = extractAssetUrls(html, pageUrl)
-                          onProgress(Progress("Found ${assetUrls.size} assets", 0, assetUrls.size))
-
-                          val outDir = File(context.getExternalFilesDir(null), "SavedSites")
-                          if (!outDir.exists()) outDir.mkdirs()
-                          val zipFile = File(outDir, "${hostSafe}_$timestamp.zip")
-
-                          var successCount = 0
-                          var failCount = 0
-
-                          ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zos ->
-                              // 1. Write index.html
-                              zos.putNextEntry(ZipEntry("index.html"))
-                              zos.write(html.toByteArray(Charsets.UTF_8))
-                              zos.closeEntry()
-
-                              // 2. Metadata
+                          val host = (Uri.parse(pageUrl).host ?: "site").replace(".", "_")
+                          val ts = System.currentTimeMillis()
+                          val assets = extractAssets(html, pageUrl)
+                          onProgress(P("Found ${assets.size} assets", 0, assets.size))
+                          val dir = File(ctx.getExternalFilesDir(null), "SavedSites")
+                          if (!dir.exists()) dir.mkdirs()
+                          val zip = File(dir, "${host}_$ts.zip")
+                          var ok = 0; var fail = 0
+                          ZipOutputStream(BufferedOutputStream(FileOutputStream(zip))).use { zos ->
+                              zos.putNextEntry(ZipEntry("index.html")); zos.write(html.toByteArray()); zos.closeEntry()
                               val meta = buildString {
-                                  appendLine("Nexus Browser — Site Archive")
-                                  appendLine("════════════════════════════════")
-                                  appendLine("Saved at: ${Date()}")
-                                  appendLine("Page URL: $pageUrl")
-                                  appendLine("HTML size: ${html.length} chars")
-                                  appendLine("Assets found: ${assetUrls.size}")
-                                  appendLine()
-                                  appendLine("=== SERVER INFO ===")
-                                  appendLine(serverInfo)
-                                  appendLine()
-                                  appendLine("=== PAGE INFO ===")
-                                  appendLine(pageInfo)
-                                  appendLine()
-                                  appendLine("=== COOKIES ===")
-                                  appendLine(cookies ?: "(none)")
-                                  appendLine()
-                                  appendLine("=== ALL LINKS ON PAGE ===")
-                                  appendLine(links)
+                                  appendLine("Nexus Browser Archive"); appendLine("Saved: ${Date()}")
+                                  appendLine("URL: $pageUrl"); appendLine("Size: ${html.length} chars"); appendLine()
+                                  appendLine("=== SERVER INFO ==="); appendLine(serverInfo); appendLine()
+                                  appendLine("=== COOKIES ==="); appendLine(cookies ?: "(none)")
                               }
-                              zos.putNextEntry(ZipEntry("_nexus_metadata.txt"))
-                              zos.write(meta.toByteArray(Charsets.UTF_8))
-                              zos.closeEntry()
-
-                              // 3. Download assets sequentially (safer, avoids overload)
+                              zos.putNextEntry(ZipEntry("_metadata.txt")); zos.write(meta.toByteArray()); zos.closeEntry()
                               val failed = mutableListOf<String>()
-                              assetUrls.forEachIndexed { idx, url ->
-                                  onProgress(Progress("Downloading", idx, assetUrls.size))
+                              assets.forEachIndexed { i, u ->
+                                  onProgress(P("Downloading", i, assets.size))
                                   try {
-                                      val bytes = downloadBytes(url, cookies)
-                                      if (bytes != null && bytes.isNotEmpty()) {
-                                          val path = "assets/${sanitize(url)}"
-                                          zos.putNextEntry(ZipEntry(path))
-                                          zos.write(bytes)
-                                          zos.closeEntry()
-                                          successCount++
-                                      } else {
-                                          failed.add(url)
-                                          failCount++
-                                      }
-                                  } catch (e: Exception) {
-                                      failed.add("$url → ${e.message}")
-                                      failCount++
-                                  }
+                                      val b = dl(u, cookies)
+                                      if (b != null && b.isNotEmpty()) {
+                                          zos.putNextEntry(ZipEntry("assets/${sanitize(u)}"))
+                                          zos.write(b); zos.closeEntry(); ok++
+                                      } else { failed.add(u); fail++ }
+                                  } catch (e: Exception) { failed.add("$u → ${e.message}"); fail++ }
                               }
-
                               if (failed.isNotEmpty()) {
-                                  zos.putNextEntry(ZipEntry("_failed_urls.txt"))
-                                  zos.write(failed.joinToString("\n").toByteArray())
-                                  zos.closeEntry()
+                                  zos.putNextEntry(ZipEntry("_failed.txt"))
+                                  zos.write(failed.joinToString("\n").toByteArray()); zos.closeEntry()
                               }
                           }
-
-                          onComplete(zipFile, successCount, failCount)
-                      } catch (e: Exception) {
-                          e.printStackTrace()
-                          onComplete(null, 0, 0)
-                      }
+                          onDone(zip, ok, fail)
+                      } catch (e: Exception) { e.printStackTrace(); onDone(null, 0, 0) }
                   }.start()
               }
-
-              private fun extractAssetUrls(html: String, baseUrl: String): Set<String> {
-                  val urls = mutableSetOf<String>()
-
-                  Regex("""src\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
-                      val u = resolveUrl(it.groupValues[1], baseUrl)
-                      if (u.isNotEmpty()) urls.add(u)
-                  }
-                  Regex("""<link[^>]+href\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
-                      val u = resolveUrl(it.groupValues[1], baseUrl)
-                      if (u.isNotEmpty()) urls.add(u)
-                  }
-                  Regex("""url\(['"]?([^'")]+)['"]?\)""", RegexOption.IGNORE_CASE).findAll(html).forEach {
-                      val u = resolveUrl(it.groupValues[1], baseUrl)
-                      if (u.isNotEmpty()) urls.add(u)
-                  }
-                  Regex("""srcset\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
-                      it.groupValues[1].split(",").forEach { part ->
-                          val u = part.trim().split(Regex("\\s+")).firstOrNull() ?: return@forEach
-                          val r = resolveUrl(u, baseUrl)
-                          if (r.isNotEmpty()) urls.add(r)
-                      }
-                  }
-                  // Also meta property og:image etc.
-                  Regex("""content\s*=\s*["'](https?://[^"']+\.(?:jpg|jpeg|png|gif|webp|svg))["']""", RegexOption.IGNORE_CASE).findAll(html).forEach {
-                      urls.add(it.groupValues[1])
-                  }
-
-                  return urls
-                      .filter { it.startsWith("http://") || it.startsWith("https://") }
-                      .filter { !it.contains("data:") }
-                      .take(500) // safety cap
-                      .toSet()
+              private fun extractAssets(html: String, base: String): Set<String> {
+                  val u = mutableSetOf<String>()
+                  val pats = listOf(
+                      Regex("""src\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+                      Regex("""<link[^>]+href\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+                      Regex("""url\(['"]?([^'")]+)['"]?\)""", RegexOption.IGNORE_CASE)
+                  )
+                  pats.forEach { p -> p.findAll(html).forEach { m -> val r = resolve(m.groupValues[1], base); if (r.isNotEmpty()) u.add(r) } }
+                  return u.filter { it.startsWith("http") }.take(500).toSet()
               }
-
-              private fun resolveUrl(url: String, base: String): String {
-                  val trimmed = url.trim()
-                  if (trimmed.isEmpty()) return ""
-                  if (trimmed.startsWith("data:") || trimmed.startsWith("javascript:")
-                      || trimmed.startsWith("#") || trimmed.startsWith("mailto:")
-                      || trimmed.startsWith("tel:")) return ""
-                  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
-                  return try {
-                      URI(base).resolve(trimmed).toString()
-                  } catch (e: Exception) { "" }
+              private fun resolve(url: String, base: String): String {
+                  val t = url.trim()
+                  if (t.isEmpty() || t.startsWith("data:") || t.startsWith("javascript:") || t.startsWith("#") || t.startsWith("mailto:")) return ""
+                  if (t.startsWith("http://") || t.startsWith("https://")) return t
+                  return try { URI(base).resolve(t).toString() } catch (e: Exception) { "" }
               }
-
-              private fun sanitize(url: String): String {
-                  var s = url
-                      .replace("https://", "")
-                      .replace("http://", "")
-                      .replace(Regex("[?&=#]"), "_")
-                      .replace(Regex("[^a-zA-Z0-9._/-]"), "_")
-                  if (s.length > 200) {
-                      val ext = s.substringAfterLast('.', "")
-                      s = s.take(190) + "." + ext
-                  }
+              private fun sanitize(u: String): String {
+                  var s = u.replace("https://","").replace("http://","")
+                      .replace(Regex("[?&=#]"), "_").replace(Regex("[^a-zA-Z0-9._/-]"), "_")
+                  if (s.length > 200) { val ext = s.substringAfterLast('.', ""); s = s.take(190) + "." + ext }
                   return s
               }
-
-              private fun downloadBytes(url: String, cookies: String?): ByteArray? {
-                  return try {
-                      val conn = URL(url).openConnection() as HttpURLConnection
-                      conn.connectTimeout = 10000
-                      conn.readTimeout = 20000
-                      conn.instanceFollowRedirects = true
-                      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 NexusBrowser/3.3")
-                      if (!cookies.isNullOrEmpty()) conn.setRequestProperty("Cookie", cookies)
-                      conn.connect()
-                      if (conn.responseCode !in 200..299) { conn.disconnect(); return null }
-                      val contentLength = conn.contentLengthLong
-                      if (contentLength > 30_000_000L) { conn.disconnect(); return null } // 30 MB per file max
-                      val bytes = conn.inputStream.readBytes()
-                      conn.disconnect()
-                      if (bytes.size > 30_000_000) return null
-                      bytes
-                  } catch (e: Exception) { null }
-              }
+              private fun dl(url: String, cookies: String?): ByteArray? = try {
+                  val c = URL(url).openConnection() as HttpURLConnection
+                  c.connectTimeout = 10000; c.readTimeout = 20000; c.instanceFollowRedirects = true
+                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.5")
+                  if (!cookies.isNullOrEmpty()) c.setRequestProperty("Cookie", cookies)
+                  c.connect()
+                  if (c.responseCode !in 200..299) { c.disconnect(); null }
+                  else {
+                      val len = c.contentLengthLong
+                      if (len > 30_000_000L) { c.disconnect(); null }
+                      else { val b = c.inputStream.readBytes(); c.disconnect(); if (b.size > 30_000_000) null else b }
+                  }
+              } catch (e: Exception) { null }
           }
           KOTEOF
-
-      - name: Write MainActivity.kt
+      - name: Tunnel_Service
+        run: |
+          cat > app/src/main/java/com/nexus/browser/TunnelX.kt << 'KOTEOF'
+          package com.nexus.browser
+          import com.wireguard.android.backend.Tunnel
+          class TunnelX(private val n: String) : Tunnel {
+              override fun getName(): String = n
+              override fun onStateChange(s: Tunnel.State) {}
+          }
+          KOTEOF
+          cat > app/src/main/java/com/nexus/browser/VpnServiceX.kt << 'KOTEOF'
+          package com.nexus.browser
+          import com.wireguard.android.backend.GoBackend
+          class VpnServiceX : GoBackend.VpnService() {}
+          KOTEOF
+      - name: Main Part1
         run: |
           cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
           package com.nexus.browser
-
           import android.annotation.SuppressLint
-          import android.app.ActivityManager
           import android.app.AlertDialog
           import android.app.DownloadManager
           import android.content.ClipData
@@ -965,7 +484,6 @@ jobs:
           import android.net.Uri
           import android.net.VpnService
           import android.os.Bundle
-          import android.os.Debug
           import android.os.Environment
           import android.os.Handler
           import android.os.Looper
@@ -1010,67 +528,46 @@ jobs:
           import java.util.UUID
 
           class MainActivity : AppCompatActivity() {
-
               private lateinit var addressBar: EditText
               private lateinit var homeSearchBar: EditText
               private lateinit var progressBar: ProgressBar
               private lateinit var incognitoBadge: TextView
               private lateinit var homeOverlay: View
               private lateinit var vpnStatusText: TextView
-              private lateinit var vpnShield: TextView
               private lateinit var vpnPill: View
-              private lateinit var vpnInfoText: TextView
-              private lateinit var contentContainer: FrameLayout
+              private lateinit var container: FrameLayout
               private lateinit var tabStrip: LinearLayout
               private lateinit var tabScroll: HorizontalScrollView
               private lateinit var dataIndicator: TextView
               private lateinit var prefs: SharedPreferences
-
               private var desktopMode = false
               private var isHomeVisible = true
               private var lowDataMode = false
-
               private var wgBackend: Backend? = null
-              private var wgTunnel: NexusTunnel? = null
+              private var wgTunnel: TunnelX? = null
               private val handler = Handler(Looper.getMainLooper())
-
-              // ===== DATA MONITOR =====
               private var startRx: Long = 0
               private var startTx: Long = 0
               private val dataHandler = Handler(Looper.getMainLooper())
-              private val dataRunnable = object : Runnable {
-                  override fun run() {
-                      updateDataIndicator()
-                      dataHandler.postDelayed(this, 2000)
-                  }
+              private val dataRun = object : Runnable {
+                  override fun run() { updData(); dataHandler.postDelayed(this, 2000) }
               }
 
-              data class RequestLogEntry(
-                  val timestamp: Long,
-                  val url: String,
-                  val method: String,
-                  val resourceType: String,
-                  val blocked: Boolean,
-                  val isMainFrame: Boolean
-              )
-              private val requestLog = mutableListOf<RequestLogEntry>()
-              private val MAX_LOG_SIZE = 2000
+              // ==== NETWORK REQUEST LOG ====
+              data class ReqEntry(val ts: Long, val url: String, val method: String,
+                                  val rtype: String, val blocked: Boolean, val main: Boolean)
+              private val reqLog = mutableListOf<ReqEntry>()
+              private val MAX_LOG = 2000
               private var logPaused = false
 
-              data class BrowserTab(
-                  val id: String = UUID.randomUUID().toString(),
-                  var title: String = "New Tab",
-                  var url: String = "about:blank",
-                  var isHome: Boolean = true,
-                  var isIncognito: Boolean = false,
-                  var webView: WebView? = null
-              )
+              data class Tab(val id: String = UUID.randomUUID().toString(), var title: String = "New Tab",
+                             var url: String = "about:blank", var isHome: Boolean = true,
+                             var incognito: Boolean = false, var wv: WebView? = null)
+              private val tabs = mutableListOf<Tab>()
+              private var curIdx = -1
+              private val cur: Tab? get() = tabs.getOrNull(curIdx)
 
-              private val tabs = mutableListOf<BrowserTab>()
-              private var currentTabIndex = -1
-              private val currentTab: BrowserTab? get() = tabs.getOrNull(currentTabIndex)
-
-              private val DEFAULT_WG_CONFIG = """
+              private val WG_CFG = """
           [Interface]
           PrivateKey = gGC/SHTnBPGo6rKBOegyMaVfEujbO5ZhS7aq+46ktUM=
           Address = 172.16.0.2/32, 2606:4700:110:88eb:eee9:3b5c:e06e:dbee/128
@@ -1083,1107 +580,830 @@ jobs:
           Endpoint = engage.cloudflareclient.com:2408
           """.trimIndent()
 
-              private val blockedCount = java.util.concurrent.atomic.AtomicInteger(0)
-              private val totalCount = java.util.concurrent.atomic.AtomicInteger(0)
+              private val bCount = java.util.concurrent.atomic.AtomicInteger(0)
+              private val tCount = java.util.concurrent.atomic.AtomicInteger(0)
 
-              private val adDomains = setOf(
-                  "doubleclick.net","googlesyndication.com","googleadservices.com","adservice.google.com",
-                  "ads.google.com","pagead2.googlesyndication.com","partner.googleadservices.com",
-                  "tpc.googlesyndication.com","adnxs.com","ads.yahoo.com","advertising.com","outbrain.com",
-                  "taboola.com","popads.net","popcash.net","propellerads.com","adcolony.com","applovin.com",
-                  "unityads.unity3d.com","chartboost.com","vungle.com","inmobi.com","startapp.com",
-                  "mopub.com","flurry.com","adjust.com","appsflyer.com","branch.io","kochava.com",
-                  "mixpanel.com","amplitude.com","scorecardresearch.com","quantserve.com","comscore.com",
-                  "criteo.com","criteo.net","rubiconproject.com","pubmatic.com","openx.net","indexexchange.com",
-                  "casalemedia.com","sharethrough.com","teads.tv","spotxchange.com","smartadserver.com",
-                  "adform.net","smaato.net","mobfox.com","yieldmo.com","sonobi.com","gumgum.com",
-                  "undertone.com","adroll.com","bidswitch.net","adsrvr.org","bidr.io","liveintent.com",
-                  "liveramp.com","mathtag.com","simpli.fi","tapad.com","thetradedesk.com","turn.com",
-                  "zemanta.com","yieldlab.net","yieldmanager.com","googletagmanager.com","google-analytics.com",
-                  "googletagservices.com","hotjar.com","fullstory.com","mouseflow.com","crazyegg.com",
-                  "optimizely.com","vwo.com","kissmetrics.com","segment.com","segment.io","heapanalytics.com",
-                  "newrelic.com","bugsnag.com","adzerk.net","ads.linkedin.com","ads.pinterest.com",
-                  "ads.reddit.com","ads.twitter.com","ads.tiktok.com","analytics.tiktok.com"
-              )
+              private val ads = setOf("doubleclick.net","googlesyndication.com","googleadservices.com",
+                  "adservice.google.com","ads.google.com","pagead2.googlesyndication.com","adnxs.com",
+                  "outbrain.com","taboola.com","popads.net","propellerads.com","criteo.com","criteo.net",
+                  "pubmatic.com","openx.net","casalemedia.com","sharethrough.com","teads.tv","adform.net",
+                  "googletagmanager.com","google-analytics.com","googletagservices.com","hotjar.com",
+                  "optimizely.com","segment.com","heapanalytics.com","adzerk.net","ads.linkedin.com",
+                  "ads.pinterest.com","ads.reddit.com","ads.twitter.com","ads.tiktok.com","analytics.tiktok.com")
 
-              private val adKeywords = listOf(
-                  "/ads/","/advert","/banner/","/popup","/pop-under","/sponsor","/promoted","/affiliate",
-                  "/pixel?","/beacon?","adsense","adserver","adtech","/pagead/","/adservice/","/adframe/",
-                  "googleads","/advertisement/","/sponsored/","?adid=","&adid="
-              )
+              private val aKw = listOf("/ads/","/advert","/banner/","/popup","/sponsor","/promoted",
+                  "/affiliate","/pixel?","adsense","adserver","/pagead/","/adservice/","googleads")
 
-              private val ytAdPatterns = listOf(
-                  "youtube.com/api/stats/ads","youtube.com/pagead","youtube.com/ptracking",
-                  "googleads.g.doubleclick.net","youtube.com/pcs/activeview",
-                  "youtube.com/youtubei/v1/player/ad","youtube.com/youtubei/v1/next/ad",
-                  "youtube.com/youtubei/v1/browse/ad"
-              )
+              private val ytAd = listOf("youtube.com/api/stats/ads","youtube.com/pagead","youtube.com/ptracking",
+                  "googleads.g.doubleclick.net","youtube.com/pcs/activeview","youtube.com/youtubei/v1/player/ad")
+          KOTEOF
+      - name: Main Part2
+        run: |
+          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
               @SuppressLint("SetJavaScriptEnabled")
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
+              override fun onCreate(s: Bundle?) {
+                  super.onCreate(s)
                   prefs = getSharedPreferences("nexus_browser", Context.MODE_PRIVATE)
-
-                  if (!prefs.contains("wg_config")) {
-                      prefs.edit().putString("wg_config", DEFAULT_WG_CONFIG).apply()
-                  }
-
+                  if (!prefs.contains("wg_config")) prefs.edit().putString("wg_config", WG_CFG).apply()
                   lowDataMode = prefs.getBoolean("low_data_mode", false)
-
-                  // Init data counters
                   try {
-                      startRx = TrafficStats.getUidRxBytes(android.os.Process.myUid())
-                      startTx = TrafficStats.getUidTxBytes(android.os.Process.myUid())
-                      if (startRx < 0) startRx = 0
-                      if (startTx < 0) startTx = 0
+                      startRx = TrafficStats.getUidRxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+                      startTx = TrafficStats.getUidTxBytes(android.os.Process.myUid()).coerceAtLeast(0)
                   } catch (e: Exception) { startRx = 0; startTx = 0 }
-
                   AppCompatDelegate.setDefaultNightMode(
                       if (prefs.getBoolean("dark_mode", false)) AppCompatDelegate.MODE_NIGHT_YES
-                      else AppCompatDelegate.MODE_NIGHT_NO
-                  )
-
-                  window.setSoftInputMode(
-                      WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or
-                      WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-                  )
-
+                      else AppCompatDelegate.MODE_NIGHT_NO)
+                  window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or
+                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
                   setContentView(R.layout.activity_main)
-
                   addressBar = findViewById(R.id.addressBar)
                   homeSearchBar = findViewById(R.id.homeSearchBar)
                   progressBar = findViewById(R.id.progressBar)
                   incognitoBadge = findViewById(R.id.incognitoBadge)
                   homeOverlay = findViewById(R.id.homeOverlay)
                   vpnStatusText = findViewById(R.id.vpnStatusText)
-                  vpnShield = findViewById(R.id.vpnShield)
                   vpnPill = findViewById(R.id.vpnPill)
-                  vpnInfoText = findViewById(R.id.vpnInfoText)
-                  contentContainer = findViewById(R.id.contentContainer)
+                  container = findViewById(R.id.contentContainer)
                   tabStrip = findViewById(R.id.tabStrip)
                   tabScroll = findViewById(R.id.tabScroll)
                   dataIndicator = findViewById(R.id.dataIndicator)
-
-                  dataIndicator.setOnClickListener { showDataDetailDialog() }
-
+                  dataIndicator.setOnClickListener { dataDialog() }
                   try { wgBackend = GoBackend(applicationContext) } catch (e: Throwable) {}
-
-                  setupInputs()
-                  setupButtons()
-
-                  findViewById<View>(R.id.tileYoutube).setOnClickListener { navigate("https://www.youtube.com") }
-                  findViewById<View>(R.id.tileGoogle).setOnClickListener { navigate("https://www.google.com") }
-                  findViewById<View>(R.id.tileWikipedia).setOnClickListener { navigate("https://www.wikipedia.org") }
-                  findViewById<View>(R.id.tileGithub).setOnClickListener { navigate("https://github.com") }
-
-                  val incoming = intent?.data
-                  if (incoming != null) createTabInternal(loadUri = incoming)
-                  else createHomeTabInternal()
-
-                  vpnPill.setOnClickListener { toggleVpn() }
-                  homeSearchBar.clearFocus()
-                  addressBar.clearFocus()
-
-                  dataHandler.post(dataRunnable)
-              }
-
-              override fun onDestroy() {
-                  dataHandler.removeCallbacks(dataRunnable)
-                  super.onDestroy()
-              }
-
-              // ============ INTERNET DATA MONITOR ============
-              private fun getSessionData(): Pair<Long, Long> {
-                  return try {
-                      val rx = TrafficStats.getUidRxBytes(android.os.Process.myUid())
-                      val tx = TrafficStats.getUidTxBytes(android.os.Process.myUid())
-                      if (rx < 0 || tx < 0) return Pair(0L, 0L)
-                      Pair((rx - startRx).coerceAtLeast(0), (tx - startTx).coerceAtLeast(0))
-                  } catch (e: Exception) { Pair(0L, 0L) }
-              }
-
-              private fun formatBytes(bytes: Long): String {
-                  return when {
-                      bytes < 1024 -> "$bytes B"
-                      bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
-                      bytes < 1024L * 1024 * 1024 -> "%.2f MB".format(bytes / (1024.0 * 1024))
-                      else -> "%.2f GB".format(bytes / (1024.0 * 1024 * 1024))
+                  addressBar.setOnEditorActionListener { _, a, e ->
+                      if (a == EditorInfo.IME_ACTION_GO || e?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                          nav(addressBar.text.toString()); addressBar.clearFocus(); true
+                      } else false
                   }
+                  homeSearchBar.setOnEditorActionListener { _, a, e ->
+                      if (a == EditorInfo.IME_ACTION_GO || e?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                          val q = homeSearchBar.text.toString()
+                          if (q.isNotEmpty()) { nav(q); homeSearchBar.clearFocus() }
+                          true
+                      } else false
+                  }
+                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener { onBackPressed() }
+                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
+                      cur?.wv?.let { if (it.canGoForward()) it.goForward() }
+                  }
+                  findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { menu() }
+                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHome() }
+                  findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBm() }
+                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { tabsDialog() }
+                  findViewById<ImageButton>(R.id.btnIncognito).setOnClickListener { newIncognito() }
+                  findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { settings() }
+                  vpnPill.setOnClickListener { toggleVpn() }
+                  val inc = intent?.data
+                  if (inc != null) newTabWithUri(inc) else newHomeTab()
+                  homeSearchBar.clearFocus(); addressBar.clearFocus()
+                  dataHandler.post(dataRun)
               }
+              override fun onDestroy() { dataHandler.removeCallbacks(dataRun); super.onDestroy() }
 
-              private fun updateDataIndicator() {
-                  val (rx, tx) = getSessionData()
-                  val total = rx + tx
-                  dataIndicator.text = formatBytes(total)
-                  val mb = total / (1024.0 * 1024)
-                  val colorRes = when {
+              private fun getData(): Pair<Long, Long> = try {
+                  val r = TrafficStats.getUidRxBytes(android.os.Process.myUid())
+                  val t = TrafficStats.getUidTxBytes(android.os.Process.myUid())
+                  if (r < 0 || t < 0) Pair(0L, 0L)
+                  else Pair((r - startRx).coerceAtLeast(0), (t - startTx).coerceAtLeast(0))
+              } catch (e: Exception) { Pair(0L, 0L) }
+              private fun fmt(b: Long): String = when {
+                  b < 1024 -> "$b B"
+                  b < 1024L*1024 -> "%.1f KB".format(b / 1024.0)
+                  b < 1024L*1024*1024 -> "%.2f MB".format(b / (1024.0*1024))
+                  else -> "%.2f GB".format(b / (1024.0*1024*1024))
+              }
+              private fun updData() {
+                  val (r, t) = getData(); val tot = r + t
+                  dataIndicator.text = fmt(tot)
+                  val mb = tot / (1024.0 * 1024)
+                  try { dataIndicator.setTextColor(getColor(when {
                       mb < 20 -> R.color.data_ok
                       mb < 100 -> R.color.data_warn
                       else -> R.color.data_high
-                  }
-                  try { dataIndicator.setTextColor(getColor(colorRes)) } catch (e: Exception) {}
+                  })) } catch (e: Exception) {}
               }
-
-              private fun showDataDetailDialog() {
-                  val (rx, tx) = getSessionData()
-                  val appMem = getAppMemoryMB()
-                  val freeMem = getDeviceFreeMemoryMB()
-
-                  val msg = """
-                      📊 Internet Data Usage
-                      ──────────────────────
-                      ⬇ Downloaded:  ${formatBytes(rx)}
-                      ⬆ Uploaded:    ${formatBytes(tx)}
-                      Σ Total used:  ${formatBytes(rx + tx)}
-
-                      ⚡ Low Data Mode: ${if (lowDataMode) "ON" else "OFF"}
-                      ${if (lowDataMode) "→ Images blocked, cache reduced" else "→ Normal browsing"}
-
-                      💾 RAM: $appMem MB (device free: $freeMem MB)
-                      📑 Tabs: ${tabs.size}
-                  """.trimIndent()
-
-                  AlertDialog.Builder(this)
-                      .setTitle("📊 Data & Memory")
-                      .setMessage(msg)
-                      .setPositiveButton("Reset Counter") { _, _ ->
+              private fun dataDialog() {
+                  val (r, t) = getData()
+                  AlertDialog.Builder(this).setTitle("📊 Data Usage")
+                      .setMessage("⬇ Downloaded: ${fmt(r)}\n⬆ Uploaded: ${fmt(t)}\nΣ Total: ${fmt(r + t)}\n\n⚡ Low Data: ${if (lowDataMode) "ON" else "OFF"}")
+                      .setPositiveButton("Reset") { _, _ ->
                           try {
                               startRx = TrafficStats.getUidRxBytes(android.os.Process.myUid()).coerceAtLeast(0)
                               startTx = TrafficStats.getUidTxBytes(android.os.Process.myUid()).coerceAtLeast(0)
-                              updateDataIndicator()
-                              Toast.makeText(this, "Counter reset", Toast.LENGTH_SHORT).show()
+                              updData(); Toast.makeText(this, "Reset", Toast.LENGTH_SHORT).show()
                           } catch (e: Exception) {}
                       }
-                      .setNeutralButton(if (lowDataMode) "Disable Low Data" else "Enable Low Data") { _, _ ->
-                          toggleLowDataMode()
-                      }
-                      .setNegativeButton("Close", null)
-                      .show()
+                      .setNeutralButton(if (lowDataMode) "Disable" else "Enable LowData") { _, _ -> toggleLowData() }
+                      .setNegativeButton("Close", null).show()
               }
-
-              private fun toggleLowDataMode() {
+              private fun toggleLowData() {
                   lowDataMode = !lowDataMode
                   prefs.edit().putBoolean("low_data_mode", lowDataMode).apply()
-                  applyLowDataMode()
-                  val msg = if (lowDataMode)
-                      "⚡ Low Data Mode ON\n\nImages blocked • Cache reduced • Data saved"
-                  else
-                      "Normal mode restored\n\nImages load • Normal cache"
-                  Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                  applyLowData()
+                  Toast.makeText(this, if (lowDataMode) "⚡ Low Data ON" else "Normal mode", Toast.LENGTH_SHORT).show()
               }
-
               @SuppressLint("SetJavaScriptEnabled")
-              private fun applyLowDataMode() {
+              private fun applyLowData() {
                   tabs.forEach { tab ->
-                      val wv = tab.webView ?: return@forEach
-                      val s = wv.settings
-                      if (lowDataMode) {
-                          s.loadsImagesAutomatically = false
-                          @Suppress("DEPRECATION")
-                          s.blockNetworkImage = true
-                          s.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-                          s.mediaPlaybackRequiresUserGesture = true
-                      } else {
-                          s.loadsImagesAutomatically = true
-                          @Suppress("DEPRECATION")
-                          s.blockNetworkImage = false
-                          s.cacheMode = if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                          s.mediaPlaybackRequiresUserGesture = false
-                      }
+                      val s = tab.wv?.settings ?: return@forEach
+                      s.loadsImagesAutomatically = !lowDataMode
+                      @Suppress("DEPRECATION") s.blockNetworkImage = lowDataMode
+                      s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
+                                    else if (tab.incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
                   }
               }
 
-              private fun getAppMemoryMB(): Int {
-                  return try {
-                      val debugInfo = Debug.MemoryInfo()
-                      Debug.getMemoryInfo(debugInfo)
-                      val totalPss = debugInfo.totalPss
-                      if (totalPss > 0) totalPss / 1024
-                      else {
-                          val rt = Runtime.getRuntime()
-                          ((rt.totalMemory() - rt.freeMemory()) / (1024 * 1024)).toInt()
-                      }
-                  } catch (e: Exception) { 0 }
-              }
-
-              private fun getDeviceFreeMemoryMB(): Int {
-                  return try {
-                      val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                      val mi = ActivityManager.MemoryInfo()
-                      am.getMemoryInfo(mi)
-                      (mi.availMem / (1024 * 1024)).toInt()
-                  } catch (e: Exception) { 0 }
-              }
-
-              // ============ TABS ============
-              private fun createHomeTabInternal() {
-                  val tab = BrowserTab(isIncognito = false)
+              private fun newHomeTab() {
+                  val t = Tab()
                   val wv = WebView(this)
-                  configureWebView(wv, tab)
-                  wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                  )
+                  cfg(wv, t)
+                  wv.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                   wv.visibility = View.GONE
-                  contentContainer.addView(wv, 0)
-                  tab.webView = wv
-                  tabs.add(tab)
-                  currentTabIndex = 0
-                  homeOverlay.visibility = View.VISIBLE
-                  isHomeVisible = true
-                  addressBar.setText("")
-                  incognitoBadge.visibility = View.GONE
-                  renderTabStrip()
-                  updateVpnUi()
-                  applyLowDataMode()
+                  container.addView(wv, 0)
+                  t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
+                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true
+                  addressBar.setText(""); incognitoBadge.visibility = View.GONE
+                  renderTabs(); applyLowData()
               }
-
-              private fun createTabInternal(loadUri: Uri) {
-                  val tab = BrowserTab(isIncognito = false)
+              private fun newTabWithUri(uri: Uri) {
+                  val t = Tab()
                   val wv = WebView(this)
-                  configureWebView(wv, tab)
-                  wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                  )
+                  cfg(wv, t)
+                  wv.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                   wv.visibility = View.VISIBLE
-                  contentContainer.addView(wv, 0)
-                  tab.webView = wv
-                  tabs.add(tab)
-                  currentTabIndex = 0
-                  homeOverlay.visibility = View.GONE
-                  isHomeVisible = false
-                  loadIncoming(tab, loadUri)
-                  renderTabStrip()
-                  updateVpnUi()
+                  container.addView(wv, 0)
+                  t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
+                  homeOverlay.visibility = View.GONE; isHomeVisible = false
+                  loadUri(t, uri); renderTabs()
               }
-
-              private fun newTab(url: String = "about:blank", initialUri: Uri? = null) {
-                  val tab = BrowserTab(isIncognito = false)
+              private fun newTab(url: String = "about:blank") {
+                  val t = Tab()
                   val wv = WebView(this)
-                  configureWebView(wv, tab)
-                  wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                  )
+                  cfg(wv, t)
+                  wv.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                   wv.visibility = View.GONE
-                  contentContainer.addView(wv, 0)
-                  tab.webView = wv
-                  tabs.add(tab)
-                  currentTabIndex = tabs.size - 1
-                  tabs.forEachIndexed { i, t ->
-                      t.webView?.visibility = if (i == currentTabIndex) View.VISIBLE else View.GONE
+                  container.addView(wv, 0)
+                  t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
+                  tabs.forEachIndexed { i, tt -> tt.wv?.visibility = if (i == curIdx) View.VISIBLE else View.GONE }
+                  if (url != "about:blank") {
+                      t.isHome = false; homeOverlay.visibility = View.GONE; isHomeVisible = false; wv.loadUrl(url)
+                  } else { homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("") }
+                  renderTabs()
+              }
+              private fun newIncognito() {
+                  val t = Tab(incognito = true, title = "Incognito")
+                  val wv = WebView(this)
+                  cfg(wv, t)
+                  wv.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                  wv.visibility = View.GONE
+                  container.addView(wv, 0)
+                  t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
+                  tabs.forEachIndexed { i, tt -> tt.wv?.visibility = if (i == curIdx) View.VISIBLE else View.GONE }
+                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true
+                  addressBar.setText(""); incognitoBadge.visibility = View.VISIBLE
+                  renderTabs(); Toast.makeText(this, "🕵 Incognito", Toast.LENGTH_SHORT).show()
+              }
+              private fun closeTab(i: Int) {
+                  if (i < 0 || i >= tabs.size) return
+                  val t = tabs.removeAt(i)
+                  container.removeView(t.wv); t.wv?.destroy()
+                  if (tabs.isEmpty()) { newHomeTab(); return }
+                  val ni = when {
+                      curIdx > i -> curIdx - 1
+                      curIdx == i -> i.coerceAtMost(tabs.size - 1)
+                      else -> curIdx
                   }
-                  if (initialUri != null) {
-                      homeOverlay.visibility = View.GONE
-                      isHomeVisible = false
-                      loadIncoming(tab, initialUri)
-                  } else if (url != "about:blank") {
-                      tab.isHome = false
-                      homeOverlay.visibility = View.GONE
-                      isHomeVisible = false
-                      wv.loadUrl(url)
+                  switchTab(ni)
+              }
+              private fun switchTab(i: Int) {
+                  if (i < 0 || i >= tabs.size) return
+                  curIdx = i
+                  tabs.forEachIndexed { j, t -> t.wv?.visibility = if (j == i) View.VISIBLE else View.GONE }
+                  val t = tabs[i]
+                  if (t.isHome) {
+                      homeOverlay.visibility = View.VISIBLE; addressBar.setText(""); isHomeVisible = true
                   } else {
-                      homeOverlay.visibility = View.VISIBLE
-                      isHomeVisible = true
-                      addressBar.setText("")
+                      homeOverlay.visibility = View.GONE; isHomeVisible = false; addressBar.setText(t.url)
                   }
-                  renderTabStrip()
-                  updateBookmarkIcon()
+                  incognitoBadge.visibility = if (t.incognito) View.VISIBLE else View.GONE
+                  updBm(); renderTabs()
               }
-
-              private fun closeTab(index: Int) {
-                  if (index < 0 || index >= tabs.size) return
-                  val tab = tabs.removeAt(index)
-                  contentContainer.removeView(tab.webView)
-                  tab.webView?.destroy()
-                  if (tabs.isEmpty()) { createHomeTabInternal(); return }
-                  val newIdx = when {
-                      currentTabIndex > index -> currentTabIndex - 1
-                      currentTabIndex == index -> index.coerceAtMost(tabs.size - 1)
-                      else -> currentTabIndex
-                  }
-                  switchToTab(newIdx)
-              }
-
-              private fun switchToTab(index: Int) {
-                  if (index < 0 || index >= tabs.size) return
-                  currentTabIndex = index
-                  tabs.forEachIndexed { i, tab ->
-                      tab.webView?.visibility = if (i == index) View.VISIBLE else View.GONE
-                  }
-                  val tab = tabs[index]
-                  if (tab.isHome) {
-                      homeOverlay.visibility = View.VISIBLE
-                      addressBar.setText("")
-                      isHomeVisible = true
-                  } else {
-                      homeOverlay.visibility = View.GONE
-                      isHomeVisible = false
-                      addressBar.setText(tab.url)
-                  }
-                  incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
-                  updateBookmarkIcon()
-                  renderTabStrip()
-              }
-
               private fun showHome() {
-                  val tab = currentTab ?: return
-                  if (tab.isHome && isHomeVisible) return
-                  tab.isHome = true
-                  tab.url = "about:blank"
-                  tab.title = "New Tab"
-                  tab.webView?.visibility = View.GONE
-                  homeOverlay.visibility = View.VISIBLE
-                  isHomeVisible = true
-                  addressBar.setText("")
-                  incognitoBadge.visibility = if (tab.isIncognito) View.VISIBLE else View.GONE
-                  updateBookmarkIcon()
-                  renderTabStrip()
+                  val t = cur ?: return
+                  if (t.isHome && isHomeVisible) return
+                  t.isHome = true; t.url = "about:blank"; t.title = "New Tab"
+                  t.wv?.visibility = View.GONE
+                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("")
+                  incognitoBadge.visibility = if (t.incognito) View.VISIBLE else View.GONE
+                  updBm(); renderTabs()
               }
-
-              private fun hideHome() {
-                  isHomeVisible = false
-                  homeOverlay.visibility = View.GONE
-              }
-
-              private fun loadIncoming(tab: BrowserTab, uri: Uri) {
+              private fun loadUri(t: Tab, uri: Uri) {
                   try {
-                      val scheme = uri.scheme?.lowercase() ?: ""
+                      val sc = uri.scheme?.lowercase() ?: ""
                       when {
-                          scheme == "http" || scheme == "https" || scheme == "ftp" -> {
-                              tab.isHome = false
-                              tab.url = uri.toString()
-                              tab.webView?.visibility = View.VISIBLE
-                              tab.webView?.loadUrl(uri.toString())
+                          sc == "http" || sc == "https" || sc == "ftp" -> {
+                              t.isHome = false; t.url = uri.toString()
+                              t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(uri.toString())
                           }
-                          scheme == "file" || scheme == "content" -> {
-                              val inputStream = contentResolver.openInputStream(uri)
-                              val content = inputStream?.bufferedReader()?.use { it.readText() } ?: ""
-                              tab.isHome = false
-                              tab.title = uri.lastPathSegment ?: "Local file"
-                              tab.url = uri.toString()
-                              tab.webView?.visibility = View.VISIBLE
-                              tab.webView?.loadDataWithBaseURL(null, content, "text/html", "UTF-8", null)
+                          sc == "file" || sc == "content" -> {
+                              val txt = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+                              t.isHome = false; t.title = uri.lastPathSegment ?: "File"
+                              t.url = uri.toString(); t.wv?.visibility = View.VISIBLE
+                              t.wv?.loadDataWithBaseURL(null, txt, "text/html", "UTF-8", null)
                           }
                           else -> {
-                              tab.isHome = false
-                              tab.url = uri.toString()
-                              tab.webView?.visibility = View.VISIBLE
-                              tab.webView?.loadUrl(uri.toString())
+                              t.isHome = false; t.url = uri.toString()
+                              t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(uri.toString())
                           }
                       }
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Cannot open: ${e.message}", Toast.LENGTH_LONG).show()
-                  }
+                  } catch (e: Exception) { Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
               }
-
-              private fun renderTabStrip() {
+              private fun renderTabs() {
                   tabStrip.removeAllViews()
                   if (tabs.size <= 1) { tabScroll.visibility = View.GONE; return }
                   tabScroll.visibility = View.VISIBLE
-                  tabs.forEachIndexed { i, tab ->
-                      val isActive = i == currentTabIndex
+                  tabs.forEachIndexed { i, t ->
+                      val act = i == curIdx
                       val chip = LinearLayout(this).apply {
-                          orientation = LinearLayout.HORIZONTAL
-                          gravity = Gravity.CENTER_VERTICAL
+                          orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                           setPadding(dp(12), 0, dp(6), 0)
-                          background = getDrawable(
-                              if (isActive) R.drawable.tab_chip_bg else R.drawable.tab_chip_inactive_bg
-                          )
+                          setBackgroundColor(if (act) Color.WHITE else Color.parseColor("#33FFFFFF"))
                           layoutParams = LinearLayout.LayoutParams(dp(150), dp(30)).apply { marginEnd = dp(4) }
-                          elevation = if (isActive) dp(2).toFloat() else 0f
                       }
-                      val title = TextView(this).apply {
-                          text = if (tab.isIncognito) "🕵 ${tab.title}" else tab.title
-                          maxLines = 1
-                          ellipsize = android.text.TextUtils.TruncateAt.END
-                          setTextColor(if (isActive) Color.parseColor("#1565C0") else Color.WHITE)
+                      chip.addView(TextView(this).apply {
+                          text = if (t.incognito) "🕵 ${t.title}" else t.title
+                          maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                          setTextColor(if (act) Color.parseColor("#1565C0") else Color.WHITE)
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                           layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                           gravity = Gravity.CENTER_VERTICAL
-                      }
-                      val close = TextView(this).apply {
+                      })
+                      chip.addView(TextView(this).apply {
                           text = "✕"
-                          setTextColor(if (isActive) Color.parseColor("#1565C0") else Color.WHITE)
+                          setTextColor(if (act) Color.parseColor("#1565C0") else Color.WHITE)
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                          setPadding(dp(6), 0, dp(4), 0)
-                          gravity = Gravity.CENTER_VERTICAL
+                          setPadding(dp(6), 0, dp(4), 0); gravity = Gravity.CENTER_VERTICAL
                           setOnClickListener { closeTab(i) }
-                      }
-                      chip.addView(title); chip.addView(close)
-                      chip.setOnClickListener { switchToTab(i) }
+                      })
+                      chip.setOnClickListener { switchTab(i) }
                       tabStrip.addView(chip)
                   }
-                  val add = TextView(this).apply {
-                      text = "+"
-                      setTextColor(Color.WHITE)
-                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-                      gravity = Gravity.CENTER
+                  tabStrip.addView(TextView(this).apply {
+                      text = "+"; setTextColor(Color.WHITE)
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f); gravity = Gravity.CENTER
                       setPadding(dp(12), 0, dp(12), 0)
                       layoutParams = LinearLayout.LayoutParams(dp(40), dp(30)).apply { marginEnd = dp(4) }
                       setOnClickListener { newTab() }
-                  }
-                  tabStrip.addView(add)
-                  if (currentTabIndex >= 0 && tabStrip.childCount > 3) {
-                      tabScroll.post {
-                          val active = tabStrip.getChildAt(currentTabIndex) ?: return@post
-                          tabScroll.scrollTo(active.left - dp(20), 0)
-                      }
-                  }
+                  })
               }
+              private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+          KOTEOF
+      - name: Main Part3
+        run: |
+          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
-              private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
-
-              private fun guessResourceType(url: String, isMainFrame: Boolean): String {
-                  if (isMainFrame) return "document"
-                  val lower = url.lowercase().substringBefore("?")
+              private fun guessType(url: String, main: Boolean): String {
+                  if (main) return "document"
+                  val l = url.lowercase().substringBefore("?")
                   return when {
-                      lower.endsWith(".css") -> "stylesheet"
-                      lower.endsWith(".js") || lower.contains(".js?") -> "script"
-                      lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
-                          || lower.endsWith(".gif") || lower.endsWith(".webp") || lower.endsWith(".svg")
-                          || lower.endsWith(".ico") -> "image"
-                      lower.endsWith(".woff") || lower.endsWith(".woff2") || lower.endsWith(".ttf")
-                          || lower.endsWith(".otf") -> "font"
-                      lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mkv")
-                          || lower.contains("videoplayback") || lower.contains(".m3u8") -> "media"
-                      lower.endsWith(".json") || lower.contains("/api/") || lower.contains("/graphql") -> "xhr"
-                      lower.endsWith(".html") || lower.endsWith(".htm") -> "document"
-                      lower.endsWith(".wasm") -> "wasm"
-                      lower.startsWith("ws://") || lower.startsWith("wss://") -> "websocket"
+                      l.endsWith(".css") -> "stylesheet"
+                      l.endsWith(".js") || l.contains(".js?") -> "script"
+                      l.endsWith(".png")||l.endsWith(".jpg")||l.endsWith(".jpeg")||l.endsWith(".gif")||l.endsWith(".webp")||l.endsWith(".svg")||l.endsWith(".ico") -> "image"
+                      l.endsWith(".woff")||l.endsWith(".woff2")||l.endsWith(".ttf")||l.endsWith(".otf") -> "font"
+                      l.endsWith(".mp4")||l.endsWith(".webm")||l.contains("videoplayback")||l.contains(".m3u8") -> "media"
+                      l.endsWith(".json")||l.contains("/api/")||l.contains("/graphql") -> "xhr"
+                      l.endsWith(".html")||l.endsWith(".htm") -> "document"
+                      l.endsWith(".wasm") -> "wasm"
+                      l.startsWith("ws://")||l.startsWith("wss://") -> "websocket"
                       else -> "other"
                   }
               }
-
-              private fun logRequest(url: String, method: String, blocked: Boolean, isMainFrame: Boolean) {
+              private fun logReq(url: String, method: String, blocked: Boolean, main: Boolean) {
                   if (logPaused) return
-                  val entry = RequestLogEntry(
-                      timestamp = System.currentTimeMillis(),
-                      url = url, method = method,
-                      resourceType = guessResourceType(url, isMainFrame),
-                      blocked = blocked, isMainFrame = isMainFrame
-                  )
-                  synchronized(requestLog) {
-                      requestLog.add(entry)
-                      if (requestLog.size > MAX_LOG_SIZE) requestLog.removeAt(0)
+                  synchronized(reqLog) {
+                      reqLog.add(ReqEntry(System.currentTimeMillis(), url, method, guessType(url, main), blocked, main))
+                      if (reqLog.size > MAX_LOG) reqLog.removeAt(0)
                   }
               }
 
               @SuppressLint("SetJavaScriptEnabled")
-              private fun configureWebView(wv: WebView, tab: BrowserTab) {
+              private fun cfg(wv: WebView, t: Tab) {
                   val s = wv.settings
                   s.javaScriptEnabled = prefs.getBoolean("javascript", true)
-                  s.domStorageEnabled = true
-                  s.databaseEnabled = true
-                  s.loadWithOverviewMode = true
-                  s.useWideViewPort = true
-                  s.builtInZoomControls = true
-                  s.displayZoomControls = false
-                  s.setSupportZoom(true)
-                  s.allowFileAccess = true
-                  s.allowContentAccess = true
+                  s.domStorageEnabled = true; s.databaseEnabled = true
+                  s.loadWithOverviewMode = true; s.useWideViewPort = true
+                  s.builtInZoomControls = true; s.displayZoomControls = false; s.setSupportZoom(true)
+                  s.allowFileAccess = true; s.allowContentAccess = true
                   s.javaScriptCanOpenWindowsAutomatically = true
                   s.mediaPlaybackRequiresUserGesture = lowDataMode
                   s.loadsImagesAutomatically = !lowDataMode
-                  @Suppress("DEPRECATION")
-                  s.blockNetworkImage = lowDataMode
+                  @Suppress("DEPRECATION") s.blockNetworkImage = lowDataMode
                   s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
-                                else if (tab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.3"
+                                else if (t.incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+                  s.userAgentString = s.userAgentString + " NexusBrowser/3.5"
                   s.setSupportMultipleWindows(true)
-
                   wv.webViewClient = object : WebViewClient() {
-                      override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                          val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-                          val method = request.method ?: "GET"
-                          val isMainFrame = request.isForMainFrame
+                      override fun shouldInterceptRequest(v: WebView?, r: WebResourceRequest?): WebResourceResponse? {
+                          val u = r?.url?.toString() ?: return super.shouldInterceptRequest(v, r)
+                          val m = r.method ?: "GET"
+                          val mf = r.isForMainFrame
                           if (prefs.getBoolean("adblock", true)) {
-                              totalCount.incrementAndGet()
-                              if (isAdUrl(url)) {
-                                  blockedCount.incrementAndGet()
-                                  logRequest(url, method, true, isMainFrame)
+                              tCount.incrementAndGet()
+                              if (isAd(u)) {
+                                  bCount.incrementAndGet(); logReq(u, m, true, mf)
                                   return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                               }
                           }
-                          logRequest(url, method, false, isMainFrame)
-                          return super.shouldInterceptRequest(view, request)
+                          logReq(u, m, false, mf)
+                          return super.shouldInterceptRequest(v, r)
                       }
-
-                      override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                          val url = request?.url?.toString() ?: return false
-                          if (prefs.getBoolean("adblock", true) && isAdUrl(url)) {
-                              logRequest(url, "GET", true, true); return true
-                          }
-                          if (url.startsWith("intent://")) {
-                              try {
-                                  val i = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                                  startActivity(i); return true
-                              } catch (e: Exception) { return false }
+                      override fun shouldOverrideUrlLoading(v: WebView?, r: WebResourceRequest?): Boolean {
+                          val u = r?.url?.toString() ?: return false
+                          if (prefs.getBoolean("adblock", true) && isAd(u)) { logReq(u, "GET", true, true); return true }
+                          if (u.startsWith("intent://")) {
+                              try { startActivity(Intent.parseUri(u, Intent.URI_INTENT_SCHEME)); return true } catch (e: Exception) { return false }
                           }
                           return false
                       }
-
-                      override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                          super.onPageStarted(view, url, favicon)
-                          tab.url = url ?: tab.url
-                          if (url != null && url != "about:blank") {
-                              tab.isHome = false
-                              if (tab === currentTab) {
-                                  addressBar.setText(url)
-                                  homeOverlay.visibility = View.GONE
-                                  isHomeVisible = false
-                              }
+                      override fun onPageStarted(v: WebView?, u: String?, f: Bitmap?) {
+                          super.onPageStarted(v, u, f)
+                          t.url = u ?: t.url
+                          if (u != null && u != "about:blank") {
+                              t.isHome = false
+                              if (t === cur) { addressBar.setText(u); homeOverlay.visibility = View.GONE; isHomeVisible = false }
                           }
                       }
-
-                      override fun onPageFinished(view: WebView?, url: String?) {
-                          super.onPageFinished(view, url)
-                          tab.title = view?.title ?: (url ?: "Page")
-                          if (!tab.isIncognito && url != null && url != "about:blank") saveHistory(url, view?.title ?: url)
-                          if (tab === currentTab) {
-                              updateBookmarkIcon()
-                              renderTabStrip()
-                              updateDataIndicator()
-                          }
-                          if (url == null || url == "about:blank") {
-                              if (tab === currentTab && tab.isHome && homeOverlay.visibility != View.VISIBLE) {
-                                  homeOverlay.visibility = View.VISIBLE
-                                  isHomeVisible = true
-                                  addressBar.setText("")
+                      override fun onPageFinished(v: WebView?, u: String?) {
+                          super.onPageFinished(v, u)
+                          t.title = v?.title ?: (u ?: "Page")
+                          if (!t.incognito && u != null && u != "about:blank") saveHist(u, v?.title ?: u)
+                          if (t === cur) { updBm(); renderTabs(); updData() }
+                          if (u == null || u == "about:blank") {
+                              if (t === cur && t.isHome && homeOverlay.visibility != View.VISIBLE) {
+                                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("")
                               }
                               return
                           }
                           if (prefs.getBoolean("adblock", true)) {
-                              injectUniversalAdBlock(view)
-                              if (url.contains("youtube.com") || url.contains("youtu.be")) injectYouTubeAdBlock(view)
+                              injAd(v)
+                              if (u.contains("youtube.com") || u.contains("youtu.be")) injYt(v)
                           }
-                          if (prefs.getBoolean("hide_identity", false)) injectHideIdentity(view)
+                          if (prefs.getBoolean("hide_identity", false)) injId(v)
                       }
                   }
-
                   wv.webChromeClient = object : WebChromeClient() {
-                      override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                          if (tab === currentTab) {
-                              progressBar.progress = newProgress
-                              progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
-                          }
+                      override fun onProgressChanged(v: WebView?, p: Int) {
+                          if (t === cur) { progressBar.progress = p; progressBar.visibility = if (p in 1..99) View.VISIBLE else View.GONE }
                       }
                   }
-
-                  wv.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                  wv.setDownloadListener(DownloadListener { url, ua, cd, mt, _ ->
                       try {
-                          val filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
-                          val request = DownloadManager.Request(Uri.parse(url))
-                          request.setMimeType(mimeType)
-                          request.addRequestHeader("User-Agent", userAgent)
-                          request.addRequestHeader("cookie", CookieManager.getInstance().getCookie(url))
-                          request.setDescription("Downloading..."); request.setTitle(filename)
-                          request.allowScanningByMediaScanner()
-                          request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                          request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
-                          val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                          dm.enqueue(request)
-                          Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
-                      } catch (e: Exception) {
-                          Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
-                      }
+                          val fn = URLUtil.guessFileName(url, cd, mt)
+                          val r = DownloadManager.Request(Uri.parse(url))
+                          r.setMimeType(mt); r.addRequestHeader("User-Agent", ua)
+                          r.addRequestHeader("cookie", CookieManager.getInstance().getCookie(url))
+                          r.setDescription("Downloading"); r.setTitle(fn); r.allowScanningByMediaScanner()
+                          r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                          r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fn)
+                          (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(r)
+                          Toast.makeText(this, "Downloading", Toast.LENGTH_SHORT).show()
+                      } catch (e: Exception) { Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show() }
                   })
               }
-
-              private fun setupInputs() {
-                  addressBar.setOnEditorActionListener { _, actionId, event ->
-                      if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                          navigate(addressBar.text.toString()); addressBar.clearFocus(); true
-                      } else false
-                  }
-                  homeSearchBar.setOnEditorActionListener { _, actionId, event ->
-                      if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                          val q = homeSearchBar.text.toString()
-                          if (q.isNotEmpty()) { navigate(q); homeSearchBar.clearFocus() }
-                          true
-                      } else false
-                  }
-              }
-
-              private fun navigate(input: String) {
-                  val text = input.trim()
-                  if (text.isEmpty()) return
+              private fun nav(input: String) {
+                  val txt = input.trim(); if (txt.isEmpty()) return
                   val url = when {
-                      text.startsWith("http://") || text.startsWith("https://") -> text
-                      text.contains(".") && !text.contains(" ") -> "https://$text"
+                      txt.startsWith("http://") || txt.startsWith("https://") -> txt
+                      txt.contains(".") && !txt.contains(" ") -> "https://$txt"
                       else -> {
-                          val engine = prefs.getString("search_engine", "google") ?: "google"
-                          val query = URLEncoder.encode(text, "UTF-8")
-                          when (engine) {
-                              "duckduckgo" -> "https://duckduckgo.com/?q=$query"
-                              "bing" -> "https://www.bing.com/search?q=$query"
-                              "brave" -> "https://search.brave.com/search?q=$query"
-                              else -> "https://www.google.com/search?q=$query"
+                          val q = URLEncoder.encode(txt, "UTF-8")
+                          when (prefs.getString("search_engine", "google")) {
+                              "duckduckgo" -> "https://duckduckgo.com/?q=$q"
+                              "bing" -> "https://www.bing.com/search?q=$q"
+                              "brave" -> "https://search.brave.com/search?q=$q"
+                              else -> "https://www.google.com/search?q=$q"
                           }
                       }
                   }
-                  val tab = currentTab ?: return
-                  tab.isHome = false
-                  hideHome()
-                  tab.webView?.visibility = View.VISIBLE
-                  tab.webView?.loadUrl(url)
-                  renderTabStrip()
+                  val t = cur ?: return
+                  t.isHome = false; homeOverlay.visibility = View.GONE; isHomeVisible = false
+                  t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(url); renderTabs()
               }
-
-              private fun setupButtons() {
-                  findViewById<ImageButton>(R.id.btnBack).setOnClickListener { onBackPressed() }
-                  findViewById<ImageButton>(R.id.btnForward).setOnClickListener {
-                      val wv = currentTab?.webView
-                      if (wv != null && wv.canGoForward()) wv.goForward()
+              private fun isAd(url: String): Boolean {
+                  val lu = url.lowercase()
+                  val h = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
+                  if (ads.any { h == it || h.endsWith(".$it") }) return true
+                  if (ytAd.any { lu.contains(it) }) return true
+                  if (aKw.any { lu.contains(it) }) {
+                      if (!lu.contains("youtube.com/watch") && !lu.contains("googlevideo.com/videoplayback")) return true
                   }
-                  findViewById<ImageButton>(R.id.btnRefresh).setOnClickListener { currentTab?.webView?.reload() }
-                  findViewById<ImageButton>(R.id.btnHome).setOnClickListener { showHome() }
-                  findViewById<ImageButton>(R.id.btnBookmark).setOnClickListener { toggleBookmark() }
-                  findViewById<ImageButton>(R.id.btnTabs).setOnClickListener { showTabsDialog() }
-                  findViewById<ImageButton>(R.id.btnIncognito).setOnClickListener { toggleIncognitoForTab() }
-                  findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettings() }
-                  findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMainMenu() }
+                  return false
               }
-
-              // ============ INSPECT MODE ============
-              private fun showInspectDialog() {
-                  val tab = currentTab ?: return
-                  val wv = tab.webView ?: return
-                  val url = wv.url ?: "about:blank"
-                  if (url == "about:blank" || tab.isHome) {
-                      Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show(); return
-                  }
-                  val options = arrayOf(
-                      "📄 Page HTML Source (full)",
-                      "🍪 Cookies",
-                      "💾 LocalStorage",
-                      "📊 Page Info",
-                      "🖼️ All Links (href)",
-                      "🔗 All Images (src)",
-                      "📜 Scripts & Styles",
-                      "🌐 Server Info"
-                  )
-                  AlertDialog.Builder(this)
-                      .setTitle("🔍 Inspect: ${tab.title.take(30)}")
-                      .setItems(options) { _, which ->
-                          when (which) {
-                              0 -> inspectHtmlSource(wv)
-                              1 -> inspectCookies(url)
-                              2 -> inspectLocalStorage(wv)
-                              3 -> inspectPageInfo(wv)
-                              4 -> inspectLinks(wv)
-                              5 -> inspectImages(wv)
-                              6 -> inspectScriptsStyles(wv)
-                              7 -> inspectServerInfo(url)
-                          }
-                      }
-                      .setNegativeButton("Close", null).show()
+              private fun injId(wv: WebView?) {
+                  wv ?: return
+                  wv.evaluateJavascript("(function(){if(window.__xId)return;window.__xId=1;try{Object.defineProperty(navigator,'platform',{get:function(){return 'Linux x86_64';}});}catch(e){}try{Object.defineProperty(navigator,'vendor',{get:function(){return 'Google Inc.';}});}catch(e){}try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 4;}});}catch(e){}try{Object.defineProperty(navigator,'deviceMemory',{get:function(){return 8;}});}catch(e){}try{Object.defineProperty(navigator,'doNotTrack',{get:function(){return '1';}});}catch(e){}try{window.RTCPeerConnection=undefined;}catch(e){}try{if(navigator.geolocation){navigator.geolocation.getCurrentPosition=function(){};}}catch(e){}try{var og=CanvasRenderingContext2D.prototype.getImageData;CanvasRenderingContext2D.prototype.getImageData=function(){var d=og.apply(this,arguments);for(var i=0;i<d.data.length;i+=100)d.data[i]^=1;return d;};}catch(e){}try{var gp=WebGLRenderingContext.prototype.getParameter;WebGLRenderingContext.prototype.getParameter=function(p){if(p===37445)return 'Intel Inc.';if(p===37446)return 'Intel Iris';return gp.apply(this,arguments);};}catch(e){}})();", null)
               }
-
-              // NO LIMIT — full HTML, but safely displayed
-              private fun inspectHtmlSource(wv: WebView) {
-                  Toast.makeText(this, "Extracting full HTML...", Toast.LENGTH_SHORT).show()
-                  wv.evaluateJavascript(
-                      "(function(){try{return document.documentElement.outerHTML;}catch(e){return 'ERROR: '+e.message;}})()"
-                  ) { result ->
-                      try {
-                          val html = unescapeJsonString(result)
-                          showCodeDialog("HTML Source (${html.length} chars)", html)
-                      } catch (e: Throwable) {
-                          Toast.makeText(this, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
-                      }
-                  }
+              private fun injAd(wv: WebView?) {
+                  wv ?: return
+                  wv.evaluateJavascript("(function(){if(window.__xAd)return;window.__xAd=1;var s=document.createElement('style');s.type='text/css';s.appendChild(document.createTextNode('.adsbygoogle,.ad-container,.ad-wrapper,.advertisement,.sponsored,.promoted,[id^=\"google_ads_\"],[id*=\"ad-slot\"],iframe[src*=\"doubleclick\"],iframe[src*=\"googlesyndication\"]{display:none!important;height:0!important;}')); (document.head||document.documentElement).appendChild(s);})();", null)
               }
-
-              private fun inspectCookies(url: String) {
-                  try {
-                      val cookie = CookieManager.getInstance().getCookie(url)
-                      val text = if (cookie.isNullOrEmpty()) "No cookies for this site.\n\n$url"
-                                 else cookie.split(";").joinToString("\n\n") { it.trim() }
-                      showCodeDialog("Cookies (${if (cookie.isNullOrEmpty()) 0 else cookie.split(";").size})", text)
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Cookie error: ${e.message}", Toast.LENGTH_SHORT).show()
-                  }
+              private fun injYt(wv: WebView?) {
+                  wv ?: return
+                  wv.evaluateJavascript("(function(){if(window.__xYt)return;window.__xYt=1;var op=JSON.parse;JSON.parse=function(t,r){var x=op(t,r);try{if(x){delete x.adPlacements;delete x.playerAds;delete x.adSlots;if(x.playerResponse){delete x.playerResponse.adPlacements;delete x.playerResponse.playerAds;}}}catch(e){}return x;};var s=document.createElement('style');s.type='text/css';s.appendChild(document.createTextNode('.video-ads,.ytp-ad-module,.ytp-ad-overlay-container,#player-ads,#masthead-ad,ytd-promoted-sparkles-web-renderer,ytd-display-ad-renderer,ytd-ad-slot-renderer,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytp-ad-overlay-slot,.ytp-ad-player-overlay,ytd-enforcement-message-view-model{display:none!important;height:0!important;}')); (document.head||document.documentElement).appendChild(s); function sk(){document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad-button').forEach(function(b){try{b.click();}catch(e){}});var v=document.querySelector('video');if(v&&document.querySelector('.ad-showing')){try{v.currentTime=v.duration;v.playbackRate=16;}catch(e){}}}setInterval(sk,250);})();", null)
               }
+          KOTEOF
+      - name: Main Part4
+        run: |
+          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
-              private fun inspectLocalStorage(wv: WebView) {
-                  wv.evaluateJavascript(
-                      "(function(){try{var out='';for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);out+=k+' = '+localStorage.getItem(k)+'\\n\\n';}return out||'LocalStorage is empty.';}catch(e){return 'ERROR: '+e.message;}})()"
-                  ) { r -> showCodeDialog("LocalStorage", unescapeJsonString(r)) }
-              }
-
-              private fun inspectPageInfo(wv: WebView) {
-                  wv.evaluateJavascript(
-                      "(function(){try{return JSON.stringify({title:document.title,url:location.href,host:location.host,protocol:location.protocol,referrer:document.referrer,charset:document.characterSet,size:document.documentElement.outerHTML.length,links:document.links.length,images:document.images.length,scripts:document.scripts.length,forms:document.forms.length,meta:document.querySelectorAll('meta').length});}catch(e){return '{}';}})()"
-                  ) { r ->
-                      val info = unescapeJsonString(r)
-                      val pretty = info.replace(",", ",\n").replace("{", "{\n").replace("}", "\n}")
-                      showCodeDialog("Page Info", pretty)
-                  }
-              }
-
-              private fun inspectLinks(wv: WebView) {
-                  wv.evaluateJavascript(
-                      "(function(){try{var arr=[];var links=document.querySelectorAll('a[href]');for(var i=0;i<links.length && i<500;i++){arr.push(links[i].href);}return arr.join('\\n');}catch(e){return 'ERROR: '+e.message;}})()"
-                  ) { r -> showCodeDialog("Links Found", unescapeJsonString(r)) }
-              }
-
-              private fun inspectImages(wv: WebView) {
-                  wv.evaluateJavascript(
-                      "(function(){try{var arr=[];var imgs=document.querySelectorAll('img[src]');for(var i=0;i<imgs.length && i<500;i++){arr.push(imgs[i].src+'  ['+imgs[i].naturalWidth+'x'+imgs[i].naturalHeight+']');}return arr.join('\\n');}catch(e){return 'ERROR: '+e.message;}})()"
-                  ) { r -> showCodeDialog("Images Found", unescapeJsonString(r)) }
-              }
-
-              private fun inspectScriptsStyles(wv: WebView) {
-                  wv.evaluateJavascript(
-                      "(function(){try{var out='=== SCRIPTS ===\\n';var s=document.querySelectorAll('script[src]');for(var i=0;i<s.length;i++){out+=s[i].src+'\\n';}out+='\\n=== STYLESHEETS ===\\n';var st=document.querySelectorAll('link[rel=\"stylesheet\"]');for(var i=0;i<st.length;i++){out+=st[i].href+'\\n';}return out;}catch(e){return 'ERROR: '+e.message;}})()"
-                  ) { r -> showCodeDialog("Scripts & Stylesheets", unescapeJsonString(r)) }
-              }
-
-              private fun inspectServerInfo(url: String) {
-                  Toast.makeText(this, "Fetching server info...", Toast.LENGTH_SHORT).show()
-                  Thread {
-                      val sb = StringBuilder()
-                      try {
-                          sb.append("URL: ").append(url).append("\n\n")
-                          try {
-                              val host = Uri.parse(url).host ?: ""
-                              sb.append("=== DNS ===\nHost: ").append(host).append("\n")
-                              val addrs = java.net.InetAddress.getAllByName(host)
-                              addrs.forEachIndexed { i, a -> sb.append("IP ${i+1}: ").append(a.hostAddress).append("\n") }
-                              sb.append("\n")
-                          } catch (e: Exception) { sb.append("DNS failed: ${e.message}\n\n") }
-
-                          sb.append("=== SERVER HEADERS ===\n")
-                          val conn = URL(url).openConnection() as HttpURLConnection
-                          conn.requestMethod = "HEAD"
-                          conn.connectTimeout = 10000
-                          conn.readTimeout = 10000
-                          conn.instanceFollowRedirects = false
-                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.3")
-                          conn.connect()
-                          sb.append("Status: ").append(conn.responseCode).append(" ").append(conn.responseMessage).append("\n\n")
-                          conn.headerFields.forEach { (k, v) ->
-                              if (k != null && v != null) v.forEach { sb.append(k).append(": ").append(it).append("\n") }
-                          }
-                          conn.disconnect()
-                          handler.post { showCodeDialog("🌐 Server Info", sb.toString()) }
-                      } catch (e: Exception) {
-                          sb.append("\nERROR: ").append(e.message)
-                          handler.post { showCodeDialog("🌐 Server Info", sb.toString()) }
-                      }
-                  }.start()
-              }
-
-              private fun unescapeJsonString(s: String?): String {
-                  if (s == null) return ""
-                  if (s == "null") return "(empty)"
-                  var str = s
-                  if (str.startsWith("\"") && str.endsWith("\"") && str.length > 1) {
-                      str = str.substring(1, str.length - 1)
-                  }
-                  return str
-                      .replace("\\n", "\n")
-                      .replace("\\t", "\t")
-                      .replace("\\\"", "\"")
-                      .replace("\\\\", "\\")
-                      .replace("\\u003c", "<")
-                      .replace("\\u003e", ">")
-                      .replace("\\u0026", "&")
-              }
-
-              // Safe code dialog - no cap, chunks if needed
-              private fun showCodeDialog(title: String, content: String) {
-                  val container = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(20, 20, 20, 20)
-                  }
-                  val code = TextView(this).apply {
-                      text = content
-                      setTextIsSelectable(true)
-                      setTextColor(Color.parseColor("#D4D4D4"))
-                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                      typeface = Typeface.MONOSPACE
-                      setPadding(20, 20, 20, 20)
-                      background = getDrawable(R.drawable.code_bg)
-                  }
-                  val scroll = ScrollView(this).apply {
-                      addView(code)
-                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(440))
-                  }
-                  container.addView(scroll)
-
-                  AlertDialog.Builder(this)
-                      .setTitle(title)
-                      .setView(container)
-                      .setPositiveButton("Copy") { _, _ ->
-                          val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", content))
-                          Toast.makeText(this, "Copied ${content.length} chars", Toast.LENGTH_SHORT).show()
-                      }
-                      .setNeutralButton("Share") { _, _ ->
-                          val i = Intent(Intent.ACTION_SEND)
-                          i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, content)
-                          startActivity(Intent.createChooser(i, "Share"))
-                      }
-                      .setNegativeButton("Close", null)
-                      .show()
-              }
-
-              // ============ SAVE SITE AS ZIP ============
-              private fun showSaveSiteDialog() {
-                  val tab = currentTab ?: return
-                  val wv = tab.webView ?: return
-                  val url = wv.url ?: return
-                  if (url == "about:blank" || tab.isHome) {
-                      Toast.makeText(this, "Open a website first", Toast.LENGTH_SHORT).show(); return
-                  }
-                  AlertDialog.Builder(this)
-                      .setTitle("📦 Save Site as ZIP")
-                      .setMessage("Ye feature site ka poora code ZIP me save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images\n• Server info, cookies, links\n• _nexus_metadata.txt\n\nZIP yahan save hoga:\nAndroid/data/com.nexus.browser/files/SavedSites/\n\nSave karein?")
-                      .setPositiveButton("Save") { _, _ -> startSaveSite(url, wv) }
-                      .setNegativeButton("Cancel", null)
-                      .show()
-              }
-
-              private fun startSaveSite(url: String, wv: WebView) {
-                  Toast.makeText(this, "Fetching page source...", Toast.LENGTH_SHORT).show()
-                  wv.evaluateJavascript(
-                      "(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()"
-                  ) { result ->
-                      val html = unescapeJsonString(result)
-                      if (html.isEmpty()) {
-                          Toast.makeText(this, "Failed to get HTML", Toast.LENGTH_SHORT).show(); return@evaluateJavascript
-                      }
-                      val cookie = CookieManager.getInstance().getCookie(url) ?: ""
-
-                      // Build links list
-                      wv.evaluateJavascript(
-                          "(function(){try{var arr=[];var l=document.querySelectorAll('a[href]');for(var i=0;i<l.length && i<500;i++){arr.push(l[i].href);}return arr.join('\\n');}catch(e){return '';}})()"
-                      ) { linkRes ->
-                          val links = unescapeJsonString(linkRes)
-
-                          val dialog = AlertDialog.Builder(this)
-                              .setTitle("📦 Saving site...")
-                              .setMessage("Preparing...")
-                              .setCancelable(false)
-                              .create()
-                          dialog.show()
-
-                          // Fetch server info first (quick, then start download)
-                          Thread {
-                              val serverInfo = StringBuilder()
-                              try {
-                                  val conn = URL(url).openConnection() as HttpURLConnection
-                                  conn.requestMethod = "HEAD"
-                                  conn.connectTimeout = 8000
-                                  conn.readTimeout = 8000
-                                  conn.instanceFollowRedirects = false
-                                  conn.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.3")
-                                  conn.connect()
-                                  serverInfo.append("Status: ${conn.responseCode} ${conn.responseMessage}\n\n")
-                                  conn.headerFields.forEach { (k, v) ->
-                                      if (k != null && v != null) v.forEach { serverInfo.append("$k: $it\n") }
-                                  }
-                                  conn.disconnect()
-                              } catch (e: Exception) {
-                                  serverInfo.append("Error: ${e.message}")
-                              }
-
-                              val pageInfo = buildString {
-                                  appendLine("URL: $url")
-                                  appendLine("HTML size: ${html.length} chars")
-                                  appendLine("Cookies present: ${cookie.isNotEmpty()}")
-                              }
-
-                              handler.post {
-                                  val downloader = SiteDownloader(this)
-                                  downloader.saveSiteAsZip(
-                                      pageUrl = url,
-                                      html = html,
-                                      cookies = cookie,
-                                      serverInfo = serverInfo.toString(),
-                                      pageInfo = pageInfo,
-                                      links = links,
-                                      onProgress = { p ->
-                                          handler.post {
-                                              try { dialog.setMessage("${p.phase} (${p.current}/${p.total})") } catch (e: Exception) {}
-                                          }
-                                      },
-                                      onComplete = { file, ok, fail ->
-                                          handler.post {
-                                              try { dialog.dismiss() } catch (e: Exception) {}
-                                              if (file != null) {
-                                                  val sizeMB = file.length() / (1024.0 * 1024)
-                                                  AlertDialog.Builder(this)
-                                                      .setTitle("✅ Site Saved!")
-                                                      .setMessage(
-                                                          "File: ${file.name}\n" +
-                                                          "Size: %.2f MB\n".format(sizeMB) +
-                                                          "Files inside: $ok assets\n" +
-                                                          "Failed: $fail\n\n" +
-                                                          "Path:\n${file.absolutePath}\n\n" +
-                                                          "Open with ZArchiver or Files app to view."
-                                                      )
-                                                      .setPositiveButton("OK", null)
-                                                      .setNeutralButton("Share Path") { _, _ ->
-                                                          val i = Intent(Intent.ACTION_SEND)
-                                                          i.type = "text/plain"
-                                                          i.putExtra(Intent.EXTRA_TEXT, file.absolutePath)
-                                                          startActivity(Intent.createChooser(i, "Share"))
-                                                      }
-                                                      .show()
-                                              } else {
-                                                  Toast.makeText(this, "❌ Save failed", Toast.LENGTH_LONG).show()
-                                              }
-                                          }
-                                      }
-                                  )
-                              }
-                          }.start()
-                      }
-                  }
-              }
-
-              private fun showRequestLogDialog() {
-                  if (requestLog.isEmpty()) {
+              // ===== NETWORK REQUEST LOG DIALOG =====
+              private fun showReqLog() {
+                  if (reqLog.isEmpty()) {
                       AlertDialog.Builder(this).setTitle("📡 Network Requests")
-                          .setMessage("No requests logged yet.\n\nBrowse a website and come back.")
+                          .setMessage("No requests yet.\n\nBrowse a site first.")
                           .setPositiveButton("OK", null).show()
                       return
                   }
-                  val snapshot = synchronized(requestLog) { requestLog.toList().reversed() }
-                  val container = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20)
-                  }
-                  val summary = TextView(this).apply {
-                      val blocked = snapshot.count { it.blocked }
-                      text = "Total: ${snapshot.size}  |  Allowed: ${snapshot.size - blocked}  |  Blocked: $blocked"
+                  val snap = synchronized(reqLog) { reqLog.toList().reversed() }
+                  val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20) }
+                  val blocked = snap.count { it.blocked }
+                  c.addView(TextView(this).apply {
+                      text = "Total: ${snap.size} | Allowed: ${snap.size - blocked} | Blocked: $blocked"
                       setTextColor(Color.parseColor("#212121"))
-                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                      setPadding(0, 0, 0, 12)
-                  }
-                  container.addView(summary)
-                  val scroll = ScrollView(this).apply {
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(0, 0, 0, 12)
+                  })
+                  val sv = ScrollView(this).apply {
                       layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(430))
                   }
-                  val listLayout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-                  val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-
-                  snapshot.take(300).forEach { req ->
+                  val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                  val tf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                  snap.take(300).forEach { r ->
                       val row = LinearLayout(this).apply {
                           orientation = LinearLayout.VERTICAL
                           setPadding(dp(10), dp(8), dp(10), dp(8))
                           background = getDrawable(R.drawable.req_row_bg)
-                          layoutParams = LinearLayout.LayoutParams(
-                              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                          ).apply { bottomMargin = dp(4) }
+                          layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(4) }
                           isClickable = true; isFocusable = true
                           setOnClickListener {
                               val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                              val text = "${req.method} ${req.url}\n\nType: ${req.resourceType}\nTime: ${timeFmt.format(Date(req.timestamp))}\nBlocked: ${req.blocked}"
-                              cm.setPrimaryClip(ClipData.newPlainText("Nexus", text))
+                              cm.setPrimaryClip(ClipData.newPlainText("Nexus", "${r.method} ${r.url}\n\nType: ${r.rtype}\nBlocked: ${r.blocked}"))
                               Toast.makeText(this@MainActivity, "Copied", Toast.LENGTH_SHORT).show()
                           }
                       }
-                      val header = LinearLayout(this).apply {
-                          orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                      }
-                      val badge = TextView(this).apply {
-                          text = if (req.blocked) "⛔" else "✓"
-                          setTextColor(if (req.blocked) Color.parseColor("#F44336") else Color.parseColor("#4CAF50"))
+                      val hdr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                      hdr.addView(TextView(this).apply {
+                          text = if (r.blocked) "⛔" else "✓"
+                          setTextColor(if (r.blocked) Color.parseColor("#F44336") else Color.parseColor("#4CAF50"))
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); setPadding(0, 0, dp(8), 0)
-                      }
-                      header.addView(badge)
-                      val method = TextView(this).apply {
-                          text = req.method
-                          setTextColor(Color.parseColor("#1565C0"))
-                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                          typeface = Typeface.DEFAULT_BOLD; setPadding(0, 0, dp(8), 0)
-                      }
-                      header.addView(method)
-                      val type = TextView(this).apply {
-                          text = req.resourceType
-                          setTextColor(Color.parseColor("#757575"))
+                      })
+                      hdr.addView(TextView(this).apply {
+                          text = r.method; setTextColor(Color.parseColor("#1565C0"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); typeface = Typeface.DEFAULT_BOLD; setPadding(0, 0, dp(8), 0)
+                      })
+                      hdr.addView(TextView(this).apply {
+                          text = r.rtype; setTextColor(Color.parseColor("#757575"))
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                           layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                      }
-                      header.addView(type)
-                      val time = TextView(this).apply {
-                          text = timeFmt.format(Date(req.timestamp))
-                          setTextColor(Color.parseColor("#9E9E9E"))
+                      })
+                      hdr.addView(TextView(this).apply {
+                          text = tf.format(Date(r.ts)); setTextColor(Color.parseColor("#9E9E9E"))
                           setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-                      }
-                      header.addView(time)
-                      val urlView = TextView(this).apply {
-                          text = req.url
-                          setTextColor(if (req.blocked) Color.parseColor("#B71C1C") else Color.parseColor("#424242"))
-                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                          maxLines = 2
+                      })
+                      row.addView(hdr)
+                      row.addView(TextView(this).apply {
+                          text = r.url
+                          setTextColor(if (r.blocked) Color.parseColor("#B71C1C") else Color.parseColor("#424242"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); maxLines = 2
                           ellipsize = android.text.TextUtils.TruncateAt.END
-                          setPadding(0, dp(4), 0, 0)
-                          typeface = Typeface.MONOSPACE
-                      }
-                      row.addView(header); row.addView(urlView)
-                      listLayout.addView(row)
+                          setPadding(0, dp(4), 0, 0); typeface = Typeface.MONOSPACE
+                      })
+                      list.addView(row)
                   }
-                  scroll.addView(listLayout)
-                  container.addView(scroll)
-
-                  AlertDialog.Builder(this).setTitle("📡 Network Requests")
-                      .setView(container)
+                  sv.addView(list); c.addView(sv)
+                  AlertDialog.Builder(this).setTitle("📡 Network Requests").setView(c)
                       .setPositiveButton("Copy All") { _, _ ->
                           val sb = StringBuilder()
-                          snapshot.forEach { r ->
-                              sb.append(timeFmt.format(Date(r.timestamp))).append("  ")
-                                  .append(if (r.blocked) "[BLOCKED] " else "[OK]      ")
-                                  .append(r.method).append("  ").append(r.resourceType).append("  ")
-                                  .append(r.url).append("\n")
-                          }
-                          val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                          cm.setPrimaryClip(ClipData.newPlainText("Nexus", sb.toString()))
-                          Toast.makeText(this, "Copied ${snapshot.size} requests", Toast.LENGTH_SHORT).show()
+                          snap.forEach { r -> sb.append(tf.format(Date(r.ts))).append("  ").append(if (r.blocked) "[BLOCKED] " else "[OK]      ").append(r.method).append("  ").append(r.rtype).append("  ").append(r.url).append("\n") }
+                          (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Nexus", sb.toString()))
+                          Toast.makeText(this, "Copied ${snap.size}", Toast.LENGTH_SHORT).show()
                       }
-                      .setNeutralButton("Clear") { _, _ ->
-                          synchronized(requestLog) { requestLog.clear() }
-                          Toast.makeText(this, "Log cleared", Toast.LENGTH_SHORT).show()
-                      }
+                      .setNeutralButton("Clear") { _, _ -> synchronized(reqLog) { reqLog.clear() }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                       .setNegativeButton("Close", null).show()
               }
 
-              private fun showTabsDialog() {
-                  val items = tabs.mapIndexed { i, t ->
-                      val mark = if (i == currentTabIndex) "▶ " else "   "
-                      val incog = if (t.isIncognito) "🕵 " else ""
-                      "$mark$incog${t.title}"
-                  }.toTypedArray()
-                  AlertDialog.Builder(this).setTitle("Tabs (${tabs.size})")
-                      .setItems(items) { _, which -> switchToTab(which) }
-                      .setPositiveButton("New Tab") { _, _ -> newTab() }
-                      .setNeutralButton("Close Tab") { _, _ -> closeTab(currentTabIndex) }
+              private fun menu() {
+                  val o = arrayOf("New Tab","Bookmarks","History","🔍 Inspect Mode","📡 Network Request Log",
+                      "📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
+                      "Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
+                  AlertDialog.Builder(this).setTitle("Menu").setItems(o) { _, w ->
+                      when (w) {
+                          0 -> newTab()
+                          1 -> bookmarks()
+                          2 -> history()
+                          3 -> inspectDlg()
+                          4 -> showReqLog()
+                          5 -> saveSiteDlg()
+                          6 -> dataDialog()
+                          7 -> toggleLowData()
+                          8 -> findPage()
+                          9 -> share()
+                          10 -> toggleDesktop()
+                          11 -> downloads()
+                          12 -> adStats()
+                          13 -> finish()
+                      }
+                  }.show()
+              }
+              private fun adStats() {
+                  val b = bCount.get(); val t = tCount.get()
+                  AlertDialog.Builder(this).setTitle("Ad Block Stats")
+                      .setMessage("Total: $t\nBlocked: $b\nRate: ${if (t > 0) b * 100 / t else 0}%")
+                      .setPositiveButton("OK", null).show()
+              }
+              private fun inspectDlg() {
+                  val t = cur ?: return
+                  val wv = t.wv ?: return
+                  val url = wv.url ?: return
+                  if (url == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
+                  val o = arrayOf("📄 Full HTML Source","🍪 Cookies","💾 LocalStorage","📊 Page Info",
+                      "🔗 All Links","🖼️ All Images","📜 Scripts & Styles","🌐 Server Info")
+                  AlertDialog.Builder(this).setTitle("🔍 Inspect").setItems(o) { _, w ->
+                      when (w) {
+                          0 -> fullHtml(wv)
+                          1 -> cookies(url)
+                          2 -> storage(wv)
+                          3 -> pageInfo(wv)
+                          4 -> links(wv)
+                          5 -> images(wv)
+                          6 -> scripts(wv)
+                          7 -> serverInfo(url)
+                      }
+                  }.setNegativeButton("Close", null).show()
+              }
+              private fun fullHtml(wv: WebView) {
+                  Toast.makeText(this, "Extracting full HTML...", Toast.LENGTH_SHORT).show()
+                  wv.evaluateJavascript("(function(){try{return document.documentElement.outerHTML;}catch(e){return 'ERROR: '+e.message;}})()") { r ->
+                      val h = unesc(r)
+                      showCode("Full HTML (${h.length} chars)", h)
+                  }
+              }
+              private fun cookies(url: String) {
+                  try {
+                      val c = CookieManager.getInstance().getCookie(url)
+                      val txt = if (c.isNullOrEmpty()) "No cookies.\n\n$url"
+                                else c.split(";").joinToString("\n\n") { it.trim() }
+                      showCode("Cookies", txt)
+                  } catch (e: Exception) { Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show() }
+              }
+              private fun storage(wv: WebView) {
+                  wv.evaluateJavascript("(function(){try{var o='';for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);o+=k+' = '+localStorage.getItem(k)+'\\n\\n';}return o||'empty';}catch(e){return 'ERR: '+e.message;}})()") { r -> showCode("LocalStorage", unesc(r)) }
+              }
+              private fun pageInfo(wv: WebView) {
+                  wv.evaluateJavascript("(function(){try{return JSON.stringify({title:document.title,url:location.href,host:location.host,protocol:location.protocol,referrer:document.referrer,charset:document.characterSet,size:document.documentElement.outerHTML.length,links:document.links.length,images:document.images.length,scripts:document.scripts.length,forms:document.forms.length});}catch(e){return '{}';}})()") { r ->
+                      val s = unesc(r).replace(",", ",\n").replace("{", "{\n").replace("}", "\n}")
+                      showCode("Page Info", s)
+                  }
+              }
+              private fun links(wv: WebView) {
+                  wv.evaluateJavascript("(function(){try{var a=[];var l=document.querySelectorAll('a[href]');for(var i=0;i<l.length&&i<500;i++){a.push(l[i].href);}return a.join('\\n');}catch(e){return 'ERR: '+e.message;}})()") { r -> showCode("Links", unesc(r)) }
+              }
+              private fun images(wv: WebView) {
+                  wv.evaluateJavascript("(function(){try{var a=[];var im=document.querySelectorAll('img[src]');for(var i=0;i<im.length&&i<500;i++){a.push(im[i].src+'  ['+im[i].naturalWidth+'x'+im[i].naturalHeight+']');}return a.join('\\n');}catch(e){return 'ERR: '+e.message;}})()") { r -> showCode("Images", unesc(r)) }
+              }
+              private fun scripts(wv: WebView) {
+                  wv.evaluateJavascript("(function(){try{var o='=== SCRIPTS ===\\n';var s=document.querySelectorAll('script[src]');for(var i=0;i<s.length;i++){o+=s[i].src+'\\n';}o+='\\n=== CSS ===\\n';var c=document.querySelectorAll('link[rel=\"stylesheet\"]');for(var i=0;i<c.length;i++){o+=c[i].href+'\\n';}return o;}catch(e){return 'ERR: '+e.message;}})()") { r -> showCode("Scripts & Styles", unesc(r)) }
+              }
+              private fun serverInfo(url: String) {
+                  Toast.makeText(this, "Fetching...", Toast.LENGTH_SHORT).show()
+                  Thread {
+                      val sb = StringBuilder()
+                      try {
+                          sb.append("URL: $url\n\n")
+                          try {
+                              val h = Uri.parse(url).host ?: ""
+                              sb.append("=== DNS ===\nHost: $h\n")
+                              java.net.InetAddress.getAllByName(h).forEachIndexed { i, a -> sb.append("IP ${i+1}: ${a.hostAddress}\n") }
+                              sb.append("\n")
+                          } catch (e: Exception) { sb.append("DNS err: ${e.message}\n\n") }
+                          sb.append("=== HEADERS ===\n")
+                          val c = URL(url).openConnection() as HttpURLConnection
+                          c.requestMethod = "HEAD"; c.connectTimeout = 10000; c.readTimeout = 10000
+                          c.instanceFollowRedirects = false
+                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.5")
+                          c.connect()
+                          sb.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
+                          c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { sb.append("$k: $it\n") } }
+                          c.disconnect()
+                          handler.post { showCode("🌐 Server Info", sb.toString()) }
+                      } catch (e: Exception) {
+                          sb.append("\nERR: ${e.message}")
+                          handler.post { showCode("🌐 Server Info", sb.toString()) }
+                      }
+                  }.start()
+              }
+              private fun unesc(s: String?): String {
+                  if (s == null || s == "null") return ""
+                  var x = s
+                  if (x.startsWith("\"") && x.endsWith("\"") && x.length > 1) x = x.substring(1, x.length - 1)
+                  return x.replace("\\n", "\n").replace("\\t", "\t").replace("\\\"", "\"").replace("\\\\", "\\").replace("\\u003c", "<").replace("\\u003e", ">").replace("\\u0026", "&")
+              }
+              private fun showCode(title: String, content: String) {
+                  val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20) }
+                  c.addView(ScrollView(this).apply {
+                      addView(TextView(this@MainActivity).apply {
+                          text = content; setTextIsSelectable(true)
+                          setTextColor(Color.parseColor("#D4D4D4"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                          typeface = Typeface.MONOSPACE; setPadding(20, 20, 20, 20)
+                          background = getDrawable(R.drawable.code_bg)
+                      })
+                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(440))
+                  })
+                  AlertDialog.Builder(this).setTitle(title).setView(c)
+                      .setPositiveButton("Copy") { _, _ ->
+                          (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Nexus", content))
+                          Toast.makeText(this, "Copied ${content.length} chars", Toast.LENGTH_SHORT).show()
+                      }
+                      .setNeutralButton("Share") { _, _ ->
+                          val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, content)
+                          startActivity(Intent.createChooser(i, "Share"))
+                      }
+                      .setNegativeButton("Close", null).show()
+              }
+          KOTEOF
+      - name: Main Part5
+        run: |
+          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
+
+              private fun saveSiteDlg() {
+                  val t = cur ?: return
+                  val wv = t.wv ?: return
+                  val url = wv.url ?: return
+                  if (url == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
+                  AlertDialog.Builder(this).setTitle("📦 Save Site as ZIP")
+                      .setMessage("Site ka poora code save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images (500 tak)\n• Server info, cookies\n• _metadata.txt\n\nLocation:\nAndroid/data/com.nexus.browser/files/SavedSites/\n\nSave karein?")
+                      .setPositiveButton("Save") { _, _ -> doSave(url, wv) }
                       .setNegativeButton("Cancel", null).show()
               }
-
-              private fun toggleIncognitoForTab() {
-                  val tab = BrowserTab(isIncognito = true, title = "Incognito", isHome = true)
-                  val wv = WebView(this)
-                  configureWebView(wv, tab)
-                  wv.layoutParams = FrameLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                  )
-                  wv.visibility = View.GONE
-                  contentContainer.addView(wv, 0)
-                  tab.webView = wv
-                  tabs.add(tab)
-                  currentTabIndex = tabs.size - 1
-                  tabs.forEachIndexed { i, t ->
-                      t.webView?.visibility = if (i == currentTabIndex) View.VISIBLE else View.GONE
+              private fun doSave(url: String, wv: WebView) {
+                  Toast.makeText(this, "Fetching HTML...", Toast.LENGTH_SHORT).show()
+                  wv.evaluateJavascript("(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()") { r ->
+                      val html = unesc(r)
+                      if (html.isEmpty()) { Toast.makeText(this, "HTML failed", Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
+                      val ck = CookieManager.getInstance().getCookie(url) ?: ""
+                      val dlg = AlertDialog.Builder(this).setTitle("📦 Saving...").setMessage("Preparing...").setCancelable(false).create()
+                      dlg.show()
+                      Thread {
+                          val si = StringBuilder()
+                          try {
+                              val c = URL(url).openConnection() as HttpURLConnection
+                              c.requestMethod = "HEAD"; c.connectTimeout = 8000; c.readTimeout = 8000
+                              c.instanceFollowRedirects = false
+                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.5")
+                              c.connect()
+                              si.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
+                              c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { si.append("$k: $it\n") } }
+                              c.disconnect()
+                          } catch (e: Exception) { si.append("Err: ${e.message}") }
+                          handler.post {
+                              SiteDownloader(this).save(url, html, ck, si.toString(),
+                                  onProgress = { p -> handler.post { try { dlg.setMessage("${p.phase} (${p.cur}/${p.tot})") } catch (e: Exception) {} } },
+                                  onDone = { file, ok, fail ->
+                                      handler.post {
+                                          try { dlg.dismiss() } catch (e: Exception) {}
+                                          if (file != null) {
+                                              AlertDialog.Builder(this).setTitle("✅ Saved!")
+                                                  .setMessage("File: ${file.name}\nSize: %.2f MB\n".format(file.length() / (1024.0 * 1024)) + "Files: $ok\nFailed: $fail\n\nPath:\n${file.absolutePath}")
+                                                  .setPositiveButton("OK", null)
+                                                  .setNeutralButton("Share Path") { _, _ ->
+                                                      val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"
+                                                      i.putExtra(Intent.EXTRA_TEXT, file.absolutePath)
+                                                      startActivity(Intent.createChooser(i, "Share"))
+                                                  }.show()
+                                          } else Toast.makeText(this, "❌ Save failed", Toast.LENGTH_LONG).show()
+                                      }
+                                  })
+                          }
+                      }.start()
                   }
-                  homeOverlay.visibility = View.VISIBLE
-                  isHomeVisible = true
-                  addressBar.setText("")
-                  incognitoBadge.visibility = View.VISIBLE
-                  renderTabStrip()
-                  Toast.makeText(this, "🕵 Incognito Tab", Toast.LENGTH_SHORT).show()
               }
+              private fun tabsDialog() {
+                  val items = tabs.mapIndexed { i, t -> (if (i == curIdx) "▶ " else "   ") + (if (t.incognito) "🕵 " else "") + t.title }.toTypedArray()
+                  AlertDialog.Builder(this).setTitle("Tabs (${tabs.size})").setItems(items) { _, w -> switchTab(w) }
+                      .setPositiveButton("New Tab") { _, _ -> newTab() }
+                      .setNeutralButton("Close Tab") { _, _ -> closeTab(curIdx) }
+                      .setNegativeButton("Cancel", null).show()
+              }
+              private fun toggleBm() {
+                  val t = cur ?: return; val u = t.url
+                  if (u == "about:blank") return
+                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                  val e = "${t.title}|$u"
+                  val ex = bm.firstOrNull { it.endsWith("|$u") }
+                  if (ex != null) { bm.remove(ex); Toast.makeText(this, "Removed", Toast.LENGTH_SHORT).show() }
+                  else { bm.add(e); Toast.makeText(this, "Added", Toast.LENGTH_SHORT).show() }
+                  prefs.edit().putStringSet("bookmarks_set", bm).apply(); updBm()
+              }
+              private fun updBm() {
+                  val u = cur?.url ?: return
+                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
+                  findViewById<ImageButton>(R.id.btnBookmark).setImageResource(
+                      if (bm.any { it.endsWith("|$u") }) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off)
+              }
+              private fun saveHist(url: String, title: String) {
+                  if (url.startsWith("about:") || url.startsWith("data:")) return
+                  val h = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                  h.add("${System.currentTimeMillis()}|$title|$url")
+                  if (h.size > 500) {
+                      val s = h.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
+                      prefs.edit().putStringSet("history_set", s.take(300).toMutableSet()).apply()
+                  } else prefs.edit().putStringSet("history_set", h).apply()
+              }
+              private fun bookmarks() {
+                  val s = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
+                  if (s.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
+                  val items = s.map { val p = it.split("|", limit = 2); (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "") }
+                  AlertDialog.Builder(this).setTitle("Bookmarks").setItems(items.map { it.first }.toTypedArray()) { _, w -> nav(items[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("bookmarks_set").apply(); updBm() }.show()
+              }
+              private fun history() {
+                  val s = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
+                  if (s.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
+                  val sorted = s.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
+                  val e = sorted.map { val p = it.split("|", limit = 3); (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "") }
+                  AlertDialog.Builder(this).setTitle("History").setItems(e.map { it.first }.toTypedArray()) { _, w -> nav(e[w].second) }
+                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
+              }
+              private fun findPage() {
+                  val i = EditText(this); i.hint = "Find"
+                  AlertDialog.Builder(this).setTitle("Find").setView(i)
+                      .setPositiveButton("Go") { _, _ -> cur?.wv?.findAllAsync(i.text.toString()) }
+                      .setNegativeButton("Cancel", null).show()
+              }
+              private fun share() {
+                  val u = cur?.url ?: return
+                  val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, u)
+                  startActivity(Intent.createChooser(i, "Share"))
+              }
+              private fun toggleDesktop() {
+                  desktopMode = !desktopMode
+                  val ua = if (desktopMode) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                  else "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                  tabs.forEach { it.wv?.settings?.userAgentString = ua }
+                  cur?.wv?.reload()
+                  Toast.makeText(this, if (desktopMode) "Desktop" else "Mobile", Toast.LENGTH_SHORT).show()
+              }
+              private fun downloads() {
+                  try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
+                  catch (e: Exception) { Toast.makeText(this, "N/A", Toast.LENGTH_SHORT).show() }
+              }
+              private fun settings() {
+                  val h = prefs.getBoolean("hide_identity", false)
+                  val j = prefs.getBoolean("javascript", true)
+                  val o = arrayOf(
+                      "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
+                      "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
+                      "Hide Identity: ${if (h) "ON" else "OFF"}",
+                      "JavaScript: ${if (j) "ON" else "OFF"}",
+                      "Low Data Mode: ${if (lowDataMode) "ON" else "OFF"}",
+                      "VPN: ${if (isVpnUp()) "CONNECTED" else "OFF"}",
+                      "Edit WireGuard Config",
+                      "Search: ${prefs.getString("search_engine", "google")}",
+                      "Clear cache", "Clear cookies", "Reset all")
+                  AlertDialog.Builder(this).setTitle("Settings").setItems(o) { _, w ->
+                      when (w) {
+                          0 -> { val d = !prefs.getBoolean("dark_mode", false); prefs.edit().putBoolean("dark_mode", d).apply()
+                              AppCompatDelegate.setDefaultNightMode(if (d) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO); recreate() }
+                          1 -> { val a = !prefs.getBoolean("adblock", true); prefs.edit().putBoolean("adblock", a).apply() }
+                          2 -> { val x = !prefs.getBoolean("hide_identity", false); prefs.edit().putBoolean("hide_identity", x).apply(); cur?.wv?.reload() }
+                          3 -> { val x = !prefs.getBoolean("javascript", true); prefs.edit().putBoolean("javascript", x).apply()
+                              tabs.forEach { it.wv?.settings?.javaScriptEnabled = x }; cur?.wv?.reload() }
+                          4 -> toggleLowData()
+                          5 -> toggleVpn()
+                          6 -> editWg()
+                          7 -> pickEngine()
+                          8 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          9 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          10 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
+                      }
+                  }.show()
+              }
+              private fun editWg() {
+                  val i = EditText(this); i.setText(prefs.getString("wg_config", WG_CFG))
+                  i.minLines = 6; i.maxLines = 14; i.gravity = Gravity.TOP or Gravity.START; i.setPadding(30, 30, 30, 30)
+                  AlertDialog.Builder(this).setTitle("WireGuard Config").setView(i)
+                      .setPositiveButton("Save") { _, _ -> prefs.edit().putString("wg_config", i.text.toString().trim()).apply(); Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show() }
+                      .setNeutralButton("Reset WARP") { _, _ -> prefs.edit().putString("wg_config", WG_CFG).apply() }
+                      .setNegativeButton("Cancel", null).show()
+              }
+              private fun pickEngine() {
+                  val e = arrayOf("google", "duckduckgo", "bing", "brave")
+                  AlertDialog.Builder(this).setTitle("Search engine").setItems(e) { _, w -> prefs.edit().putString("search_engine", e[w]).apply() }.show()
+              }
+          KOTEOF
+      - name: Main Part6
+        run: |
+          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
               private fun toggleVpn() { if (isVpnUp()) stopVpn() else startVpn() }
               private fun isVpnUp(): Boolean = try {
@@ -2191,97 +1411,73 @@ jobs:
                   val b = wgBackend ?: return false
                   b.getState(t) == Tunnel.State.UP
               } catch (e: Throwable) { false }
-
               private fun startVpn() {
-                  val configText = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
+                  val c = prefs.getString("wg_config", WG_CFG) ?: WG_CFG
                   try {
-                      val prepare = VpnService.prepare(this)
-                      if (prepare != null) startActivityForResult(prepare, 1001)
-                      else connectVpn(configText)
-                  } catch (e: Throwable) {
-                      Toast.makeText(this, "VPN error: ${e.message}", Toast.LENGTH_LONG).show()
+                      val p = VpnService.prepare(this)
+                      if (p != null) startActivityForResult(p, 1001) else connect(c)
+                  } catch (e: Throwable) { Toast.makeText(this, "Err: ${e.message}", Toast.LENGTH_LONG).show() }
+              }
+              override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
+                  super.onActivityResult(rc, res, d)
+                  if (rc == 1001) {
+                      if (res == RESULT_OK) connect(prefs.getString("wg_config", WG_CFG) ?: WG_CFG)
+                      else Toast.makeText(this, "Denied", Toast.LENGTH_SHORT).show()
                   }
               }
-
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode == 1001) {
-                      if (resultCode == RESULT_OK) {
-                          val cfg = prefs.getString("wg_config", DEFAULT_WG_CONFIG) ?: DEFAULT_WG_CONFIG
-                          connectVpn(cfg)
-                      } else Toast.makeText(this, "VPN denied", Toast.LENGTH_SHORT).show()
-                  }
-              }
-
-              private fun connectVpn(configText: String) {
+              private fun connect(cfg: String) {
                   Thread {
                       try {
-                          val config = Config.parse(ByteArrayInputStream(configText.toByteArray(Charsets.UTF_8)))
-                          val tunnel = NexusTunnel("nexus-warp")
-                          val backend = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
-                          val state = backend.setState(tunnel, Tunnel.State.UP, config)
+                          val c = Config.parse(ByteArrayInputStream(cfg.toByteArray(Charsets.UTF_8)))
+                          val t = TunnelX("nexus-warp")
+                          val b = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
+                          val s = b.setState(t, Tunnel.State.UP, c)
                           handler.post {
-                              if (state == Tunnel.State.UP) {
-                                  wgTunnel = tunnel
-                                  prefs.edit().putBoolean("vpn_enabled", true).apply()
-                                  updateVpnUi()
-                                  Toast.makeText(this, "🛡 VPN Connected!", Toast.LENGTH_SHORT).show()
-                              } else Toast.makeText(this, "VPN state: $state", Toast.LENGTH_LONG).show()
+                              if (s == Tunnel.State.UP) {
+                                  wgTunnel = t; prefs.edit().putBoolean("vpn_enabled", true).apply(); updVpn()
+                                  Toast.makeText(this, "🛡 VPN Connected", Toast.LENGTH_SHORT).show()
+                              } else Toast.makeText(this, "State: $s", Toast.LENGTH_LONG).show()
                           }
-                      } catch (e: Throwable) {
-                          handler.post { Toast.makeText(this, "VPN failed: ${e.message}", Toast.LENGTH_LONG).show() }
-                      }
+                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Fail: ${e.message}", Toast.LENGTH_LONG).show() } }
                   }.start()
               }
-
               private fun stopVpn() {
                   Thread {
                       try {
                           val t = wgTunnel; val b = wgBackend
                           if (t != null && b != null) b.setState(t, Tunnel.State.DOWN, null)
-                          handler.post {
-                              wgTunnel = null
-                              prefs.edit().putBoolean("vpn_enabled", false).apply()
-                              updateVpnUi()
-                              Toast.makeText(this, "VPN Disconnected", Toast.LENGTH_SHORT).show()
-                          }
-                      } catch (e: Throwable) {
-                          handler.post { Toast.makeText(this, "VPN stop: ${e.message}", Toast.LENGTH_LONG).show() }
-                      }
+                          handler.post { wgTunnel = null; prefs.edit().putBoolean("vpn_enabled", false).apply(); updVpn() }
+                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Stop err: ${e.message}", Toast.LENGTH_LONG).show() } }
                   }.start()
               }
-
-              private fun updateVpnUi() {
-                  val up = isVpnUp()
-                  if (up) {
-                      vpnStatusText.text = "PROTECTED"
-                      vpnPill.setBackgroundResource(R.drawable.vpn_pill_bg)
-                      vpnInfoText.text = "Cloudflare WARP active • Tap to disconnect"
-                  } else {
-                      vpnStatusText.text = "VPN OFF"
-                      vpnPill.setBackgroundResource(R.drawable.vpn_pill_off_bg)
-                      vpnInfoText.text = "Cloudflare WARP • Built-in • Free"
+              private fun updVpn() {
+                  vpnStatusText.text = if (isVpnUp()) "🛡 VPN: PROTECTED" else "🛡 TAP TO CONNECT VPN"
+              }
+              override fun onResume() { super.onResume(); updVpn(); updData() }
+              override fun onNewIntent(intent: Intent) {
+                  super.onNewIntent(intent)
+                  intent.data?.let { u ->
+                      val t = cur
+                      if (t != null && t.isHome) loadUri(t, u) else newTabWithUri(u)
                   }
               }
-
-              private fun isAdUrl(url: String): Boolean {
-                  val lowerUrl = url.lowercase()
-                  val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
-                  if (adDomains.any { host == it || host.endsWith(".$it") }) return true
-                  if (ytAdPatterns.any { lowerUrl.contains(it) }) return true
-                  if (adKeywords.any { lowerUrl.contains(it) }) {
-                      if (!lowerUrl.contains("youtube.com/watch") &&
-                          !lowerUrl.contains("googlevideo.com/videoplayback") &&
-                          !lowerUrl.contains("facebook.com/watch") &&
-                          !lowerUrl.contains("instagram.com/p/")) return true
-                  }
-                  return false
+              override fun onBackPressed() {
+                  val t = cur; val wv = t?.wv
+                  if (t != null && !t.isHome && wv != null && wv.canGoBack()) { wv.goBack(); return }
+                  if (t != null && !t.isHome) { showHome(); return }
+                  if (tabs.size > 1) { closeTab(curIdx); return }
+                  super.onBackPressed()
               }
-
-              private fun injectHideIdentity(wv: WebView?) {
-                  wv ?: return
-                  val js = """
-                      (function(){if(window.__nexusHideIdLoaded)return;window.__nexusHideIdLoaded=true;
-                      try{Object.defineProperty(navigator,'platform',{get:function(){return 'Linux x86_64';}});}catch(e){}
-                      try{Object.defineProperty(navigator,'vendor',{get:function(){return 'Google Inc.';}});}catch(e){}
-                      try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 4;}}
+          }
+          KOTEOF
+      - name: Build
+        run: gradle assembleDebug --stacktrace --no-daemon
+      - name: Find
+        run: find . -name "*.apk" -type f
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusBrowser-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
