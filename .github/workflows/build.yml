@@ -402,7 +402,7 @@ jobs:
                                           zos.putNextEntry(ZipEntry("assets/${sanitize(u)}"))
                                           zos.write(b); zos.closeEntry(); ok++
                                       } else { failed.add(u); fail++ }
-                                  } catch (e: Exception) { failed.add("$u → ${e.message}"); fail++ }
+                                  } catch (e: Exception) { failed.add("$u -> ${e.message}"); fail++ }
                               }
                               if (failed.isNotEmpty()) {
                                   zos.putNextEntry(ZipEntry("_failed.txt"))
@@ -553,7 +553,6 @@ jobs:
                   override fun run() { updData(); dataHandler.postDelayed(this, 2000) }
               }
 
-              // ==== NETWORK REQUEST LOG ====
               data class ReqEntry(val ts: Long, val url: String, val method: String,
                                   val rtype: String, val blocked: Boolean, val main: Boolean)
               private val reqLog = mutableListOf<ReqEntry>()
@@ -1016,7 +1015,6 @@ jobs:
         run: |
           cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
-              // ===== NETWORK REQUEST LOG DIALOG =====
               private fun showReqLog() {
                   if (reqLog.isEmpty()) {
                       AlertDialog.Builder(this).setTitle("📡 Network Requests")
@@ -1405,12 +1403,16 @@ jobs:
         run: |
           cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
-              private fun toggleVpn() { if (isVpnUp()) stopVpn() else startVpn() }
-              private fun isVpnUp(): Boolean = try {
-                  val t = wgTunnel ?: return false
-                  val b = wgBackend ?: return false
-                  b.getState(t) == Tunnel.State.UP
-              } catch (e: Throwable) { false }
+              private fun toggleVpn() {
+                  if (isVpnUp()) stopVpn() else startVpn()
+              }
+              private fun isVpnUp(): Boolean {
+                  return try {
+                      val t = wgTunnel ?: return false
+                      val b = wgBackend ?: return false
+                      b.getState(t) == Tunnel.State.UP
+                  } catch (e: Throwable) { false }
+              }
               private fun startVpn() {
                   val c = prefs.getString("wg_config", WG_CFG) ?: WG_CFG
                   try {
