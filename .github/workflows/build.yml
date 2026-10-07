@@ -1104,7 +1104,7 @@ jobs:
               }
               private fun injJsonDelay(wv: WebView?) {
                   wv ?: return
-                  wv.evaluateJavascript("(function(){if(window.__xJson)return;window.__xJson=1;var D=5000;var of=window.fetch;if(of){window.fetch=function(){var a=arguments;return of.apply(this,a).then(function(r){var ct='';try{ct=(r.headers.get('content-type')||'').toLowerCase();}catch(e){}if(ct.indexOf('json')!==-1){return new Promise(function(res){setTimeout(function(){res(r);},D);});}return r;});};}var oo=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__nxU=u;return oo.apply(this,arguments);};XMLHttpRequest.prototype.send=function(b){var self=this;var u=(self.__nxU||'').toString().toLowerCase();var j=(u.indexOf('.json')!==-1)||(u.indexOf('/api/')!==-1)||(u.indexOf('graphql')!==-1)||(u.indexOf('json')!==-1);if(j){setTimeout(function(){os.call(self,b);},D);}else{os.call(self,b);}};})();", null)
+                  wv.evaluateJavascript("(function(){if(window.__xJson)return;window.__xJson=1;var D=5000;var TS=7000;function fix(u){try{if(typeof u!=='string')return u;if(u.indexOf('ts=')===-1&&u.indexOf('timestamp=')===-1&&u.indexOf('_=')===-1)return u;return u.replace(/([?&](?:ts|timestamp|_)=)(\\d+)/g,function(m,p,n){return p+(parseInt(n,10)+TS);});}catch(e){return u;}}var of=window.fetch;if(of){window.fetch=function(){var a=arguments;try{if(typeof a[0]==='string'){a[0]=fix(a[0]);}else if(a[0]&&a[0].url){var nu=fix(a[0].url);if(nu!==a[0].url){a[0]=new Request(nu,a[0]);}}}catch(e){}return of.apply(this,a).then(function(r){var ct='';try{ct=(r.headers.get('content-type')||'').toLowerCase();}catch(e){}if(ct.indexOf('json')!==-1){return new Promise(function(res){setTimeout(function(){res(r);},D);});}return r;});};}var oo=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){try{u=fix(u);}catch(e){}this.__nxU=u;return oo.apply(this,arguments);};XMLHttpRequest.prototype.send=function(b){var self=this;var u=(self.__nxU||'').toString().toLowerCase();var j=(u.indexOf('.json')!==-1)||(u.indexOf('/api/')!==-1)||(u.indexOf('graphql')!==-1)||(u.indexOf('json')!==-1);if(j){setTimeout(function(){os.call(self,b);},D);}else{os.call(self,b);}};})();", null)
               }
           KOTEOF
       - name: Main Part4
@@ -1659,7 +1659,7 @@ jobs:
                           6 -> editWg()
                           7 -> pickEngine()
                           8 -> { val x = !prefs.getBoolean("json_delay", false); prefs.edit().putBoolean("json_delay", x).apply()
-                              Toast.makeText(this, if (x) "JSON Delay ON (5s)" else "JSON Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
+                              Toast.makeText(this, if (x) "JSON Delay ON (5s + ts 7s)" else "JSON Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
                           9 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           10 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           11 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
