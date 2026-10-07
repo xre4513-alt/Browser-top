@@ -260,6 +260,18 @@ jobs:
               <stroke android:width="1dp" android:color="#E0E0E0" />
           </shape>
           EOF
+          cat > app/src/main/res/drawable/req_row_modified_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#D6D6D6" /><corners android:radius="6dp" />
+              <stroke android:width="1dp" android:color="#9E9E9E" />
+          </shape>
+          EOF
+          cat > app/src/main/res/drawable/reset_btn_bg.xml << 'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#E53935" /><corners android:radius="20dp" />
+              <stroke android:width="1dp" android:color="#B71C1C" />
+          </shape>
+          EOF
       - name: Layout
         run: |
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
@@ -332,6 +344,16 @@ jobs:
                               android:text="🛡 TAP TO CONNECT VPN" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" />
                       </LinearLayout>
                   </LinearLayout>
+                  <TextView android:id="@+id/btnResetTimer"
+                      android:layout_width="wrap_content" android:layout_height="38dp"
+                      android:layout_gravity="top|start" android:layout_marginStart="10dp" android:layout_marginTop="10dp"
+                      android:background="@drawable/reset_btn_bg"
+                      android:paddingStart="14dp" android:paddingEnd="14dp"
+                      android:gravity="center"
+                      android:text="🔄 Reset Timer"
+                      android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold"
+                      android:elevation="6dp"
+                      android:clickable="true" android:focusable="true" android:visibility="gone" />
                   <TextView android:id="@+id/incognitoBadge" android:layout_width="wrap_content" android:layout_height="wrap_content"
                       android:layout_gravity="top|end" android:layout_margin="8dp"
                       android:background="@color/incognito" android:paddingHorizontal="10dp" android:paddingVertical="4dp"
@@ -588,6 +610,7 @@ jobs:
               private lateinit var tabStrip: LinearLayout
               private lateinit var tabScroll: HorizontalScrollView
               private lateinit var dataIndicator: TextView
+              private lateinit var btnResetTimer: TextView
               private lateinit var prefs: SharedPreferences
               private var desktopMode = false
               private var isHomeVisible = true
@@ -603,7 +626,8 @@ jobs:
               }
 
               data class ReqEntry(val ts: Long, val url: String, val method: String,
-                                  val rtype: String, val blocked: Boolean, val main: Boolean)
+                                  val rtype: String, val blocked: Boolean, val main: Boolean,
+                                  val modified: Boolean = false)
               private val reqLog = mutableListOf<ReqEntry>()
               private val MAX_LOG = 2000
               private var logPaused = false
@@ -676,7 +700,9 @@ jobs:
                   tabStrip = findViewById(R.id.tabStrip)
                   tabScroll = findViewById(R.id.tabScroll)
                   dataIndicator = findViewById(R.id.dataIndicator)
+                  btnResetTimer = findViewById(R.id.btnResetTimer)
                   dataIndicator.setOnClickListener { dataDialog() }
+                  btnResetTimer.setOnClickListener { resetTimer() }
                   try { wgBackend = GoBackend(applicationContext) } catch (e: Throwable) {}
                   addressBar.setOnEditorActionListener { _, a, e ->
                       if (a == EditorInfo.IME_ACTION_GO || e?.keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -710,6 +736,47 @@ jobs:
                   dataHandler.post(dataRun)
               }
               override fun onDestroy() { dataHandler.removeCallbacks(dataRun); super.onDestroy() }
+
+              private fun resetTimer() {
+                  val t = cur ?: return
+                  val wv = t.wv ?: return
+                  if (t.isHome || wv.url == null || wv.url == "about:blank") {
+                      Toast.makeText(this, "Pehle koi site kholo", Toast.LENGTH_SHORT).show(); return
+                  }
+                  Toast.makeText(this, "🔄 Timer reset kar raha hai...", Toast.LENGTH_SHORT).show()
+                  val js = "(function(){" +
+                      "try{" +
+                          "if(window.__xSavedInt){for(var i=0;i<window.__xSavedInt.length;i++){try{clearInterval(window.__xSavedInt[i].id);}catch(e){}}}" +
+                          "var mid=setTimeout(function(){},0);for(var j=0;j<=mid;j++){try{clearTimeout(j);}catch(e){}try{clearInterval(j);}catch(e){}}" +
+                      "}catch(e){}" +
+                      "try{" +
+                          "if(window.__xMaxTs){" +
+                              "for(var k in window.__xMaxTs){" +
+                                  "var o=window.__xMaxTs[k];" +
+                                  "if(o&&o.el&&typeof o.v==='number'){" +
+                                      "var mm=Math.floor(o.v/60),ss=o.v%60;" +
+                                      "var p2=function(n){return n<10?'0'+n:''+n;};" +
+                                      "try{o.el.textContent=p2(mm)+':'+p2(ss);}catch(e){}" +
+                                  "}" +
+                              "}" +
+                          "}" +
+                      "}catch(e){}" +
+                      "try{" +
+                          "window.dispatchEvent(new Event('focus'));" +
+                          "window.dispatchEvent(new Event('pageshow'));" +
+                          "try{document.dispatchEvent(new Event('visibilitychange'));}catch(e){}" +
+                      "}catch(e){}" +
+                      "return 'OK';" +
+                  "})();"
+                  wv.evaluateJavascript(js, null)
+              }
+
+              private fun updResetBtn() {
+                  try {
+                      val t = cur
+                      btnResetTimer.visibility = if (t != null && !t.isHome && !isHomeVisible) View.VISIBLE else View.GONE
+                  } catch (e: Exception) {}
+              }
 
               private fun getData(): Pair<Long, Long> = try {
                   val r = TrafficStats.getUidRxBytes(android.os.Process.myUid())
@@ -774,7 +841,7 @@ jobs:
                   t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
                   homeOverlay.visibility = View.VISIBLE; isHomeVisible = true
                   addressBar.setText(""); incognitoBadge.visibility = View.GONE
-                  renderTabs(); applyLowData()
+                  renderTabs(); applyLowData(); updResetBtn()
               }
               private fun newTabWithUri(uri: Uri) {
                   val t = Tab()
@@ -785,7 +852,7 @@ jobs:
                   container.addView(wv, 0)
                   t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
                   homeOverlay.visibility = View.GONE; isHomeVisible = false
-                  loadUri(t, uri); renderTabs()
+                  loadUri(t, uri); renderTabs(); updResetBtn()
               }
               private fun newTab(url: String = "about:blank") {
                   val t = Tab()
@@ -799,7 +866,7 @@ jobs:
                   if (url != "about:blank") {
                       t.isHome = false; homeOverlay.visibility = View.GONE; isHomeVisible = false; wv.loadUrl(url)
                   } else { homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("") }
-                  renderTabs()
+                  renderTabs(); updResetBtn()
               }
               private fun newIncognito() {
                   val t = Tab(incognito = true, title = "Incognito")
@@ -812,7 +879,7 @@ jobs:
                   tabs.forEachIndexed { i, tt -> tt.wv?.visibility = if (i == curIdx) View.VISIBLE else View.GONE }
                   homeOverlay.visibility = View.VISIBLE; isHomeVisible = true
                   addressBar.setText(""); incognitoBadge.visibility = View.VISIBLE
-                  renderTabs(); Toast.makeText(this, "🕵 Incognito", Toast.LENGTH_SHORT).show()
+                  renderTabs(); Toast.makeText(this, "🕵 Incognito", Toast.LENGTH_SHORT).show(); updResetBtn()
               }
               private fun closeTab(i: Int) {
                   if (i < 0 || i >= tabs.size) return
@@ -837,7 +904,7 @@ jobs:
                       homeOverlay.visibility = View.GONE; isHomeVisible = false; addressBar.setText(t.url)
                   }
                   incognitoBadge.visibility = if (t.incognito) View.VISIBLE else View.GONE
-                  updBm(); renderTabs()
+                  updBm(); renderTabs(); updResetBtn()
               }
               private fun showHome() {
                   val t = cur ?: return
@@ -846,7 +913,7 @@ jobs:
                   t.wv?.visibility = View.GONE
                   homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("")
                   incognitoBadge.visibility = if (t.incognito) View.VISIBLE else View.GONE
-                  updBm(); renderTabs()
+                  updBm(); renderTabs(); updResetBtn()
               }
               private fun loadUri(t: Tab, uri: Uri) {
                   try {
@@ -968,10 +1035,17 @@ jobs:
                       else -> "other"
                   }
               }
+              private fun isTsModifiable(url: String): Boolean {
+                  if (!prefs.getBoolean("ts_delay", false)) return false
+                  val lu = url.lowercase()
+                  if (!lu.contains("ts=") && !lu.contains("timestamp=") && !lu.contains("_=")) return false
+                  return Regex("[?&](?:ts|timestamp|_)=\\d+").containsMatchIn(lu)
+              }
               private fun logReq(url: String, method: String, blocked: Boolean, main: Boolean) {
                   if (logPaused) return
+                  val modified = !blocked && isTsModifiable(url)
                   synchronized(reqLog) {
-                      reqLog.add(ReqEntry(System.currentTimeMillis(), url, method, guessType(url, main), blocked, main))
+                      reqLog.add(ReqEntry(System.currentTimeMillis(), url, method, guessType(url, main), blocked, main, modified))
                       if (reqLog.size > MAX_LOG) reqLog.removeAt(0)
                   }
               }
@@ -1020,17 +1094,17 @@ jobs:
                           t.url = u ?: t.url
                           if (u != null && u != "about:blank") {
                               t.isHome = false
-                              if (t === cur) { addressBar.setText(u); homeOverlay.visibility = View.GONE; isHomeVisible = false }
+                              if (t === cur) { addressBar.setText(u); homeOverlay.visibility = View.GONE; isHomeVisible = false; updResetBtn() }
                           }
                       }
                       override fun onPageFinished(v: WebView?, u: String?) {
                           super.onPageFinished(v, u)
                           t.title = v?.title ?: (u ?: "Page")
                           if (!t.incognito && u != null && u != "about:blank") saveHist(u, v?.title ?: u)
-                          if (t === cur) { updBm(); renderTabs(); updData() }
+                          if (t === cur) { updBm(); renderTabs(); updData(); updResetBtn() }
                           if (u == null || u == "about:blank") {
                               if (t === cur && t.isHome && homeOverlay.visibility != View.VISIBLE) {
-                                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("")
+                                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText(""); updResetBtn()
                               }
                               return
                           }
@@ -1041,6 +1115,7 @@ jobs:
                           if (prefs.getBoolean("hide_identity", false)) injId(v)
                           if (prefs.getBoolean("json_delay", false)) injJsonDelay(v)
                           if (prefs.getBoolean("ts_delay", false)) injTsDelay(v)
+                          injTimerRecorder(v)
                       }
                   }
                   wv.webChromeClient = object : WebChromeClient() {
@@ -1079,7 +1154,7 @@ jobs:
                   }
                   val t = cur ?: return
                   t.isHome = false; homeOverlay.visibility = View.GONE; isHomeVisible = false
-                  t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(url); renderTabs()
+                  t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(url); renderTabs(); updResetBtn()
               }
               private fun isAd(url: String): Boolean {
                   val lu = url.lowercase()
@@ -1110,6 +1185,10 @@ jobs:
               private fun injTsDelay(wv: WebView?) {
                   wv ?: return
                   wv.evaluateJavascript("(function(){if(window.__xTs)return;window.__xTs=1;var TS=7000;function fix(u){try{if(typeof u!=='string')return u;if(u.indexOf('ts=')===-1&&u.indexOf('timestamp=')===-1&&u.indexOf('_=')===-1)return u;return u.replace(/([?&](?:ts|timestamp|_)=)(\\d+)/g,function(m,p,n){return p+(parseInt(n,10)+TS);});}catch(e){return u;}}var of=window.fetch;if(of){window.fetch=function(){var a=arguments;try{if(typeof a[0]==='string'){a[0]=fix(a[0]);}else if(a[0]&&a[0].url){var nu=fix(a[0].url);if(nu!==a[0].url){a[0]=new Request(nu,a[0]);}}}catch(e){}return of.apply(this,a);};}var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{u=fix(u);}catch(e){}return oo.apply(this,arguments);};})();", null)
+              }
+              private fun injTimerRecorder(wv: WebView?) {
+                  wv ?: return
+                  wv.evaluateJavascript("(function(){if(window.__xTRec)return;window.__xTRec=1;window.__xMaxTs={};window.__xSavedInt=[];var oi=window.setInterval;window.setInterval=function(fn,ms){var id=oi.apply(this,arguments);try{window.__xSavedInt.push({id:id,fn:fn,ms:ms});}catch(e){}return id;};function scan(){try{var re=/^(\\d{1,2}):(\\d{2})$/;var nodes=document.querySelectorAll('div,span,p,b,strong,td,h1,h2,h3,h4,em,i,samp,code,font,label');for(var i=0;i<nodes.length;i++){var el=nodes[i];if(el.children.length>0)continue;var t=(el.textContent||'').trim();if(t.length<4||t.length>6)continue;var m=t.match(re);if(!m)continue;var s=parseInt(m[1],10)*60+parseInt(m[2],10);if(s>3600)continue;var key=(el.id||'')+'|'+(el.className||'')+'|'+el.tagName+'|'+i;if(!window.__xMaxTs[key]||window.__xMaxTs[key].v<s){window.__xMaxTs[key]={v:s,el:el};}}}catch(e){}}scan();setInterval(scan,300);})();", null)
               }
           KOTEOF
       - name: Main Part4
@@ -1183,7 +1262,8 @@ jobs:
                   val sz = snap.size
                   if (sz == reqLiveLastSize) return
                   val blocked = snap.count { it.blocked }
-                  summary.text = "🔴 LIVE • Total: $sz | Allowed: ${sz - blocked} | Blocked: $blocked"
+                  val modified = snap.count { it.modified }
+                  summary.text = "🔴 LIVE • Total: $sz | Allowed: ${sz - blocked} | Blocked: $blocked | ⏱Modified: $modified"
                   val tf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
                   if (reqLiveLastSize < 0 || sz < reqLiveLastSize) {
                       list.removeAllViews()
@@ -1203,7 +1283,8 @@ jobs:
                   val row = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(dp(10), dp(8), dp(10), dp(8))
-                      background = getDrawable(R.drawable.req_row_bg)
+                      background = if (r.modified) getDrawable(R.drawable.req_row_modified_bg)
+                                   else getDrawable(R.drawable.req_row_bg)
                       layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(4) }
                       isClickable = true; isFocusable = true
                       setOnClickListener { showReqOptions(r) }
@@ -1222,6 +1303,16 @@ jobs:
                   hdr.addView(TextView(this).apply {
                       text = r.rtype; setTextColor(Color.parseColor("#757575"))
                       setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                  })
+                  if (r.modified) {
+                      hdr.addView(TextView(this).apply {
+                          text = "  ⏱+7s"; setTextColor(Color.parseColor("#37474F"))
+                          setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f); typeface = Typeface.DEFAULT_BOLD
+                          setPadding(dp(8), 0, dp(4), 0)
+                      })
+                  }
+                  hdr.addView(TextView(this).apply {
+                      text = ""; setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                       layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                   })
                   hdr.addView(TextView(this).apply {
@@ -1231,7 +1322,9 @@ jobs:
                   row.addView(hdr)
                   row.addView(TextView(this).apply {
                       text = r.url
-                      setTextColor(if (r.blocked) Color.parseColor("#B71C1C") else Color.parseColor("#424242"))
+                      setTextColor(if (r.blocked) Color.parseColor("#B71C1C")
+                                   else if (r.modified) Color.parseColor("#455A64")
+                                   else Color.parseColor("#424242"))
                       setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); maxLines = 2
                       ellipsize = android.text.TextUtils.TruncateAt.END
                       setPadding(0, dp(4), 0, 0); typeface = Typeface.MONOSPACE
@@ -1245,7 +1338,7 @@ jobs:
                   val sb = StringBuilder()
                   snap.forEach { r ->
                       sb.append(tf.format(Date(r.ts))).append("  ")
-                          .append(if (r.blocked) "[BLOCKED] " else "[OK]      ")
+                          .append(if (r.blocked) "[BLOCKED] " else if (r.modified) "[MODIFIED] " else "[OK]      ")
                           .append(r.method).append("  ").append(r.rtype).append("  ")
                           .append(r.url).append("\n")
                   }
@@ -1257,7 +1350,7 @@ jobs:
               private fun showReqOptions(r: ReqEntry) {
                   val opts = arrayOf("📋 Copy URL", "🌐 Open in New Tab", "💾 Download Content", "👁 View Response")
                   AlertDialog.Builder(this)
-                      .setTitle("${r.method} ${r.rtype}")
+                      .setTitle("${r.method} ${r.rtype}" + (if (r.modified) " ⏱+7s" else ""))
                       .setItems(opts) { _, w ->
                           when (w) {
                               0 -> {
@@ -1373,7 +1466,7 @@ jobs:
 
               private fun menu() {
                   val o = arrayOf("New Tab","Bookmarks","History","🔍 Inspect Mode","📡 Network Request Log",
-                      "📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
+                      "🔄 Reset Timer / Countdown","📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
                       "Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
                   AlertDialog.Builder(this).setTitle("Menu").setItems(o) { _, w ->
                       when (w) {
@@ -1382,15 +1475,16 @@ jobs:
                           2 -> history()
                           3 -> inspectDlg()
                           4 -> showReqLog()
-                          5 -> saveSiteDlg()
-                          6 -> dataDialog()
-                          7 -> toggleLowData()
-                          8 -> findPage()
-                          9 -> share()
-                          10 -> toggleDesktop()
-                          11 -> downloads()
-                          12 -> adStats()
-                          13 -> finish()
+                          5 -> resetTimer()
+                          6 -> saveSiteDlg()
+                          7 -> dataDialog()
+                          8 -> toggleLowData()
+                          9 -> findPage()
+                          10 -> share()
+                          11 -> toggleDesktop()
+                          12 -> downloads()
+                          13 -> adStats()
+                          14 -> finish()
                       }
                   }.show()
               }
@@ -1699,75 +1793,4 @@ jobs:
                       val t = wgTunnel ?: return false
                       val b = wgBackend ?: return false
                       b.getState(t) == Tunnel.State.UP
-                  } catch (e: Throwable) { false }
-              }
-              private fun startVpn() {
-                  val c = prefs.getString("wg_config", WG_CFG) ?: WG_CFG
-                  try {
-                      val p = VpnService.prepare(this)
-                      if (p != null) startActivityForResult(p, 1001) else connect(c)
-                  } catch (e: Throwable) { Toast.makeText(this, "Err: ${e.message}", Toast.LENGTH_LONG).show() }
-              }
-              override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
-                  super.onActivityResult(rc, res, d)
-                  if (rc == 1001) {
-                      if (res == RESULT_OK) connect(prefs.getString("wg_config", WG_CFG) ?: WG_CFG)
-                      else Toast.makeText(this, "Denied", Toast.LENGTH_SHORT).show()
-                  }
-              }
-              private fun connect(cfg: String) {
-                  Thread {
-                      try {
-                          val c = Config.parse(ByteArrayInputStream(cfg.toByteArray(Charsets.UTF_8)))
-                          val t = TunnelX("nexus-warp")
-                          val b = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
-                          val s = b.setState(t, Tunnel.State.UP, c)
-                          handler.post {
-                              if (s == Tunnel.State.UP) {
-                                  wgTunnel = t; prefs.edit().putBoolean("vpn_enabled", true).apply(); updVpn()
-                                  Toast.makeText(this, "🛡 VPN Connected", Toast.LENGTH_SHORT).show()
-                              } else Toast.makeText(this, "State: $s", Toast.LENGTH_LONG).show()
-                          }
-                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Fail: ${e.message}", Toast.LENGTH_LONG).show() } }
-                  }.start()
-              }
-              private fun stopVpn() {
-                  Thread {
-                      try {
-                          val t = wgTunnel; val b = wgBackend
-                          if (t != null && b != null) b.setState(t, Tunnel.State.DOWN, null)
-                          handler.post { wgTunnel = null; prefs.edit().putBoolean("vpn_enabled", false).apply(); updVpn() }
-                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Stop err: ${e.message}", Toast.LENGTH_LONG).show() } }
-                  }.start()
-              }
-              private fun updVpn() {
-                  vpnStatusText.text = if (isVpnUp()) "🛡 VPN: PROTECTED" else "🛡 TAP TO CONNECT VPN"
-              }
-              override fun onResume() { super.onResume(); updVpn(); updData() }
-              override fun onNewIntent(intent: Intent) {
-                  super.onNewIntent(intent)
-                  intent.data?.let { u ->
-                      val t = cur
-                      if (t != null && t.isHome) loadUri(t, u) else newTabWithUri(u)
-                  }
-              }
-              override fun onBackPressed() {
-                  val t = cur; val wv = t?.wv
-                  if (t != null && !t.isHome && wv != null && wv.canGoBack()) { wv.goBack(); return }
-                  if (t != null && !t.isHome) { showHome(); return }
-                  if (tabs.size > 1) { closeTab(curIdx); return }
-                  super.onBackPressed()
-              }
-          }
-          KOTEOF
-      - name: Build
-        run: gradle assembleDebug --stacktrace --no-daemon
-      - name: Find
-        run: find . -name "*.apk" -type f
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: NexusBrowser-APK
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 30
+                  } catch (e: Throwable) { false
