@@ -976,7 +976,6 @@ jobs:
               }
               private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-              // ===== MediaStore-based public Downloads save =====
               private fun saveBytesToDownloads(bytes: ByteArray, filename: String, mime: String): String? {
                   return try {
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -1793,4 +1792,75 @@ jobs:
                       val t = wgTunnel ?: return false
                       val b = wgBackend ?: return false
                       b.getState(t) == Tunnel.State.UP
-                  } catch (e: Throwable) { false
+                  } catch (e: Throwable) { false }
+              }
+              private fun startVpn() {
+                  val c = prefs.getString("wg_config", WG_CFG) ?: WG_CFG
+                  try {
+                      val p = VpnService.prepare(this)
+                      if (p != null) startActivityForResult(p, 1001) else connect(c)
+                  } catch (e: Throwable) { Toast.makeText(this, "Err: ${e.message}", Toast.LENGTH_LONG).show() }
+              }
+              override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
+                  super.onActivityResult(rc, res, d)
+                  if (rc == 1001) {
+                      if (res == RESULT_OK) connect(prefs.getString("wg_config", WG_CFG) ?: WG_CFG)
+                      else Toast.makeText(this, "Denied", Toast.LENGTH_SHORT).show()
+                  }
+              }
+              private fun connect(cfg: String) {
+                  Thread {
+                      try {
+                          val c = Config.parse(ByteArrayInputStream(cfg.toByteArray(Charsets.UTF_8)))
+                          val t = TunnelX("nexus-warp")
+                          val b = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
+                          val s = b.setState(t, Tunnel.State.UP, c)
+                          handler.post {
+                              if (s == Tunnel.State.UP) {
+                                  wgTunnel = t; prefs.edit().putBoolean("vpn_enabled", true).apply(); updVpn()
+                                  Toast.makeText(this, "🛡 VPN Connected", Toast.LENGTH_SHORT).show()
+                              } else Toast.makeText(this, "State: $s", Toast.LENGTH_LONG).show()
+                          }
+                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Fail: ${e.message}", Toast.LENGTH_LONG).show() } }
+                  }.start()
+              }
+              private fun stopVpn() {
+                  Thread {
+                      try {
+                          val t = wgTunnel; val b = wgBackend
+                          if (t != null && b != null) b.setState(t, Tunnel.State.DOWN, null)
+                          handler.post { wgTunnel = null; prefs.edit().putBoolean("vpn_enabled", false).apply(); updVpn() }
+                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Stop err: ${e.message}", Toast.LENGTH_LONG).show() } }
+                  }.start()
+              }
+              private fun updVpn() {
+                  vpnStatusText.text = if (isVpnUp()) "🛡 VPN: PROTECTED" else "🛡 TAP TO CONNECT VPN"
+              }
+              override fun onResume() { super.onResume(); updVpn(); updData(); updResetBtn() }
+              override fun onNewIntent(intent: Intent) {
+                  super.onNewIntent(intent)
+                  intent.data?.let { u ->
+                      val t = cur
+                      if (t != null && t.isHome) loadUri(t, u) else newTabWithUri(u)
+                  }
+              }
+              override fun onBackPressed() {
+                  val t = cur; val wv = t?.wv
+                  if (t != null && !t.isHome && wv != null && wv.canGoBack()) { wv.goBack(); return }
+                  if (t != null && !t.isHome) { showHome(); return }
+                  if (tabs.size > 1) { closeTab(curIdx); return }
+                  super.onBackPressed()
+              }
+          }
+          KOTEOF
+      - name: Build
+        run: gradle assembleDebug --stacktrace --no-daemon
+      - name: Find
+        run: find . -name "*.apk" -type f
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusBrowser-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
