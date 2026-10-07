@@ -1039,6 +1039,7 @@ jobs:
                               if (u.contains("youtube.com") || u.contains("youtu.be")) injYt(v)
                           }
                           if (prefs.getBoolean("hide_identity", false)) injId(v)
+                          if (prefs.getBoolean("json_delay", false)) injJsonDelay(v)
                       }
                   }
                   wv.webChromeClient = object : WebChromeClient() {
@@ -1100,6 +1101,10 @@ jobs:
               private fun injYt(wv: WebView?) {
                   wv ?: return
                   wv.evaluateJavascript("(function(){if(window.__xYt)return;window.__xYt=1;var op=JSON.parse;JSON.parse=function(t,r){var x=op(t,r);try{if(x){delete x.adPlacements;delete x.playerAds;delete x.adSlots;if(x.playerResponse){delete x.playerResponse.adPlacements;delete x.playerResponse.playerAds;}}}catch(e){}return x;};var s=document.createElement('style');s.type='text/css';s.appendChild(document.createTextNode('.video-ads,.ytp-ad-module,.ytp-ad-overlay-container,#player-ads,#masthead-ad,ytd-promoted-sparkles-web-renderer,ytd-display-ad-renderer,ytd-ad-slot-renderer,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytp-ad-overlay-slot,.ytp-ad-player-overlay,ytd-enforcement-message-view-model{display:none!important;height:0!important;}')); (document.head||document.documentElement).appendChild(s); function sk(){document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad-button').forEach(function(b){try{b.click();}catch(e){}});var v=document.querySelector('video');if(v&&document.querySelector('.ad-showing')){try{v.currentTime=v.duration;v.playbackRate=16;}catch(e){}}}setInterval(sk,250);})();", null)
+              }
+              private fun injJsonDelay(wv: WebView?) {
+                  wv ?: return
+                  wv.evaluateJavascript("(function(){if(window.__xJson)return;window.__xJson=1;var D=5000;var of=window.fetch;if(of){window.fetch=function(){var a=arguments;return of.apply(this,a).then(function(r){var ct='';try{ct=(r.headers.get('content-type')||'').toLowerCase();}catch(e){}if(ct.indexOf('json')!==-1){return new Promise(function(res){setTimeout(function(){res(r);},D);});}return r;});};}var oo=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__nxU=u;return oo.apply(this,arguments);};XMLHttpRequest.prototype.send=function(b){var self=this;var u=(self.__nxU||'').toString().toLowerCase();var j=(u.indexOf('.json')!==-1)||(u.indexOf('/api/')!==-1)||(u.indexOf('graphql')!==-1)||(u.indexOf('json')!==-1);if(j){setTimeout(function(){os.call(self,b);},D);}else{os.call(self,b);}};})();", null)
               }
           KOTEOF
       - name: Main Part4
@@ -1639,6 +1644,7 @@ jobs:
                       "VPN: ${if (isVpnUp()) "CONNECTED" else "OFF"}",
                       "Edit WireGuard Config",
                       "Search: ${prefs.getString("search_engine", "google")}",
+                      "JSON Delay 5s: ${if (prefs.getBoolean("json_delay", false)) "ON" else "OFF"}",
                       "Clear cache", "Clear cookies", "Reset all")
                   AlertDialog.Builder(this).setTitle("Settings").setItems(o) { _, w ->
                       when (w) {
@@ -1652,9 +1658,11 @@ jobs:
                           5 -> toggleVpn()
                           6 -> editWg()
                           7 -> pickEngine()
-                          8 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          9 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          10 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
+                          8 -> { val x = !prefs.getBoolean("json_delay", false); prefs.edit().putBoolean("json_delay", x).apply()
+                              Toast.makeText(this, if (x) "JSON Delay ON (5s)" else "JSON Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
+                          9 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          10 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          11 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
                       }
                   }.show()
               }
