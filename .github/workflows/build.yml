@@ -77,8 +77,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 14
-                  versionName "3.9.0"
+                  versionCode 15
+                  versionName "4.0.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -362,9 +362,12 @@ jobs:
         run: |
           cat > app/src/main/java/com/nexus/browser/SiteDownloader.kt << 'KOTEOF'
           package com.nexus.browser
+          import android.content.ContentValues
           import android.content.Context
           import android.net.Uri
+          import android.os.Build
           import android.os.Environment
+          import android.provider.MediaStore
           import java.io.BufferedOutputStream
           import java.io.File
           import java.io.FileOutputStream
@@ -377,26 +380,16 @@ jobs:
           class SiteDownloader(private val ctx: Context) {
               data class P(val phase: String, val cur: Int, val tot: Int)
               fun save(pageUrl: String, html: String, cookies: String?, serverInfo: String,
-                       onProgress: (P) -> Unit, onDone: (File?, Int, Int) -> Unit) {
+                       onProgress: (P) -> Unit, onDone: (String?, Int, Int) -> Unit) {
                   Thread {
                       try {
                           val host = (Uri.parse(pageUrl).host ?: "site").replace(".", "_")
                           val ts = System.currentTimeMillis()
                           val assets = extractAssets(html, pageUrl)
                           onProgress(P("Found ${assets.size} assets", 0, assets.size))
-                          var dir: File
-                          try {
-                              val publicDl = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                              val nexusDir = File(publicDl, "NexusDownloads")
-                              if (!nexusDir.exists()) nexusDir.mkdirs()
-                              dir = if (nexusDir.exists() && nexusDir.canWrite()) nexusDir
-                                    else File(ctx.getExternalFilesDir(null), "SavedSites").also { if (!it.exists()) it.mkdirs() }
-                          } catch (e: Exception) {
-                              dir = File(ctx.getExternalFilesDir(null), "SavedSites").also { if (!it.exists()) it.mkdirs() }
-                          }
-                          val zip = File(dir, "${host}_$ts.zip")
+                          val tmp = File(ctx.cacheDir, "${host}_$ts.zip")
                           var ok = 0; var fail = 0
-                          ZipOutputStream(BufferedOutputStream(FileOutputStream(zip))).use { zos ->
+                          ZipOutputStream(BufferedOutputStream(FileOutputStream(tmp))).use { zos ->
                               zos.putNextEntry(ZipEntry("index.html")); zos.write(html.toByteArray()); zos.closeEntry()
                               val meta = buildString {
                                   appendLine("Nexus Browser Archive"); appendLine("Saved: ${Date()}")
@@ -421,9 +414,48 @@ jobs:
                                   zos.write(failed.joinToString("\n").toByteArray()); zos.closeEntry()
                               }
                           }
-                          onDone(zip, ok, fail)
+                          val path = saveToPublicDownloads(tmp, tmp.name, "application/zip")
+                          tmp.delete()
+                          onDone(path, ok, fail)
                       } catch (e: Exception) { e.printStackTrace(); onDone(null, 0, 0) }
                   }.start()
+              }
+              private fun saveToPublicDownloads(src: File, filename: String, mime: String): String? {
+                  return try {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                          val values = ContentValues().apply {
+                              put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                              put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                              put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/NexusDownloads")
+                          }
+                          val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                          if (uri != null) {
+                              ctx.contentResolver.openOutputStream(uri)?.use { out -> src.inputStream().use { it.copyTo(out) } }
+                              "Download/NexusDownloads/$filename"
+                          } else fallbackSave(src, filename)
+                      } else fallbackSave(src, filename)
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                      fallbackSave(src, filename)
+                  }
+              }
+              private fun fallbackSave(src: File, filename: String): String? {
+                  return try {
+                      val publicDl = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                      val nexusDir = File(publicDl, "NexusDownloads")
+                      if (!nexusDir.exists()) nexusDir.mkdirs()
+                      val out = File(nexusDir, filename)
+                      src.inputStream().use { ins -> FileOutputStream(out).use { ins.copyTo(it) } }
+                      out.absolutePath
+                  } catch (e: Exception) {
+                      try {
+                          val appDir = File(ctx.getExternalFilesDir(null), "NexusDownloads")
+                          if (!appDir.exists()) appDir.mkdirs()
+                          val out = File(appDir, filename)
+                          src.inputStream().use { ins -> FileOutputStream(out).use { ins.copyTo(it) } }
+                          out.absolutePath
+                      } catch (e2: Exception) { null }
+                  }
               }
               private fun extractAssets(html: String, base: String): Set<String> {
                   val u = mutableSetOf<String>()
@@ -450,7 +482,7 @@ jobs:
               private fun dl(url: String, cookies: String?): ByteArray? = try {
                   val c = URL(url).openConnection() as HttpURLConnection
                   c.connectTimeout = 10000; c.readTimeout = 20000; c.instanceFollowRedirects = true
-                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.9")
+                  c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/4.0")
                   if (!cookies.isNullOrEmpty()) c.setRequestProperty("Cookie", cookies)
                   c.connect()
                   if (c.responseCode !in 200..299) { c.disconnect(); null }
@@ -486,6 +518,7 @@ jobs:
           import android.app.DownloadManager
           import android.content.ClipData
           import android.content.ClipboardManager
+          import android.content.ContentValues
           import android.content.Context
           import android.content.Intent
           import android.content.SharedPreferences
@@ -495,10 +528,12 @@ jobs:
           import android.net.TrafficStats
           import android.net.Uri
           import android.net.VpnService
+          import android.os.Build
           import android.os.Bundle
           import android.os.Environment
           import android.os.Handler
           import android.os.Looper
+          import android.provider.MediaStore
           import android.util.TypedValue
           import android.view.Gravity
           import android.view.KeyEvent
@@ -532,6 +567,7 @@ jobs:
           import com.wireguard.config.Config
           import java.io.ByteArrayInputStream
           import java.io.File
+          import java.io.FileOutputStream
           import java.net.HttpURLConnection
           import java.net.URL
           import java.net.URLEncoder
@@ -872,6 +908,45 @@ jobs:
                   })
               }
               private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+              // ===== MediaStore-based public Downloads save =====
+              private fun saveBytesToDownloads(bytes: ByteArray, filename: String, mime: String): String? {
+                  return try {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                          val values = ContentValues().apply {
+                              put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                              put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                              put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/NexusDownloads")
+                          }
+                          val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                          if (uri != null) {
+                              contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                              "Download/NexusDownloads/$filename"
+                          } else fallbackSaveBytes(bytes, filename)
+                      } else fallbackSaveBytes(bytes, filename)
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                      fallbackSaveBytes(bytes, filename)
+                  }
+              }
+              private fun fallbackSaveBytes(bytes: ByteArray, filename: String): String? {
+                  return try {
+                      val publicDl = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                      val nexusDir = File(publicDl, "NexusDownloads")
+                      if (!nexusDir.exists()) nexusDir.mkdirs()
+                      val out = File(nexusDir, filename)
+                      FileOutputStream(out).use { it.write(bytes) }
+                      out.absolutePath
+                  } catch (e: Exception) {
+                      try {
+                          val appDir = File(getExternalFilesDir(null), "NexusDownloads")
+                          if (!appDir.exists()) appDir.mkdirs()
+                          val out = File(appDir, filename)
+                          FileOutputStream(out).use { it.write(bytes) }
+                          out.absolutePath
+                      } catch (e2: Exception) { null }
+                  }
+              }
           KOTEOF
       - name: Main Part3
         run: |
@@ -915,7 +990,7 @@ jobs:
                   @Suppress("DEPRECATION") s.blockNetworkImage = lowDataMode
                   s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
                                 else if (t.incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/3.9"
+                  s.userAgentString = s.userAgentString + " NexusBrowser/4.0"
                   s.setSupportMultipleWindows(true)
                   wv.webViewClient = object : WebViewClient() {
                       override fun shouldInterceptRequest(v: WebView?, r: WebResourceRequest?): WebResourceResponse? {
@@ -1031,7 +1106,6 @@ jobs:
         run: |
           cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
-              // ============ LIVE NETWORK LOG ============
               private var reqLiveHandler: Handler? = null
               private var reqLiveRunnable: Runnable? = null
               private var reqLiveList: LinearLayout? = null
@@ -1039,26 +1113,19 @@ jobs:
               private var reqLiveLastSize = -1
 
               private fun showReqLog() {
-                  val c = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(20, 20, 20, 20)
-                  }
+                  val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20) }
                   val summary = TextView(this).apply {
                       setTextColor(Color.parseColor("#212121"))
-                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                      setPadding(0, 0, 0, 12)
+                      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(0, 0, 0, 12)
                       text = "Starting..."
                   }
                   reqLiveSummary = summary
                   c.addView(summary)
                   val sv = ScrollView(this).apply {
-                      layoutParams = LinearLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT, dp(430)
-                      )
+                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(430))
                   }
                   val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-                  sv.addView(list)
-                  c.addView(sv)
+                  sv.addView(list); c.addView(sv)
                   reqLiveList = list
                   val dlg = AlertDialog.Builder(this)
                       .setTitle("📡 Network Requests (LIVE)")
@@ -1073,9 +1140,7 @@ jobs:
                       .setNegativeButton("Close", null)
                       .create()
                   dlg.setOnDismissListener {
-                      stopReqLive()
-                      reqLiveList = null
-                      reqLiveSummary = null
+                      stopReqLive(); reqLiveList = null; reqLiveSummary = null
                   }
                   dlg.show()
                   rebuildReqList()
@@ -1098,8 +1163,7 @@ jobs:
 
               private fun stopReqLive() {
                   reqLiveRunnable?.let { reqLiveHandler?.removeCallbacks(it) }
-                  reqLiveRunnable = null
-                  reqLiveHandler = null
+                  reqLiveRunnable = null; reqLiveHandler = null
               }
 
               private fun rebuildReqList() {
@@ -1120,9 +1184,7 @@ jobs:
                       for (i in newItems.indices.reversed()) {
                           list.addView(makeReqRow(newItems[i], tf), 0)
                       }
-                      while (list.childCount > 200) {
-                          list.removeViewAt(list.childCount - 1)
-                      }
+                      while (list.childCount > 200) list.removeViewAt(list.childCount - 1)
                   }
                   reqLiveLastSize = sz
               }
@@ -1132,17 +1194,11 @@ jobs:
                       orientation = LinearLayout.VERTICAL
                       setPadding(dp(10), dp(8), dp(10), dp(8))
                       background = getDrawable(R.drawable.req_row_bg)
-                      layoutParams = LinearLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT,
-                          ViewGroup.LayoutParams.WRAP_CONTENT
-                      ).apply { bottomMargin = dp(4) }
+                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(4) }
                       isClickable = true; isFocusable = true
                       setOnClickListener { showReqOptions(r) }
                   }
-                  val hdr = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      gravity = Gravity.CENTER_VERTICAL
-                  }
+                  val hdr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                   hdr.addView(TextView(this).apply {
                       text = if (r.blocked) "⛔" else "✓"
                       setTextColor(if (r.blocked) Color.parseColor("#F44336") else Color.parseColor("#4CAF50"))
@@ -1225,7 +1281,7 @@ jobs:
                           conn.connectTimeout = 15000
                           conn.readTimeout = 30000
                           conn.instanceFollowRedirects = true
-                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/3.9")
+                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/4.0")
                           val host = try { Uri.parse(r.url).host ?: "" } catch (e: Exception) { "" }
                           if (pageUrl.isNotEmpty() && pageUrl.contains(host)) {
                               val cookies = CookieManager.getInstance().getCookie(pageUrl)
@@ -1249,23 +1305,28 @@ jobs:
                           if (fname.length > 100) fname = fname.take(90) + ".dat"
                           val bytes = conn.inputStream.readBytes()
                           conn.disconnect()
-                          val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                          val nexusDir = File(dlDir, "NexusDownloads")
-                          if (!nexusDir.exists()) nexusDir.mkdirs()
-                          val out = File(nexusDir, fname)
-                          out.writeBytes(bytes)
+                          val mime = when (r.rtype) {
+                              "xhr" -> "application/json"
+                              "document" -> "text/html"
+                              else -> "application/octet-stream"
+                          }
+                          val savedPath = saveBytesToDownloads(bytes, fname, mime)
                           handler.post {
-                              AlertDialog.Builder(this)
-                                  .setTitle("✅ Downloaded")
-                                  .setMessage("File: ${out.name}\nSize: ${bytes.size} bytes\n\nPath:\n${out.absolutePath}")
-                                  .setPositiveButton("OK", null)
-                                  .setNeutralButton("Share") { _, _ ->
-                                      val i = Intent(Intent.ACTION_SEND)
-                                      i.type = "text/plain"
-                                      i.putExtra(Intent.EXTRA_TEXT, out.absolutePath)
-                                      startActivity(Intent.createChooser(i, "Share"))
-                                  }
-                                  .show()
+                              if (savedPath != null) {
+                                  AlertDialog.Builder(this)
+                                      .setTitle("✅ Downloaded")
+                                      .setMessage("File: $fname\nSize: ${bytes.size} bytes\n\nPath:\n$savedPath\n\nFiles app > Downloads > NexusDownloads me milega")
+                                      .setPositiveButton("OK", null)
+                                      .setNeutralButton("Share") { _, _ ->
+                                          val i = Intent(Intent.ACTION_SEND)
+                                          i.type = "text/plain"
+                                          i.putExtra(Intent.EXTRA_TEXT, savedPath)
+                                          startActivity(Intent.createChooser(i, "Share"))
+                                      }
+                                      .show()
+                              } else {
+                                  Toast.makeText(this, "❌ Save failed (all methods)", Toast.LENGTH_LONG).show()
+                              }
                           }
                       } catch (e: Exception) {
                           handler.post { Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show() }
@@ -1283,7 +1344,7 @@ jobs:
                           conn.connectTimeout = 15000
                           conn.readTimeout = 30000
                           conn.instanceFollowRedirects = true
-                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/3.9")
+                          conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/4.0")
                           val host = try { Uri.parse(r.url).host ?: "" } catch (e: Exception) { "" }
                           if (pageUrl.isNotEmpty() && pageUrl.contains(host)) {
                               val cookies = CookieManager.getInstance().getCookie(pageUrl)
@@ -1291,13 +1352,9 @@ jobs:
                           }
                           conn.connect()
                           val code = conn.responseCode
-                          val text = try {
-                              conn.inputStream.bufferedReader().use { it.readText() }
-                          } catch (e: Exception) { "Error: ${e.message}" }
+                          val text = try { conn.inputStream.bufferedReader().use { it.readText() } } catch (e: Exception) { "Error: ${e.message}" }
                           conn.disconnect()
-                          handler.post {
-                              showCode("Response (HTTP $code, ${text.length} chars)", text)
-                          }
+                          handler.post { showCode("Response (HTTP $code, ${text.length} chars)", text) }
                       } catch (e: Exception) {
                           handler.post { Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show() }
                       }
@@ -1402,7 +1459,7 @@ jobs:
                           val c = URL(url).openConnection() as HttpURLConnection
                           c.requestMethod = "HEAD"; c.connectTimeout = 10000; c.readTimeout = 10000
                           c.instanceFollowRedirects = false
-                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.9")
+                          c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/4.0")
                           c.connect()
                           sb.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
                           c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { sb.append("$k: $it\n") } }
@@ -1454,7 +1511,7 @@ jobs:
                   val url = wv.url ?: return
                   if (url == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
                   AlertDialog.Builder(this).setTitle("📦 Save Site as ZIP")
-                      .setMessage("Site ka poora code save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images (500 tak)\n• Server info, cookies\n• _metadata.txt\n\nLocation:\nInternal Storage / Download / NexusDownloads/\n\nSave karein?")
+                      .setMessage("Site ka poora code save karega:\n\n• index.html (full source)\n• CSS, JS, fonts\n• Images (500 tak)\n• Server info, cookies\n• _metadata.txt\n\nLocation:\nDownloads/NexusDownloads/\n\nSave karein?")
                       .setPositiveButton("Save") { _, _ -> doSave(url, wv) }
                       .setNegativeButton("Cancel", null).show()
               }
@@ -1472,7 +1529,7 @@ jobs:
                               val c = URL(url).openConnection() as HttpURLConnection
                               c.requestMethod = "HEAD"; c.connectTimeout = 8000; c.readTimeout = 8000
                               c.instanceFollowRedirects = false
-                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/3.9")
+                              c.setRequestProperty("User-Agent", "Mozilla/5.0 NexusBrowser/4.0")
                               c.connect()
                               si.append("Status: ${c.responseCode} ${c.responseMessage}\n\n")
                               c.headerFields.forEach { (k, v) -> if (k != null && v != null) v.forEach { si.append("$k: $it\n") } }
@@ -1481,16 +1538,16 @@ jobs:
                           handler.post {
                               SiteDownloader(this).save(url, html, ck, si.toString(),
                                   onProgress = { p -> handler.post { try { dlg.setMessage("${p.phase} (${p.cur}/${p.tot})") } catch (e: Exception) {} } },
-                                  onDone = { file, ok, fail ->
+                                  onDone = { path, ok, fail ->
                                       handler.post {
                                           try { dlg.dismiss() } catch (e: Exception) {}
-                                          if (file != null) {
+                                          if (path != null) {
                                               AlertDialog.Builder(this).setTitle("✅ Saved!")
-                                                  .setMessage("File: ${file.name}\nSize: %.2f MB\n".format(file.length() / (1024.0 * 1024)) + "Files: $ok\nFailed: $fail\n\nPath:\n${file.absolutePath}")
+                                                  .setMessage("Files: $ok\nFailed: $fail\n\nPath:\n$path\n\nFiles app > Downloads > NexusDownloads me milega")
                                                   .setPositiveButton("OK", null)
                                                   .setNeutralButton("Share Path") { _, _ ->
                                                       val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"
-                                                      i.putExtra(Intent.EXTRA_TEXT, file.absolutePath)
+                                                      i.putExtra(Intent.EXTRA_TEXT, path)
                                                       startActivity(Intent.createChooser(i, "Share"))
                                                   }.show()
                                           } else Toast.makeText(this, "❌ Save failed", Toast.LENGTH_LONG).show()
