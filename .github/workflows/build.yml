@@ -266,12 +266,6 @@ jobs:
               <stroke android:width="1dp" android:color="#9E9E9E" />
           </shape>
           EOF
-          cat > app/src/main/res/drawable/reset_btn_bg.xml << 'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#E53935" /><corners android:radius="20dp" />
-              <stroke android:width="1dp" android:color="#B71C1C" />
-          </shape>
-          EOF
       - name: Layout
         run: |
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
@@ -344,16 +338,6 @@ jobs:
                               android:text="🛡 TAP TO CONNECT VPN" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" />
                       </LinearLayout>
                   </LinearLayout>
-                  <TextView android:id="@+id/btnResetTimer"
-                      android:layout_width="wrap_content" android:layout_height="38dp"
-                      android:layout_gravity="top|start" android:layout_marginStart="10dp" android:layout_marginTop="10dp"
-                      android:background="@drawable/reset_btn_bg"
-                      android:paddingStart="14dp" android:paddingEnd="14dp"
-                      android:gravity="center"
-                      android:text="🔄 Reset Timer"
-                      android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold"
-                      android:elevation="6dp"
-                      android:clickable="true" android:focusable="true" android:visibility="gone" />
                   <TextView android:id="@+id/incognitoBadge" android:layout_width="wrap_content" android:layout_height="wrap_content"
                       android:layout_gravity="top|end" android:layout_margin="8dp"
                       android:background="@color/incognito" android:paddingHorizontal="10dp" android:paddingVertical="4dp"
@@ -610,7 +594,6 @@ jobs:
               private lateinit var tabStrip: LinearLayout
               private lateinit var tabScroll: HorizontalScrollView
               private lateinit var dataIndicator: TextView
-              private lateinit var btnResetTimer: TextView
               private lateinit var prefs: SharedPreferences
               private var desktopMode = false
               private var isHomeVisible = true
@@ -700,9 +683,7 @@ jobs:
                   tabStrip = findViewById(R.id.tabStrip)
                   tabScroll = findViewById(R.id.tabScroll)
                   dataIndicator = findViewById(R.id.dataIndicator)
-                  btnResetTimer = findViewById(R.id.btnResetTimer)
                   dataIndicator.setOnClickListener { dataDialog() }
-                  btnResetTimer.setOnClickListener { resetTimer() }
                   try { wgBackend = GoBackend(applicationContext) } catch (e: Throwable) {}
                   addressBar.setOnEditorActionListener { _, a, e ->
                       if (a == EditorInfo.IME_ACTION_GO || e?.keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -736,47 +717,6 @@ jobs:
                   dataHandler.post(dataRun)
               }
               override fun onDestroy() { dataHandler.removeCallbacks(dataRun); super.onDestroy() }
-
-              private fun resetTimer() {
-                  val t = cur ?: return
-                  val wv = t.wv ?: return
-                  if (t.isHome || wv.url == null || wv.url == "about:blank") {
-                      Toast.makeText(this, "Pehle koi site kholo", Toast.LENGTH_SHORT).show(); return
-                  }
-                  Toast.makeText(this, "🔄 Timer reset kar raha hai...", Toast.LENGTH_SHORT).show()
-                  val js = "(function(){" +
-                      "try{" +
-                          "if(window.__xSavedInt){for(var i=0;i<window.__xSavedInt.length;i++){try{clearInterval(window.__xSavedInt[i].id);}catch(e){}}}" +
-                          "var mid=setTimeout(function(){},0);for(var j=0;j<=mid;j++){try{clearTimeout(j);}catch(e){}try{clearInterval(j);}catch(e){}}" +
-                      "}catch(e){}" +
-                      "try{" +
-                          "if(window.__xMaxTs){" +
-                              "for(var k in window.__xMaxTs){" +
-                                  "var o=window.__xMaxTs[k];" +
-                                  "if(o&&o.el&&typeof o.v==='number'){" +
-                                      "var mm=Math.floor(o.v/60),ss=o.v%60;" +
-                                      "var p2=function(n){return n<10?'0'+n:''+n;};" +
-                                      "try{o.el.textContent=p2(mm)+':'+p2(ss);}catch(e){}" +
-                                  "}" +
-                              "}" +
-                          "}" +
-                      "}catch(e){}" +
-                      "try{" +
-                          "window.dispatchEvent(new Event('focus'));" +
-                          "window.dispatchEvent(new Event('pageshow'));" +
-                          "try{document.dispatchEvent(new Event('visibilitychange'));}catch(e){}" +
-                      "}catch(e){}" +
-                      "return 'OK';" +
-                  "})();"
-                  wv.evaluateJavascript(js, null)
-              }
-
-              private fun updResetBtn() {
-                  try {
-                      val t = cur
-                      btnResetTimer.visibility = if (t != null && !t.isHome && !isHomeVisible) View.VISIBLE else View.GONE
-                  } catch (e: Exception) {}
-              }
 
               private fun getData(): Pair<Long, Long> = try {
                   val r = TrafficStats.getUidRxBytes(android.os.Process.myUid())
@@ -841,7 +781,7 @@ jobs:
                   t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
                   homeOverlay.visibility = View.VISIBLE; isHomeVisible = true
                   addressBar.setText(""); incognitoBadge.visibility = View.GONE
-                  renderTabs(); applyLowData(); updResetBtn()
+                  renderTabs(); applyLowData()
               }
               private fun newTabWithUri(uri: Uri) {
                   val t = Tab()
@@ -852,7 +792,7 @@ jobs:
                   container.addView(wv, 0)
                   t.wv = wv; tabs.add(t); curIdx = tabs.size - 1
                   homeOverlay.visibility = View.GONE; isHomeVisible = false
-                  loadUri(t, uri); renderTabs(); updResetBtn()
+                  loadUri(t, uri); renderTabs()
               }
               private fun newTab(url: String = "about:blank") {
                   val t = Tab()
@@ -866,7 +806,7 @@ jobs:
                   if (url != "about:blank") {
                       t.isHome = false; homeOverlay.visibility = View.GONE; isHomeVisible = false; wv.loadUrl(url)
                   } else { homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("") }
-                  renderTabs(); updResetBtn()
+                  renderTabs()
               }
               private fun newIncognito() {
                   val t = Tab(incognito = true, title = "Incognito")
@@ -879,7 +819,7 @@ jobs:
                   tabs.forEachIndexed { i, tt -> tt.wv?.visibility = if (i == curIdx) View.VISIBLE else View.GONE }
                   homeOverlay.visibility = View.VISIBLE; isHomeVisible = true
                   addressBar.setText(""); incognitoBadge.visibility = View.VISIBLE
-                  renderTabs(); Toast.makeText(this, "🕵 Incognito", Toast.LENGTH_SHORT).show(); updResetBtn()
+                  renderTabs(); Toast.makeText(this, "🕵 Incognito", Toast.LENGTH_SHORT).show()
               }
               private fun closeTab(i: Int) {
                   if (i < 0 || i >= tabs.size) return
@@ -904,7 +844,7 @@ jobs:
                       homeOverlay.visibility = View.GONE; isHomeVisible = false; addressBar.setText(t.url)
                   }
                   incognitoBadge.visibility = if (t.incognito) View.VISIBLE else View.GONE
-                  updBm(); renderTabs(); updResetBtn()
+                  updBm(); renderTabs()
               }
               private fun showHome() {
                   val t = cur ?: return
@@ -913,7 +853,7 @@ jobs:
                   t.wv?.visibility = View.GONE
                   homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("")
                   incognitoBadge.visibility = if (t.incognito) View.VISIBLE else View.GONE
-                  updBm(); renderTabs(); updResetBtn()
+                  updBm(); renderTabs()
               }
               private fun loadUri(t: Tab, uri: Uri) {
                   try {
@@ -1034,11 +974,13 @@ jobs:
                       else -> "other"
                   }
               }
+              private fun isJsonUrl(url: String): Boolean {
+                  val lu = url.lowercase()
+                  return lu.contains(".json") || lu.contains("/api/") || lu.contains("graphql") || lu.contains("/json") || lu.contains("json=")
+              }
               private fun isTsModifiable(url: String): Boolean {
                   if (!prefs.getBoolean("ts_delay", false)) return false
-                  val lu = url.lowercase()
-                  if (!lu.contains("ts=") && !lu.contains("timestamp=") && !lu.contains("_=")) return false
-                  return Regex("[?&](?:ts|timestamp|_)=\\d+").containsMatchIn(lu)
+                  return isJsonUrl(url)
               }
               private fun logReq(url: String, method: String, blocked: Boolean, main: Boolean) {
                   if (logPaused) return
@@ -1093,17 +1035,17 @@ jobs:
                           t.url = u ?: t.url
                           if (u != null && u != "about:blank") {
                               t.isHome = false
-                              if (t === cur) { addressBar.setText(u); homeOverlay.visibility = View.GONE; isHomeVisible = false; updResetBtn() }
+                              if (t === cur) { addressBar.setText(u); homeOverlay.visibility = View.GONE; isHomeVisible = false }
                           }
                       }
                       override fun onPageFinished(v: WebView?, u: String?) {
                           super.onPageFinished(v, u)
                           t.title = v?.title ?: (u ?: "Page")
                           if (!t.incognito && u != null && u != "about:blank") saveHist(u, v?.title ?: u)
-                          if (t === cur) { updBm(); renderTabs(); updData(); updResetBtn() }
+                          if (t === cur) { updBm(); renderTabs(); updData() }
                           if (u == null || u == "about:blank") {
                               if (t === cur && t.isHome && homeOverlay.visibility != View.VISIBLE) {
-                                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText(""); updResetBtn()
+                                  homeOverlay.visibility = View.VISIBLE; isHomeVisible = true; addressBar.setText("")
                               }
                               return
                           }
@@ -1114,7 +1056,6 @@ jobs:
                           if (prefs.getBoolean("hide_identity", false)) injId(v)
                           if (prefs.getBoolean("json_delay", false)) injJsonDelay(v)
                           if (prefs.getBoolean("ts_delay", false)) injTsDelay(v)
-                          injTimerRecorder(v)
                       }
                   }
                   wv.webChromeClient = object : WebChromeClient() {
@@ -1153,7 +1094,7 @@ jobs:
                   }
                   val t = cur ?: return
                   t.isHome = false; homeOverlay.visibility = View.GONE; isHomeVisible = false
-                  t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(url); renderTabs(); updResetBtn()
+                  t.wv?.visibility = View.VISIBLE; t.wv?.loadUrl(url); renderTabs()
               }
               private fun isAd(url: String): Boolean {
                   val lu = url.lowercase()
@@ -1183,11 +1124,7 @@ jobs:
               }
               private fun injTsDelay(wv: WebView?) {
                   wv ?: return
-                  wv.evaluateJavascript("(function(){if(window.__xTs)return;window.__xTs=1;var TS=7000;function fix(u){try{if(typeof u!=='string')return u;if(u.indexOf('ts=')===-1&&u.indexOf('timestamp=')===-1&&u.indexOf('_=')===-1)return u;return u.replace(/([?&](?:ts|timestamp|_)=)(\\d+)/g,function(m,p,n){return p+(parseInt(n,10)+TS);});}catch(e){return u;}}var of=window.fetch;if(of){window.fetch=function(){var a=arguments;try{if(typeof a[0]==='string'){a[0]=fix(a[0]);}else if(a[0]&&a[0].url){var nu=fix(a[0].url);if(nu!==a[0].url){a[0]=new Request(nu,a[0]);}}}catch(e){}return of.apply(this,a);};}var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{u=fix(u);}catch(e){}return oo.apply(this,arguments);};})();", null)
-              }
-              private fun injTimerRecorder(wv: WebView?) {
-                  wv ?: return
-                  wv.evaluateJavascript("(function(){if(window.__xTRec)return;window.__xTRec=1;window.__xMaxTs={};window.__xSavedInt=[];var oi=window.setInterval;window.setInterval=function(fn,ms){var id=oi.apply(this,arguments);try{window.__xSavedInt.push({id:id,fn:fn,ms:ms});}catch(e){}return id;};function scan(){try{var re=/^(\\d{1,2}):(\\d{2})$/;var nodes=document.querySelectorAll('div,span,p,b,strong,td,h1,h2,h3,h4,em,i,samp,code,font,label');for(var i=0;i<nodes.length;i++){var el=nodes[i];if(el.children.length>0)continue;var t=(el.textContent||'').trim();if(t.length<4||t.length>6)continue;var m=t.match(re);if(!m)continue;var s=parseInt(m[1],10)*60+parseInt(m[2],10);if(s>3600)continue;var key=(el.id||'')+'|'+(el.className||'')+'|'+el.tagName+'|'+i;if(!window.__xMaxTs[key]||window.__xMaxTs[key].v<s){window.__xMaxTs[key]={v:s,el:el};}}}catch(e){}}scan();setInterval(scan,300);})();", null)
+                  wv.evaluateJavascript("(function(){if(window.__xTs)return;window.__xTs=1;var TS=7000;function isJsonUrl(u){if(typeof u!=='string')return false;var l=u.toLowerCase();if(l.indexOf('.json')!==-1)return true;if(l.indexOf('/api/')!==-1)return true;if(l.indexOf('graphql')!==-1)return true;if(l.indexOf('/json')!==-1)return true;if(l.indexOf('json=')!==-1)return true;return false;}function fix(u){try{if(typeof u!=='string')return u;if(!isJsonUrl(u))return u;if(/[?&](ts|timestamp|_)=\\d+/.test(u)){return u.replace(/([?&](?:ts|timestamp|_)=)(\\d+)/g,function(m,p,n){return p+(parseInt(n,10)+TS);});}var sep=(u.indexOf('?')===-1)?'?':'&';return u+sep+'ts='+(Date.now()+TS);}catch(e){return u;}}var of=window.fetch;if(of){window.fetch=function(){var a=arguments;try{if(typeof a[0]==='string'){a[0]=fix(a[0]);}else if(a[0]&&a[0].url){var nu=fix(a[0].url);if(nu!==a[0].url){a[0]=new Request(nu,a[0]);}}}catch(e){}return of.apply(this,a);};}var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{u=fix(u);}catch(e){}return oo.apply(this,arguments);};})();", null)
               }
           KOTEOF
       - name: Main Part4
@@ -1465,7 +1402,7 @@ jobs:
 
               private fun menu() {
                   val o = arrayOf("New Tab","Bookmarks","History","🔍 Inspect Mode","📡 Network Request Log",
-                      "🔄 Reset Timer / Countdown","📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
+                      "📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
                       "Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
                   AlertDialog.Builder(this).setTitle("Menu").setItems(o) { _, w ->
                       when (w) {
@@ -1474,16 +1411,15 @@ jobs:
                           2 -> history()
                           3 -> inspectDlg()
                           4 -> showReqLog()
-                          5 -> resetTimer()
-                          6 -> saveSiteDlg()
-                          7 -> dataDialog()
-                          8 -> toggleLowData()
-                          9 -> findPage()
-                          10 -> share()
-                          11 -> toggleDesktop()
-                          12 -> downloads()
-                          13 -> adStats()
-                          14 -> finish()
+                          5 -> saveSiteDlg()
+                          6 -> dataDialog()
+                          7 -> toggleLowData()
+                          8 -> findPage()
+                          9 -> share()
+                          10 -> toggleDesktop()
+                          11 -> downloads()
+                          12 -> adStats()
+                          13 -> finish()
                       }
                   }.show()
               }
@@ -1743,7 +1679,7 @@ jobs:
                       "Edit WireGuard Config",
                       "Search: ${prefs.getString("search_engine", "google")}",
                       "🌐 JSON Response Delay 5s: ${if (prefs.getBoolean("json_delay", false)) "ON" else "OFF"}",
-                      "⏱ Timestamp +7s (Request): ${if (prefs.getBoolean("ts_delay", false)) "ON" else "OFF"}",
+                      "⏱ Timestamp +7s (All JSON): ${if (prefs.getBoolean("ts_delay", false)) "ON" else "OFF"}",
                       "Clear cache", "Clear cookies", "Reset all")
                   AlertDialog.Builder(this).setTitle("Settings").setItems(o) { _, w ->
                       when (w) {
@@ -1760,7 +1696,7 @@ jobs:
                           8 -> { val x = !prefs.getBoolean("json_delay", false); prefs.edit().putBoolean("json_delay", x).apply()
                               Toast.makeText(this, if (x) "🌐 JSON Response Delay ON (5s)" else "🌐 JSON Response Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
                           9 -> { val x = !prefs.getBoolean("ts_delay", false); prefs.edit().putBoolean("ts_delay", x).apply()
-                              Toast.makeText(this, if (x) "⏱ Timestamp +7s ON" else "⏱ Timestamp +7s OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
+                              Toast.makeText(this, if (x) "⏱ Timestamp +7s ON (All JSON)" else "⏱ Timestamp +7s OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
                           10 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           11 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
                           12 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
@@ -1836,7 +1772,7 @@ jobs:
               private fun updVpn() {
                   vpnStatusText.text = if (isVpnUp()) "🛡 VPN: PROTECTED" else "🛡 TAP TO CONNECT VPN"
               }
-              override fun onResume() { super.onResume(); updVpn(); updData(); updResetBtn() }
+              override fun onResume() { super.onResume(); updVpn(); updData() }
               override fun onNewIntent(intent: Intent) {
                   super.onNewIntent(intent)
                   intent.data?.let { u ->
