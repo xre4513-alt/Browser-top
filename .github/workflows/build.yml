@@ -540,6 +540,7 @@ jobs:
           import android.os.Handler
           import android.os.Looper
           import android.provider.MediaStore
+          import android.text.InputType
           import android.util.TypedValue
           import android.view.Gravity
           import android.view.KeyEvent
@@ -1120,7 +1121,9 @@ jobs:
               }
               private fun injJsonDelay(wv: WebView?) {
                   wv ?: return
-                  wv.evaluateJavascript("(function(){if(window.__xJsonResp)return;window.__xJsonResp=1;var D=5000;var of=window.fetch;if(of){window.fetch=function(){var a=arguments;return of.apply(this,a).then(function(r){var ct='';try{ct=(r.headers.get('content-type')||'').toLowerCase();}catch(e){}if(ct.indexOf('json')!==-1){return new Promise(function(res){setTimeout(function(){res(r);},D);});}return r;});};}var oo=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__nxU=u;return oo.apply(this,arguments);};XMLHttpRequest.prototype.send=function(b){var self=this;var u=(self.__nxU||'').toString().toLowerCase();var j=(u.indexOf('.json')!==-1)||(u.indexOf('/api/')!==-1)||(u.indexOf('graphql')!==-1)||(u.indexOf('json')!==-1);if(j){setTimeout(function(){os.call(self,b);},D);}else{os.call(self,b);}};})();", null)
+                  val sec = prefs.getInt("json_delay_sec", 5)
+                  val delayMs = sec * 1000
+                  wv.evaluateJavascript("(function(){if(window.__xJsonResp)return;window.__xJsonResp=1;var D=$delayMs;var of=window.fetch;if(of){window.fetch=function(){var a=arguments;return of.apply(this,a).then(function(r){var ct='';try{ct=(r.headers.get('content-type')||'').toLowerCase();}catch(e){}if(ct.indexOf('json')!==-1){return new Promise(function(res){setTimeout(function(){res(r);},D);});}return r;});};}var oo=XMLHttpRequest.prototype.open;var os=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u){this.__nxU=u;return oo.apply(this,arguments);};XMLHttpRequest.prototype.send=function(b){var self=this;var u=(self.__nxU||'').toString().toLowerCase();var j=(u.indexOf('.json')!==-1)||(u.indexOf('/api/')!==-1)||(u.indexOf('graphql')!==-1)||(u.indexOf('json')!==-1);if(j){setTimeout(function(){os.call(self,b);},D);}else{os.call(self,b);}};})();", null)
               }
               private fun injTsDelay(wv: WebView?) {
                   wv ?: return
@@ -1400,9 +1403,87 @@ jobs:
                   }.start()
               }
 
+              private fun showServerReq() {
+                  val t = cur ?: return
+                  val wv = t.wv ?: return
+                  val url = wv.url ?: return
+                  if (url == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
+                  val dlg = AlertDialog.Builder(this).setTitle("🕵️ Server Req").setMessage("Fetching server headers & backend info...").setCancelable(false).create()
+                  dlg.show()
+                  Thread {
+                      val sb = StringBuilder()
+                      var backend = "Unknown"
+                      try {
+                          sb.append("=== REQUEST ===\n")
+                          sb.append("URL: $url\n")
+                          sb.append("Method: GET\n")
+                          val cookies = CookieManager.getInstance().getCookie(url)
+                          if (!cookies.isNullOrEmpty()) sb.append("Cookie: $cookies\n")
+                          sb.append("User-Agent: Mozilla/5.0 (Linux; Android 12) NexusBrowser/4.0\n\n")
+
+                          val c = URL(url).openConnection() as HttpURLConnection
+                          c.requestMethod = "GET"
+                          c.connectTimeout = 15000
+                          c.readTimeout = 15000
+                          c.instanceFollowRedirects = true
+                          c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 NexusBrowser/4.0")
+                          if (!cookies.isNullOrEmpty()) c.setRequestProperty("Cookie", cookies)
+                          c.connect()
+
+                          sb.append("=== RESPONSE HEADERS ===\n")
+                          sb.append("Status: ${c.responseCode} ${c.responseMessage}\n")
+                          val headers = c.headerFields
+                          headers.forEach { (k, v) ->
+                              if (k != null && v != null) v.forEach { sb.append("$k: $it\n") }
+                          }
+
+                          val poweredBy = c.getHeaderField("X-Powered-By") ?: ""
+                          val server = c.getHeaderField("Server") ?: ""
+                          val via = c.getHeaderField("Via") ?: ""
+                          val combined = "$poweredBy $server $via".lowercase()
+
+                          backend = when {
+                              combined.contains("php") -> "PHP"
+                              combined.contains("express") || combined.contains("node") -> "Node.js (Express)"
+                              combined.contains("asp.net") || combined.contains("iis") -> "ASP.NET (C#)"
+                              combined.contains("python") || combined.contains("gunicorn") || combined.contains("uvicorn") || combined.contains("flask") || combined.contains("django") -> "Python"
+                              combined.contains("java") || combined.contains("tomcat") || combined.contains("servlet") || combined.contains("jetty") -> "Java"
+                              combined.contains("ruby") || combined.contains("rails") || combined.contains("puma") -> "Ruby on Rails"
+                              combined.contains("go") || combined.contains("golang") -> "Go"
+                              else -> "Unknown / Hidden"
+                          }
+
+                          sb.append("\n=== BACKEND DETECTION ===\n")
+                          sb.append("⚡ Detected: $backend\n")
+                          if (poweredBy.isNotEmpty()) sb.append("X-Powered-By: $poweredBy\n")
+                          if (server.isNotEmpty()) sb.append("Server: $server\n")
+
+                          sb.append("\n=== RESPONSE BODY (PREVIEW 1000 chars) ===\n")
+                          val body = try {
+                              c.inputStream.bufferedReader().use { it.readText() }
+                          } catch (e: Exception) { "Error reading body: ${e.message}" }
+                          c.disconnect()
+
+                          sb.append(body.take(1000))
+                          if (body.length > 1000) sb.append("\n\n... [Truncated]")
+
+                          handler.post {
+                              try { dlg.dismiss() } catch (e: Exception) {}
+                              showCode("🕵️ Server Req: $backend", sb.toString())
+                          }
+                      } catch (e: Exception) {
+                          sb.append("\nERR: ${e.message}")
+                          handler.post {
+                              try { dlg.dismiss() } catch (e: Exception) {}
+                              showCode("🕵️ Server Req: ERROR", sb.toString())
+                          }
+                      }
+                  }.start()
+              }
+
               private fun menu() {
                   val o = arrayOf("New Tab","Bookmarks","History","🔍 Inspect Mode","📡 Network Request Log",
-                      "📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
+                      "🕵️ Server Req (Headers & Backend)","📦 Save Site as ZIP","📊 Data Usage","⚡ ${if (lowDataMode) "Disable" else "Enable"} Low Data Mode",
                       "Find on page","Share page","Desktop site","Downloads","Ad Block Stats","Exit")
                   AlertDialog.Builder(this).setTitle("Menu").setItems(o) { _, w ->
                       when (w) {
@@ -1411,15 +1492,16 @@ jobs:
                           2 -> history()
                           3 -> inspectDlg()
                           4 -> showReqLog()
-                          5 -> saveSiteDlg()
-                          6 -> dataDialog()
-                          7 -> toggleLowData()
-                          8 -> findPage()
-                          9 -> share()
-                          10 -> toggleDesktop()
-                          11 -> downloads()
-                          12 -> adStats()
-                          13 -> finish()
+                          5 -> showServerReq()
+                          6 -> saveSiteDlg()
+                          7 -> dataDialog()
+                          8 -> toggleLowData()
+                          9 -> findPage()
+                          10 -> share()
+                          11 -> toggleDesktop()
+                          12 -> downloads()
+                          13 -> adStats()
+                          14 -> finish()
                       }
                   }.show()
               }
@@ -1678,7 +1760,7 @@ jobs:
                       "VPN: ${if (isVpnUp()) "CONNECTED" else "OFF"}",
                       "Edit WireGuard Config",
                       "Search: ${prefs.getString("search_engine", "google")}",
-                      "🌐 JSON Response Delay 5s: ${if (prefs.getBoolean("json_delay", false)) "ON" else "OFF"}",
+                      "🌐 JSON Response Delay (${prefs.getInt("json_delay_sec", 5)}s): ${if (prefs.getBoolean("json_delay", false)) "ON" else "OFF"}",
                       "⏱ Timestamp +7s (All JSON): ${if (prefs.getBoolean("ts_delay", false)) "ON" else "OFF"}",
                       "Clear cache", "Clear cookies", "Reset all")
                   AlertDialog.Builder(this).setTitle("Settings").setItems(o) { _, w ->
@@ -1693,8 +1775,24 @@ jobs:
                           5 -> toggleVpn()
                           6 -> editWg()
                           7 -> pickEngine()
-                          8 -> { val x = !prefs.getBoolean("json_delay", false); prefs.edit().putBoolean("json_delay", x).apply()
-                              Toast.makeText(this, if (x) "🌐 JSON Response Delay ON (5s)" else "🌐 JSON Response Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
+                          8 -> {
+                              val input = EditText(this)
+                              input.inputType = InputType.TYPE_CLASS_NUMBER
+                              input.setText(prefs.getInt("json_delay_sec", 5).toString())
+                              AlertDialog.Builder(this).setTitle("JSON Delay (Seconds)")
+                                  .setView(input)
+                                  .setPositiveButton("Save") { _, _ ->
+                                      val sec = input.text.toString().toIntOrNull() ?: 5
+                                      prefs.edit().putInt("json_delay_sec", sec).apply()
+                                      Toast.makeText(this, "JSON Delay set to ${sec}s", Toast.LENGTH_SHORT).show()
+                                      cur?.wv?.reload()
+                                  }
+                                  .setNeutralButton(if (prefs.getBoolean("json_delay", false)) "Disable" else "Enable") { _, _ ->
+                                      val x = !prefs.getBoolean("json_delay", false); prefs.edit().putBoolean("json_delay", x).apply()
+                                      Toast.makeText(this, if (x) "JSON Delay ON" else "JSON Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload()
+                                  }
+                                  .setNegativeButton("Cancel", null).show()
+                          }
                           9 -> { val x = !prefs.getBoolean("ts_delay", false); prefs.edit().putBoolean("ts_delay", x).apply()
                               Toast.makeText(this, if (x) "⏱ Timestamp +7s ON (All JSON)" else "⏱ Timestamp +7s OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
                           10 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
