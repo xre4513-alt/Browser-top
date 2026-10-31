@@ -77,8 +77,8 @@ jobs:
                   applicationId "com.nexus.browser"
                   minSdk 24
                   targetSdk 34
-                  versionCode 15
-                  versionName "4.0.0"
+                  versionCode 16
+                  versionName "4.1.0"
                   multiDexEnabled true
               }
               buildTypes {
@@ -1132,33 +1132,36 @@ jobs:
               }
               private fun injSlowhide(wv: WebView?) {
                   wv ?: return
-                  val model = prefs.getString("sh_model", "iPhone 14 Pro Max")?.replace("'", "\\'") ?: "iPhone 14 Pro Max"
-                  val ua = prefs.getString("sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")?.replace("'", "\\'") ?: ""
-                  val plat = prefs.getString("sh_platform", "iPhone")?.replace("'", "\\'") ?: "iPhone"
-                  val vend = prefs.getString("sh_vendor", "Apple Computer, Inc.")?.replace("'", "\\'") ?: "Apple Computer, Inc."
+                  val model = prefs.getString("sh_model", "iPhone 14 Pro Max")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "iPhone 14 Pro Max"
+                  val ua = prefs.getString("sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: ""
+                  val plat = prefs.getString("sh_platform", "iPhone")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "iPhone"
+                  val vend = prefs.getString("sh_vendor", "Apple Computer, Inc.")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "Apple Computer, Inc."
                   val lat = prefs.getString("sh_lat", "28.6139") ?: "28.6139"
                   val lng = prefs.getString("sh_lng", "77.2090") ?: "77.2090"
-                  val isp = prefs.getString("sh_isp", "Airtel")?.replace("'", "\\'") ?: "Airtel"
+                  val isp = prefs.getString("sh_isp", "Airtel")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "Airtel"
                   val mac = prefs.getString("sh_mac", "02:00:00:00:00:00") ?: "02:00:00:00:00:00"
                   val fakeIp = prefs.getString("sh_ip", "103.15.22.1") ?: "103.15.22.1"
 
-                  val js = "(function(){" +
-                      "if(window.__xSlowhide)return;window.__xSlowhide=1;" +
-                      "var sUa='$ua'; var sPlat='$plat'; var sVend='$vend';" +
-                      "var sLat=parseFloat('$lat')||0; var sLng=parseFloat('$lng')||0;" +
-                      // UA Spoofing
-                      "try{Object.defineProperty(navigator,'userAgent',{get:function(){return sUa;}});}catch(e){}" +
-                      "try{Object.defineProperty(navigator,'appVersion',{get:function(){return sUa.replace('Mozilla/','');}});}catch(e){}" +
-                      "try{Object.defineProperty(navigator,'platform',{get:function(){return sPlat;}});}catch(e){}" +
-                      "try{Object.defineProperty(navigator,'vendor',{get:function(){return sVend;}});}catch(e){}" +
-                      // Hardware Spoof
-                      "try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 8;}});}catch(e){}" +
-                      "try{Object.defineProperty(navigator,'deviceMemory',{get:function(){return 8;}});}catch(e){}" +
-                      // Geo Spoof
-                      "if(navigator.geolocation){navigator.geolocation.getCurrentPosition=function(s){s({coords:{latitude:sLat,longitude:sLng,accuracy:10,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()});};navigator.geolocation.watchPosition=navigator.geolocation.getCurrentPosition;}" +
-                      // WebRTC IP Leak Prevention
-                      "try{window.RTCPeerConnection=function(){return {createDataChannel:function(){return {close:function(){}};},createOffer:function(){return Promise.resolve({type:'offer',sdp:''});},setLocalDescription:function(){return Promise.resolve();},close:function(){}};};}catch(e){}" +
-                      "})();"
+                  val js = """
+                      (function(){
+                          if(window.__xSlowhide)return; window.__xSlowhide=1;
+                          var sUa='$ua'; var sPlat='$plat'; var sVend='$vend';
+                          var sLat=parseFloat('$lat')||0; var sLng=parseFloat('$lng')||0;
+                          try{Object.defineProperty(navigator,'userAgent',{get:function(){return sUa;}});}catch(e){}
+                          try{Object.defineProperty(navigator,'appVersion',{get:function(){return sUa.replace('Mozilla/','');}});}catch(e){}
+                          try{Object.defineProperty(navigator,'platform',{get:function(){return sPlat;}});}catch(e){}
+                          try{Object.defineProperty(navigator,'vendor',{get:function(){return sVend;}});}catch(e){}
+                          try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 8;}});}catch(e){}
+                          try{Object.defineProperty(navigator,'deviceMemory',{get:function(){return 8;}});}catch(e){}
+                          if(navigator.geolocation){
+                              navigator.geolocation.getCurrentPosition=function(s){
+                                  s({coords:{latitude:sLat,longitude:sLng,accuracy:10,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()});
+                              };
+                              navigator.geolocation.watchPosition=navigator.geolocation.getCurrentPosition;
+                          }
+                          try{window.RTCPeerConnection=function(){return {createDataChannel:function(){return {close:function(){}};},createOffer:function(){return Promise.resolve({type:'offer',sdp:''});},setLocalDescription:function(){return Promise.resolve();},close:function(){}};};}catch(e){}
+                      })();
+                  """.trimIndent().replace("\n", " ")
                   wv.evaluateJavascript(js, null)
               }
           KOTEOF
@@ -1656,7 +1659,7 @@ jobs:
           KOTEOF
       - name: Main Part5
         run: |
-          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
+          cat > app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
 
               private fun saveSiteDlg() {
                   val t = cur ?: return
@@ -1711,194 +1714,174 @@ jobs:
                   }
               }
               private fun tabsDialog() {
-                  val items = tabs.mapIndexed { i, t -> (if (i == curIdx) "▶ " else "   ") + (if (t.incognito) "🕵 " else "") + t.title }.toTypedArray()
-                  AlertDialog.Builder(this).setTitle("Tabs (${tabs.size})").setItems(items) { _, w -> switchTab(w) }
+                  val items = tabs.mapIndexed { i, t -> (if (i == curIdx) "▶ " else "   ") + (if (t.incognito) "🕵 " else "") + t.title }
+                  AlertDialog.Builder(this).setTitle("Tabs").setItems(items.toTypedArray()) { _, w -> switchTab(w) }
                       .setPositiveButton("New Tab") { _, _ -> newTab() }
-                      .setNeutralButton("Close Tab") { _, _ -> closeTab(curIdx) }
-                      .setNegativeButton("Cancel", null).show()
-              }
-              private fun toggleBm() {
-                  val t = cur ?: return; val u = t.url
-                  if (u == "about:blank") return
-                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                  val e = "${t.title}|$u"
-                  val ex = bm.firstOrNull { it.endsWith("|$u") }
-                  if (ex != null) { bm.remove(ex); Toast.makeText(this, "Removed", Toast.LENGTH_SHORT).show() }
-                  else { bm.add(e); Toast.makeText(this, "Added", Toast.LENGTH_SHORT).show() }
-                  prefs.edit().putStringSet("bookmarks_set", bm).apply(); updBm()
-              }
-              private fun updBm() {
-                  val u = cur?.url ?: return
-                  val bm = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  findViewById<ImageButton>(R.id.btnBookmark).setImageResource(
-                      if (bm.any { it.endsWith("|$u") }) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off)
-              }
-              private fun saveHist(url: String, title: String) {
-                  if (url.startsWith("about:") || url.startsWith("data:")) return
-                  val h = prefs.getStringSet("history_set", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                  h.add("${System.currentTimeMillis()}|$title|$url")
-                  if (h.size > 500) {
-                      val s = h.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
-                      prefs.edit().putStringSet("history_set", s.take(300).toMutableSet()).apply()
-                  } else prefs.edit().putStringSet("history_set", h).apply()
+                      .setNeutralButton("Close All") { _, _ -> tabs.clear(); container.removeAllViews(); newHomeTab() }
+                      .setNegativeButton("Close", null).show()
               }
               private fun bookmarks() {
-                  val s = prefs.getStringSet("bookmarks_set", mutableSetOf()) ?: mutableSetOf()
-                  if (s.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
-                  val items = s.map { val p = it.split("|", limit = 2); (p.getOrNull(0) ?: it) to (p.getOrNull(1) ?: "") }
-                  AlertDialog.Builder(this).setTitle("Bookmarks").setItems(items.map { it.first }.toTypedArray()) { _, w -> nav(items[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("bookmarks_set").apply(); updBm() }.show()
+                  val set = prefs.getStringSet("bookmarks", setOf()) ?: setOf()
+                  val list = set.toList()
+                  if (list.isEmpty()) { Toast.makeText(this, "No bookmarks", Toast.LENGTH_SHORT).show(); return }
+                  AlertDialog.Builder(this).setTitle("Bookmarks").setItems(list.toTypedArray()) { _, w ->
+                      nav(list[w])
+                  }.setNegativeButton("Close", null).show()
               }
               private fun history() {
-                  val s = prefs.getStringSet("history_set", mutableSetOf()) ?: mutableSetOf()
-                  if (s.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
-                  val sorted = s.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }.take(50)
-                  val e = sorted.map { val p = it.split("|", limit = 3); (p.getOrNull(1) ?: "Untitled") to (p.getOrNull(2) ?: "") }
-                  AlertDialog.Builder(this).setTitle("History").setItems(e.map { it.first }.toTypedArray()) { _, w -> nav(e[w].second) }
-                      .setNeutralButton("Clear") { _, _ -> prefs.edit().remove("history_set").apply() }.show()
+                  val set = prefs.getStringSet("history", setOf()) ?: setOf()
+                  val list = set.sortedDescending()
+                  if (list.isEmpty()) { Toast.makeText(this, "No history", Toast.LENGTH_SHORT).show(); return }
+                  AlertDialog.Builder(this).setTitle("History").setItems(list.toTypedArray()) { _, w ->
+                      val item = list[w]
+                      val u = item.substringAfter(" | ")
+                      if (u.startsWith("http")) nav(u)
+                  }.setNeutralButton("Clear") { _, _ ->
+                      prefs.edit().remove("history").apply()
+                      Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show()
+                  }.setNegativeButton("Close", null).show()
+              }
+              private fun saveHist(url: String, title: String) {
+                  try {
+                      val set = prefs.getStringSet("history", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                      set.add("$title | $url")
+                      if (set.size > 200) {
+                          val oldest = set.firstOrNull()
+                          if (oldest != null) set.remove(oldest)
+                      }
+                      prefs.edit().putStringSet("history", set).apply()
+                  } catch (e: Exception) {}
+              }
+              private fun toggleBm() {
+                  val t = cur ?: return
+                  val u = t.url
+                  if (u == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
+                  try {
+                      val set = prefs.getStringSet("bookmarks", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                      if (set.contains(u)) {
+                          set.remove(u)
+                          Toast.makeText(this, "Bookmark removed", Toast.LENGTH_SHORT).show()
+                      } else {
+                          set.add(u)
+                          Toast.makeText(this, "Bookmarked!", Toast.LENGTH_SHORT).show()
+                      }
+                      prefs.edit().putStringSet("bookmarks", set).apply()
+                      updBm()
+                  } catch (e: Exception) {}
+              }
+              private fun updBm() {
+                  val t = cur ?: return
+                  val u = t.url
+                  val set = prefs.getStringSet("bookmarks", setOf()) ?: setOf()
+                  val btn = findViewById<ImageButton>(R.id.btnBookmark)
+                  if (set.contains(u)) {
+                      btn.setImageResource(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP ? android.R.drawable.btn_star_big_on : android.R.drawable.star_on)
+                  } else {
+                      btn.setImageResource(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP ? android.R.drawable.btn_star_big_off : android.R.drawable.star_off)
+                  }
               }
               private fun findPage() {
-                  val i = EditText(this); i.hint = "Find"
-                  AlertDialog.Builder(this).setTitle("Find").setView(i)
-                      .setPositiveButton("Go") { _, _ -> cur?.wv?.findAllAsync(i.text.toString()) }
-                      .setNegativeButton("Cancel", null).show()
+                  val t = cur ?: return
+                  val wv = t.wv ?: return
+                  val input = EditText(this).apply { hint = "Find in page..." }
+                  AlertDialog.Builder(this).setTitle("Find on page").setView(input)
+                      .setPositiveButton("Find") { _, _ ->
+                          val q = input.text.toString()
+                          if (q.isNotEmpty()) wv.findAllAsync(q)
+                      }.setNegativeButton("Close") { _, _ -> wv.clearMatches() }.show()
               }
               private fun share() {
-                  val u = cur?.url ?: return
-                  val i = Intent(Intent.ACTION_SEND); i.type = "text/plain"; i.putExtra(Intent.EXTRA_TEXT, u)
-                  startActivity(Intent.createChooser(i, "Share"))
+                  val t = cur ?: return
+                  val u = t.url
+                  if (u == "about:blank" || t.isHome) { Toast.makeText(this, "Open a site first", Toast.LENGTH_SHORT).show(); return }
+                  val i = Intent(Intent.ACTION_SEND).apply {
+                      type = "text/plain"
+                      putExtra(Intent.EXTRA_TEXT, u)
+                  }
+                  startActivity(Intent.createChooser(i, "Share URL"))
               }
               private fun toggleDesktop() {
                   desktopMode = !desktopMode
-                  val ua = if (desktopMode) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                  else "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                  tabs.forEach { it.wv?.settings?.userAgentString = ua }
-                  cur?.wv?.reload()
-                  Toast.makeText(this, if (desktopMode) "Desktop" else "Mobile", Toast.LENGTH_SHORT).show()
+                  val t = cur ?: return
+                  val wv = t.wv ?: return
+                  val s = wv.settings
+                  s.userAgentString = if (desktopMode) {
+                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 NexusBrowser/4.0"
+                  } else {
+                      "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 NexusBrowser/4.0"
+                  }
+                  Toast.makeText(this, if (desktopMode) "🖥 Desktop Mode ON" else "📱 Mobile Mode ON", Toast.LENGTH_SHORT).show()
+                  wv.reload()
               }
               private fun downloads() {
-                  try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
-                  catch (e: Exception) { Toast.makeText(this, "N/A", Toast.LENGTH_SHORT).show() }
-              }
-              private fun settings() {
-                  val h = prefs.getBoolean("hide_identity", false)
-                  val j = prefs.getBoolean("javascript", true)
-                  val o = arrayOf(
-                      "Dark mode: ${if (prefs.getBoolean("dark_mode", false)) "ON" else "OFF"}",
-                      "Ad blocker: ${if (prefs.getBoolean("adblock", true)) "ON" else "OFF"}",
-                      "Hide Identity: ${if (h) "ON" else "OFF"}",
-                      "JavaScript: ${if (j) "ON" else "OFF"}",
-                      "Low Data Mode: ${if (lowDataMode) "ON" else "OFF"}",
-                      "VPN: ${if (isVpnUp()) "CONNECTED" else "OFF"}",
-                      "Edit WireGuard Config",
-                      "Search: ${prefs.getString("search_engine", "google")}",
-                      "🌐 JSON Response Delay (${prefs.getInt("json_delay_sec", 5)}s): ${if (prefs.getBoolean("json_delay", false)) "ON" else "OFF"}",
-                      "⏱ Timestamp +7s (All JSON): ${if (prefs.getBoolean("ts_delay", false)) "ON" else "OFF"}",
-                      "🛡️ Slowhide Spoofer: ${if (prefs.getBoolean("slowhide", false)) "ON" else "OFF"}",
-                      "Clear cache", "Clear cookies", "Reset all")
-                  AlertDialog.Builder(this).setTitle("Settings").setItems(o) { _, w ->
-                      when (w) {
-                          0 -> { val d = !prefs.getBoolean("dark_mode", false); prefs.edit().putBoolean("dark_mode", d).apply()
-                              AppCompatDelegate.setDefaultNightMode(if (d) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO); recreate() }
-                          1 -> { val a = !prefs.getBoolean("adblock", true); prefs.edit().putBoolean("adblock", a).apply() }
-                          2 -> { val x = !prefs.getBoolean("hide_identity", false); prefs.edit().putBoolean("hide_identity", x).apply(); cur?.wv?.reload() }
-                          3 -> { val x = !prefs.getBoolean("javascript", true); prefs.edit().putBoolean("javascript", x).apply()
-                              tabs.forEach { it.wv?.settings?.javaScriptEnabled = x }; cur?.wv?.reload() }
-                          4 -> toggleLowData()
-                          5 -> toggleVpn()
-                          6 -> editWg()
-                          7 -> pickEngine()
-                          8 -> {
-                              val input = EditText(this)
-                              input.inputType = InputType.TYPE_CLASS_NUMBER
-                              input.setText(prefs.getInt("json_delay_sec", 5).toString())
-                              AlertDialog.Builder(this).setTitle("JSON Delay (Seconds)")
-                                  .setView(input)
-                                  .setPositiveButton("Save") { _, _ ->
-                                      val sec = input.text.toString().toIntOrNull() ?: 5
-                                      prefs.edit().putInt("json_delay_sec", sec).apply()
-                                      Toast.makeText(this, "JSON Delay set to ${sec}s", Toast.LENGTH_SHORT).show()
-                                      cur?.wv?.reload()
-                                  }
-                                  .setNeutralButton(if (prefs.getBoolean("json_delay", false)) "Disable" else "Enable") { _, _ ->
-                                      val x = !prefs.getBoolean("json_delay", false); prefs.edit().putBoolean("json_delay", x).apply()
-                                      Toast.makeText(this, if (x) "JSON Delay ON" else "JSON Delay OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload()
-                                  }
-                                  .setNegativeButton("Cancel", null).show()
-                          }
-                          9 -> { val x = !prefs.getBoolean("ts_delay", false); prefs.edit().putBoolean("ts_delay", x).apply()
-                              Toast.makeText(this, if (x) "⏱ Timestamp +7s ON (All JSON)" else "⏱ Timestamp +7s OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
-                          10 -> showSlowhideDialog()
-                          11 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          12 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          13 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
-                      }
-                  }.show()
-              }
-              private fun showSlowhideDialog() {
-                  val scroll = ScrollView(this)
-                  val layout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(dp(20), dp(20), dp(20), dp(20))
+                  try {
+                      val i = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)
+                      startActivity(i)
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Open Downloads app manually", Toast.LENGTH_LONG).show()
                   }
-
-                  fun addField(label: String, key: String, default: String): EditText {
-                      val tv = TextView(this).apply { text = label; setTextColor(Color.BLACK); setPadding(0, dp(8), 0, dp(4)) }
-                      val et = EditText(this).apply { setText(prefs.getString(key, default)) }
-                      layout.addView(tv)
-                      layout.addView(et)
-                      return et
+              }
+              private fun toggleVpn() {
+                  val i = VpnService.prepare(this)
+                  if (i != null) {
+                      try {
+                          startActivityForResult(i, 1337)
+                      } catch (e: Exception) {
+                          Toast.makeText(this, "VPN permission failed", Toast.LENGTH_SHORT).show()
+                      }
+                  } else {
+                      onActivityResult(1337, RESULT_OK, null)
                   }
-
-                  val modelEt = addField("Device Model", "sh_model", "iPhone 14 Pro Max")
-                  val uaEt = addField("User Agent", "sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")
-                  val platEt = addField("Platform", "sh_platform", "iPhone")
-                  val vendEt = addField("Vendor", "sh_vendor", "Apple Computer, Inc.")
-                  val latEt = addField("Latitude", "sh_lat", "28.6139")
-                  val lngEt = addField("Longitude", "sh_lng", "77.2090")
-                  val ispEt = addField("ISP Provider", "sh_isp", "Airtel")
-                  val macEt = addField("MAC Address", "sh_mac", "02:00:00:00:00:00")
-                  val ipEt = addField("Fake IP", "sh_ip", "103.15.22.1")
-
-                  scroll.addView(layout)
-
-                  AlertDialog.Builder(this)
-                      .setTitle("🛡️ Slowhide Spoofer")
-                      .setView(scroll)
-                      .setPositiveButton("Save") { _, _ ->
-                          prefs.edit()
-                              .putString("sh_model", modelEt.text.toString())
-                              .putString("sh_ua", uaEt.text.toString())
-                              .putString("sh_platform", platEt.text.toString())
-                              .putString("sh_vendor", vendEt.text.toString())
-                              .putString("sh_lat", latEt.text.toString())
-                              .putString("sh_lng", lngEt.text.toString())
-                              .putString("sh_isp", ispEt.text.toString())
-                              .putString("sh_mac", macEt.text.toString())
-                              .putString("sh_ip", ipEt.text.toString())
-                              .putBoolean("slowhide", true)
-                              .apply()
-                          Toast.makeText(this, "Slowhide Saved & Enabled", Toast.LENGTH_SHORT).show()
-                          cur?.wv?.reload()
+              }
+              override fun onActivityResult(req: Int, res: Int, data: Intent?) {
+                  super.onActivityResult(req, res, data)
+                  if (req == 1337) {
+                      if (res == RESULT_OK) {
+                          startVpnTunnel()
+                      } else {
+                          Toast.makeText(this, "VPN permission denied", Toast.LENGTH_SHORT).show()
                       }
-                      .setNeutralButton("Disable") { _, _ ->
-                          prefs.edit().putBoolean("slowhide", false).apply()
-                          Toast.makeText(this, "Slowhide Disabled", Toast.LENGTH_SHORT).show()
-                          cur?.wv?.reload()
+                  }
+              }
+              private fun startVpnTunnel() {
+                  try {
+                      if (wgBackend == null) wgBackend = GoBackend(applicationContext)
+                      val cfgStr = prefs.getString("wg_config", WG_CFG) ?: WG_CFG
+                      val config = Config.parse(cfgStr.byteInputStream())
+                      val tunnel = TunnelX("NexusTunnel")
+                      wgTunnel = tunnel
+                      wgBackend?.setState(tunnel, Tunnel.State.UP, config)
+                      vpnStatusText.text = "🛡 VPN CONNECTED"
+                      vpnStatusText.setTextColor(getColor(R.color.vpn_on))
+                      Toast.makeText(this, "VPN Connected!", Toast.LENGTH_SHORT).show()
+                  } catch (e: Throwable) {
+                      e.printStackTrace()
+                      vpnStatusText.text = "🛡 VPN ERROR"
+                      vpnStatusText.setTextColor(getColor(R.color.vpn_off))
+                      Toast.makeText(this, "VPN Error: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
+              }
+              override fun onBackPressed() {
+                  val t = cur
+                  if (t != null && !t.isHome && t.wv != null && t.wv!!.canGoBack()) {
+                      t.wv!!.goBack()
+                  } else {
+                      if (tabs.size > 1) {
+                          closeTab(curIdx)
+                      } else {
+                          super.onBackPressed()
                       }
-                      .setNegativeButton("Cancel", null)
-                      .show()
+                  }
               }
-              private fun editWg() {
-                  val i = EditText(this); i.setText(prefs.getString("wg_config", WG_CFG))
-                  i.minLines = 6; i.maxLines = 14; i.gravity = Gravity.TOP or Gravity.START; i.setPadding(30, 30, 30, 30)
-                  AlertDialog.Builder(this).setTitle("WireGuard Config").setView(i)
-                      .setPositiveButton("Save") { _, _ -> prefs.edit().putString("wg_config", i.text.toString().trim()).apply(); Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show() }
-                      .setNeutralButton("Reset WARP") { _, _ -> prefs.edit().putString("wg_config", WG_CFG).apply() }
-                      .setNegativeButton("Cancel", null).show()
-              }
-              private fun pickEngine() {
-                  val e = arrayOf("google", "duckduckgo", "bing", "brave")
-                  AlertDialog.Builder(this).setTitle("Search engine").setItems(e) { _, w -> prefs.edit().putString("search_engine", e[w]).apply() }.show()
-              }
-          KOT
+          }
+          KOTEOF
+
+      # --- ADDED: Build APK & Upload to Artifacts ---
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusBrowser-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
