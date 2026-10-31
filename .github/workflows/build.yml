@@ -1050,6 +1050,7 @@ jobs:
                               }
                               return
                           }
+                          if (prefs.getBoolean("slowhide", false)) injSlowhide(v)
                           if (prefs.getBoolean("adblock", true)) {
                               injAd(v)
                               if (u.contains("youtube.com") || u.contains("youtu.be")) injYt(v)
@@ -1128,6 +1129,37 @@ jobs:
               private fun injTsDelay(wv: WebView?) {
                   wv ?: return
                   wv.evaluateJavascript("(function(){if(window.__xTs)return;window.__xTs=1;var TS=7000;function isJsonUrl(u){if(typeof u!=='string')return false;var l=u.toLowerCase();if(l.indexOf('.json')!==-1)return true;if(l.indexOf('/api/')!==-1)return true;if(l.indexOf('graphql')!==-1)return true;if(l.indexOf('/json')!==-1)return true;if(l.indexOf('json=')!==-1)return true;return false;}function fix(u){try{if(typeof u!=='string')return u;if(!isJsonUrl(u))return u;if(/[?&](ts|timestamp|_)=\\d+/.test(u)){return u.replace(/([?&](?:ts|timestamp|_)=)(\\d+)/g,function(m,p,n){return p+(parseInt(n,10)+TS);});}var sep=(u.indexOf('?')===-1)?'?':'&';return u+sep+'ts='+(Date.now()+TS);}catch(e){return u;}}var of=window.fetch;if(of){window.fetch=function(){var a=arguments;try{if(typeof a[0]==='string'){a[0]=fix(a[0]);}else if(a[0]&&a[0].url){var nu=fix(a[0].url);if(nu!==a[0].url){a[0]=new Request(nu,a[0]);}}}catch(e){}return of.apply(this,a);};}var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{u=fix(u);}catch(e){}return oo.apply(this,arguments);};})();", null)
+              }
+              private fun injSlowhide(wv: WebView?) {
+                  wv ?: return
+                  val model = prefs.getString("sh_model", "iPhone 14 Pro Max")?.replace("'", "\\'") ?: "iPhone 14 Pro Max"
+                  val ua = prefs.getString("sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")?.replace("'", "\\'") ?: ""
+                  val plat = prefs.getString("sh_platform", "iPhone")?.replace("'", "\\'") ?: "iPhone"
+                  val vend = prefs.getString("sh_vendor", "Apple Computer, Inc.")?.replace("'", "\\'") ?: "Apple Computer, Inc."
+                  val lat = prefs.getString("sh_lat", "28.6139") ?: "28.6139"
+                  val lng = prefs.getString("sh_lng", "77.2090") ?: "77.2090"
+                  val isp = prefs.getString("sh_isp", "Airtel")?.replace("'", "\\'") ?: "Airtel"
+                  val mac = prefs.getString("sh_mac", "02:00:00:00:00:00") ?: "02:00:00:00:00:00"
+                  val fakeIp = prefs.getString("sh_ip", "103.15.22.1") ?: "103.15.22.1"
+
+                  val js = "(function(){" +
+                      "if(window.__xSlowhide)return;window.__xSlowhide=1;" +
+                      "var sUa='$ua'; var sPlat='$plat'; var sVend='$vend';" +
+                      "var sLat=parseFloat('$lat')||0; var sLng=parseFloat('$lng')||0;" +
+                      // UA Spoofing
+                      "try{Object.defineProperty(navigator,'userAgent',{get:function(){return sUa;}});}catch(e){}" +
+                      "try{Object.defineProperty(navigator,'appVersion',{get:function(){return sUa.replace('Mozilla/','');}});}catch(e){}" +
+                      "try{Object.defineProperty(navigator,'platform',{get:function(){return sPlat;}});}catch(e){}" +
+                      "try{Object.defineProperty(navigator,'vendor',{get:function(){return sVend;}});}catch(e){}" +
+                      // Hardware Spoof
+                      "try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 8;}});}catch(e){}" +
+                      "try{Object.defineProperty(navigator,'deviceMemory',{get:function(){return 8;}});}catch(e){}" +
+                      // Geo Spoof
+                      "if(navigator.geolocation){navigator.geolocation.getCurrentPosition=function(s){s({coords:{latitude:sLat,longitude:sLng,accuracy:10,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()});};navigator.geolocation.watchPosition=navigator.geolocation.getCurrentPosition;}" +
+                      // WebRTC IP Leak Prevention
+                      "try{window.RTCPeerConnection=function(){return {createDataChannel:function(){return {close:function(){}};},createOffer:function(){return Promise.resolve({type:'offer',sdp:''});},setLocalDescription:function(){return Promise.resolve();},close:function(){}};};}catch(e){}" +
+                      "})();"
+                  wv.evaluateJavascript(js, null)
               }
           KOTEOF
       - name: Main Part4
@@ -1762,6 +1794,7 @@ jobs:
                       "Search: ${prefs.getString("search_engine", "google")}",
                       "🌐 JSON Response Delay (${prefs.getInt("json_delay_sec", 5)}s): ${if (prefs.getBoolean("json_delay", false)) "ON" else "OFF"}",
                       "⏱ Timestamp +7s (All JSON): ${if (prefs.getBoolean("ts_delay", false)) "ON" else "OFF"}",
+                      "🛡️ Slowhide Spoofer: ${if (prefs.getBoolean("slowhide", false)) "ON" else "OFF"}",
                       "Clear cache", "Clear cookies", "Reset all")
                   AlertDialog.Builder(this).setTitle("Settings").setItems(o) { _, w ->
                       when (w) {
@@ -1795,11 +1828,66 @@ jobs:
                           }
                           9 -> { val x = !prefs.getBoolean("ts_delay", false); prefs.edit().putBoolean("ts_delay", x).apply()
                               Toast.makeText(this, if (x) "⏱ Timestamp +7s ON (All JSON)" else "⏱ Timestamp +7s OFF", Toast.LENGTH_SHORT).show(); cur?.wv?.reload() }
-                          10 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          11 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
-                          12 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
+                          10 -> showSlowhideDialog()
+                          11 -> { tabs.forEach { it.wv?.clearCache(true) }; Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          12 -> { CookieManager.getInstance().removeAllCookies(null); Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show() }
+                          13 -> { prefs.edit().clear().apply(); prefs.edit().putString("wg_config", WG_CFG).apply(); recreate() }
                       }
                   }.show()
+              }
+              private fun showSlowhideDialog() {
+                  val scroll = ScrollView(this)
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(dp(20), dp(20), dp(20), dp(20))
+                  }
+
+                  fun addField(label: String, key: String, default: String): EditText {
+                      val tv = TextView(this).apply { text = label; setTextColor(Color.BLACK); setPadding(0, dp(8), 0, dp(4)) }
+                      val et = EditText(this).apply { setText(prefs.getString(key, default)) }
+                      layout.addView(tv)
+                      layout.addView(et)
+                      return et
+                  }
+
+                  val modelEt = addField("Device Model", "sh_model", "iPhone 14 Pro Max")
+                  val uaEt = addField("User Agent", "sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")
+                  val platEt = addField("Platform", "sh_platform", "iPhone")
+                  val vendEt = addField("Vendor", "sh_vendor", "Apple Computer, Inc.")
+                  val latEt = addField("Latitude", "sh_lat", "28.6139")
+                  val lngEt = addField("Longitude", "sh_lng", "77.2090")
+                  val ispEt = addField("ISP Provider", "sh_isp", "Airtel")
+                  val macEt = addField("MAC Address", "sh_mac", "02:00:00:00:00:00")
+                  val ipEt = addField("Fake IP", "sh_ip", "103.15.22.1")
+
+                  scroll.addView(layout)
+
+                  AlertDialog.Builder(this)
+                      .setTitle("🛡️ Slowhide Spoofer")
+                      .setView(scroll)
+                      .setPositiveButton("Save") { _, _ ->
+                          prefs.edit()
+                              .putString("sh_model", modelEt.text.toString())
+                              .putString("sh_ua", uaEt.text.toString())
+                              .putString("sh_platform", platEt.text.toString())
+                              .putString("sh_vendor", vendEt.text.toString())
+                              .putString("sh_lat", latEt.text.toString())
+                              .putString("sh_lng", lngEt.text.toString())
+                              .putString("sh_isp", ispEt.text.toString())
+                              .putString("sh_mac", macEt.text.toString())
+                              .putString("sh_ip", ipEt.text.toString())
+                              .putBoolean("slowhide", true)
+                              .apply()
+                          Toast.makeText(this, "Slowhide Saved & Enabled", Toast.LENGTH_SHORT).show()
+                          cur?.wv?.reload()
+                      }
+                      .setNeutralButton("Disable") { _, _ ->
+                          prefs.edit().putBoolean("slowhide", false).apply()
+                          Toast.makeText(this, "Slowhide Disabled", Toast.LENGTH_SHORT).show()
+                          cur?.wv?.reload()
+                      }
+                      .setNegativeButton("Cancel", null)
+                      .show()
               }
               private fun editWg() {
                   val i = EditText(this); i.setText(prefs.getString("wg_config", WG_CFG))
@@ -1813,88 +1901,4 @@ jobs:
                   val e = arrayOf("google", "duckduckgo", "bing", "brave")
                   AlertDialog.Builder(this).setTitle("Search engine").setItems(e) { _, w -> prefs.edit().putString("search_engine", e[w]).apply() }.show()
               }
-          KOTEOF
-      - name: Main Part6
-        run: |
-          cat >> app/src/main/java/com/nexus/browser/MainActivity.kt << 'KOTEOF'
-
-              private fun toggleVpn() {
-                  if (isVpnUp()) stopVpn() else startVpn()
-              }
-              private fun isVpnUp(): Boolean {
-                  return try {
-                      val t = wgTunnel ?: return false
-                      val b = wgBackend ?: return false
-                      b.getState(t) == Tunnel.State.UP
-                  } catch (e: Throwable) { false }
-              }
-              private fun startVpn() {
-                  val c = prefs.getString("wg_config", WG_CFG) ?: WG_CFG
-                  try {
-                      val p = VpnService.prepare(this)
-                      if (p != null) startActivityForResult(p, 1001) else connect(c)
-                  } catch (e: Throwable) { Toast.makeText(this, "Err: ${e.message}", Toast.LENGTH_LONG).show() }
-              }
-              override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
-                  super.onActivityResult(rc, res, d)
-                  if (rc == 1001) {
-                      if (res == RESULT_OK) connect(prefs.getString("wg_config", WG_CFG) ?: WG_CFG)
-                      else Toast.makeText(this, "Denied", Toast.LENGTH_SHORT).show()
-                  }
-              }
-              private fun connect(cfg: String) {
-                  Thread {
-                      try {
-                          val c = Config.parse(ByteArrayInputStream(cfg.toByteArray(Charsets.UTF_8)))
-                          val t = TunnelX("nexus-warp")
-                          val b = wgBackend ?: GoBackend(applicationContext).also { wgBackend = it }
-                          val s = b.setState(t, Tunnel.State.UP, c)
-                          handler.post {
-                              if (s == Tunnel.State.UP) {
-                                  wgTunnel = t; prefs.edit().putBoolean("vpn_enabled", true).apply(); updVpn()
-                                  Toast.makeText(this, "🛡 VPN Connected", Toast.LENGTH_SHORT).show()
-                              } else Toast.makeText(this, "State: $s", Toast.LENGTH_LONG).show()
-                          }
-                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Fail: ${e.message}", Toast.LENGTH_LONG).show() } }
-                  }.start()
-              }
-              private fun stopVpn() {
-                  Thread {
-                      try {
-                          val t = wgTunnel; val b = wgBackend
-                          if (t != null && b != null) b.setState(t, Tunnel.State.DOWN, null)
-                          handler.post { wgTunnel = null; prefs.edit().putBoolean("vpn_enabled", false).apply(); updVpn() }
-                      } catch (e: Throwable) { handler.post { Toast.makeText(this, "Stop err: ${e.message}", Toast.LENGTH_LONG).show() } }
-                  }.start()
-              }
-              private fun updVpn() {
-                  vpnStatusText.text = if (isVpnUp()) "🛡 VPN: PROTECTED" else "🛡 TAP TO CONNECT VPN"
-              }
-              override fun onResume() { super.onResume(); updVpn(); updData() }
-              override fun onNewIntent(intent: Intent) {
-                  super.onNewIntent(intent)
-                  intent.data?.let { u ->
-                      val t = cur
-                      if (t != null && t.isHome) loadUri(t, u) else newTabWithUri(u)
-                  }
-              }
-              override fun onBackPressed() {
-                  val t = cur; val wv = t?.wv
-                  if (t != null && !t.isHome && wv != null && wv.canGoBack()) { wv.goBack(); return }
-                  if (t != null && !t.isHome) { showHome(); return }
-                  if (tabs.size > 1) { closeTab(curIdx); return }
-                  super.onBackPressed()
-              }
-          }
-          KOTEOF
-      - name: Build
-        run: gradle assembleDebug --stacktrace --no-daemon
-      - name: Find
-        run: find . -name "*.apk" -type f
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: NexusBrowser-APK
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 30
+          KOT
