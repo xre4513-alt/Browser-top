@@ -568,6 +568,9 @@ jobs:
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
           import androidx.appcompat.app.AppCompatDelegate
+          import androidx.webkit.WebViewCompat
+          import androidx.webkit.WebViewFeature
+          import org.json.JSONObject
           import com.wireguard.android.backend.Backend
           import com.wireguard.android.backend.GoBackend
           import com.wireguard.android.backend.Tunnel
@@ -618,7 +621,8 @@ jobs:
 
               data class Tab(val id: String = UUID.randomUUID().toString(), var title: String = "New Tab",
                              var url: String = "about:blank", var isHome: Boolean = true,
-                             var incognito: Boolean = false, var wv: WebView? = null)
+                             var incognito: Boolean = false, var wv: WebView? = null,
+                             var shHandler: androidx.webkit.ScriptHandler? = null)
               private val tabs = mutableListOf<Tab>()
               private var curIdx = -1
               private val cur: Tab? get() = tabs.getOrNull(curIdx)
@@ -716,6 +720,7 @@ jobs:
                   if (inc != null) newTabWithUri(inc) else newHomeTab()
                   homeSearchBar.clearFocus(); addressBar.clearFocus()
                   dataHandler.post(dataRun)
+                  if (prefs.getBoolean("slowhide", false)) handler.postDelayed({ if (!isVpnUp()) startVpn() }, 800)
               }
               override fun onDestroy() { dataHandler.removeCallbacks(dataRun); super.onDestroy() }
 
@@ -1006,13 +1011,17 @@ jobs:
                   @Suppress("DEPRECATION") s.blockNetworkImage = lowDataMode
                   s.cacheMode = if (lowDataMode) WebSettings.LOAD_CACHE_ELSE_NETWORK
                                 else if (t.incognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                  s.userAgentString = s.userAgentString + " NexusBrowser/4.0"
+                  refreshSlowhide(t, wv)
                   s.setSupportMultipleWindows(true)
                   wv.webViewClient = object : WebViewClient() {
                       override fun shouldInterceptRequest(v: WebView?, r: WebResourceRequest?): WebResourceResponse? {
                           val u = r?.url?.toString() ?: return super.shouldInterceptRequest(v, r)
                           val m = r.method ?: "GET"
                           val mf = r.isForMainFrame
+                          if (prefs.getBoolean("slowhide", false)) {
+                              val fk = fakeIpResponse(u, mf)
+                              if (fk != null) { logReq(u, m, false, mf); return fk }
+                          }
                           if (prefs.getBoolean("adblock", true)) {
                               tCount.incrementAndGet()
                               if (isAd(u)) {
@@ -1050,7 +1059,7 @@ jobs:
                               }
                               return
                           }
-                          if (prefs.getBoolean("slowhide", false)) injSlowhide(v)
+                          if (prefs.getBoolean("slowhide", false) && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) injSlowhide(v)
                           if (prefs.getBoolean("adblock", true)) {
                               injAd(v)
                               if (u.contains("youtube.com") || u.contains("youtu.be")) injYt(v)
@@ -1130,39 +1139,160 @@ jobs:
                   wv ?: return
                   wv.evaluateJavascript("(function(){if(window.__xTs)return;window.__xTs=1;var TS=7000;function isJsonUrl(u){if(typeof u!=='string')return false;var l=u.toLowerCase();if(l.indexOf('.json')!==-1)return true;if(l.indexOf('/api/')!==-1)return true;if(l.indexOf('graphql')!==-1)return true;if(l.indexOf('/json')!==-1)return true;if(l.indexOf('json=')!==-1)return true;return false;}function fix(u){try{if(typeof u!=='string')return u;if(!isJsonUrl(u))return u;if(/[?&](ts|timestamp|_)=\\d+/.test(u)){return u.replace(/([?&](?:ts|timestamp|_)=)(\\d+)/g,function(m,p,n){return p+(parseInt(n,10)+TS);});}var sep=(u.indexOf('?')===-1)?'?':'&';return u+sep+'ts='+(Date.now()+TS);}catch(e){return u;}}var of=window.fetch;if(of){window.fetch=function(){var a=arguments;try{if(typeof a[0]==='string'){a[0]=fix(a[0]);}else if(a[0]&&a[0].url){var nu=fix(a[0].url);if(nu!==a[0].url){a[0]=new Request(nu,a[0]);}}}catch(e){}return of.apply(this,a);};}var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{u=fix(u);}catch(e){}return oo.apply(this,arguments);};})();", null)
               }
+              private val SH_UA_DEFAULT = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+              private val DESKTOP_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              private var baseUa: String? = null
+
+              private val SH_JS = """
+                  (function(){
+                  if(window.__xSh)return;
+                  try{Object.defineProperty(window,'__xSh',{value:1});}catch(e){window.__xSh=1;}
+                  var P=__CFG__;
+                  function def(o,k,v){try{Object.defineProperty(o,k,{get:function(){return v;},configurable:true});}catch(e){}}
+                  var N=Navigator.prototype;
+                  def(N,'userAgent',P.ua);
+                  def(N,'appVersion',P.ua.replace(/^Mozilla\//,''));
+                  def(N,'platform',P.plat);
+                  def(N,'vendor',P.vend);
+                  def(N,'language',P.lang);
+                  def(N,'languages',[P.lang,'en']);
+                  def(N,'hardwareConcurrency',8);
+                  def(N,'deviceMemory',P.hasUad?8:undefined);
+                  def(N,'maxTouchPoints',P.touch);
+                  if(P.hasUad){
+                  var br=[{brand:'Not_A Brand',version:'8'},{brand:'Chromium',version:P.cv},{brand:'Google Chrome',version:P.cv}];
+                  var uad={brands:br,mobile:P.mobile,platform:P.uadPlat,
+                  getHighEntropyValues:function(h){return Promise.resolve({brands:br,mobile:P.mobile,platform:P.uadPlat,platformVersion:P.osv,architecture:P.mobile?'':'x86',bitness:'64',model:P.mobile?P.model:'',uaFullVersion:P.cv+'.0.0.0',fullVersionList:br});},
+                  toJSON:function(){return {brands:br,mobile:P.mobile,platform:P.uadPlat};}};
+                  def(N,'userAgentData',uad);
+                  }else{def(N,'userAgentData',undefined);}
+                  var S=Screen.prototype;
+                  def(S,'width',P.sw);def(S,'height',P.sh);def(S,'availWidth',P.sw);def(S,'availHeight',P.sh);
+                  def(S,'colorDepth',24);def(S,'pixelDepth',24);
+                  def(window,'devicePixelRatio',P.dpr);
+                  var conn={effectiveType:'4g',type:'cellular',downlink:10,rtt:50,saveData:false,addEventListener:function(){},removeEventListener:function(){}};
+                  def(N,'connection',conn);
+                  try{navigator.getBattery=function(){return Promise.resolve({charging:false,level:0.82,chargingTime:Infinity,dischargingTime:18000,addEventListener:function(){},removeEventListener:function(){}});};}catch(e){}
+                  function mk(){return {coords:{latitude:P.lat,longitude:P.lng,accuracy:20,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()};}
+                  try{
+                  var G=navigator.geolocation;var wid=0;
+                  G.getCurrentPosition=function(ok){if(ok){setTimeout(function(){ok(mk());},30);}};
+                  G.watchPosition=function(ok){if(ok){setTimeout(function(){ok(mk());},30);}return ++wid;};
+                  G.clearWatch=function(){};
+                  }catch(e){}
+                  ['RTCPeerConnection','webkitRTCPeerConnection','RTCDataChannel','mozRTCPeerConnection'].forEach(function(k){
+                  try{Object.defineProperty(window,k,{value:undefined,configurable:true,writable:true});}catch(e){}
+                  });
+                  try{
+                  var R=Intl.DateTimeFormat.prototype.resolvedOptions;
+                  Intl.DateTimeFormat.prototype.resolvedOptions=function(){var o=R.apply(this,arguments);if(P.tz){o.timeZone=P.tz;}return o;};
+                  Date.prototype.getTimezoneOffset=function(){return P.tzoff;};
+                  }catch(e){}
+                  function gl(C){if(!C)return;var o=C.prototype.getParameter;C.prototype.getParameter=function(p){if(p===37445)return P.gv;if(p===37446)return P.gr;return o.apply(this,arguments);};}
+                  try{gl(window.WebGLRenderingContext);gl(window.WebGL2RenderingContext);}catch(e){}
+                  })();
+              """
+
+              private fun slowhideJs(): String {
+                  fun s(k: String, d: String): String = prefs.getString(k, d) ?: d
+                  val ua = s("sh_ua", SH_UA_DEFAULT)
+                  val tz = s("sh_tz", "Asia/Kolkata")
+                  val tzoff = try { -java.util.TimeZone.getTimeZone(tz).getOffset(System.currentTimeMillis()) / 60000 } catch (e: Exception) { -330 }
+                  val android = ua.contains("Android")
+                  val platName = when {
+                      android -> "Android"
+                      ua.contains("Windows") -> "Windows"
+                      ua.contains("Macintosh") && ua.contains("Chrome/") -> "macOS"
+                      ua.contains("X11") && ua.contains("Chrome/") -> "Linux"
+                      else -> ""
+                  }
+                  val cv = Regex("Chrome/(\\d+)").find(ua)?.groupValues?.get(1) ?: "120"
+                  val osv = if (android) (Regex("Android (\\d+)").find(ua)?.groupValues?.get(1) ?: "13") + ".0.0"
+                            else if (platName == "Windows") "10.0.0" else "1.0.0"
+                  val mobile = ua.contains("Mobile")
+                  val cfg = JSONObject().apply {
+                      put("ua", ua)
+                      put("plat", s("sh_platform", "iPhone"))
+                      put("vend", s("sh_vendor", "Apple Computer, Inc."))
+                      put("model", s("sh_model", "iPhone 14 Pro Max"))
+                      put("lang", s("sh_lang", "en-IN"))
+                      put("tz", tz)
+                      put("tzoff", tzoff)
+                      put("lat", s("sh_lat", "28.6139").trim().toDoubleOrNull() ?: 28.6139)
+                      put("lng", s("sh_lng", "77.2090").trim().toDoubleOrNull() ?: 77.2090)
+                      put("sw", s("sh_sw", "430").trim().toIntOrNull() ?: 430)
+                      put("sh", s("sh_sh", "932").trim().toIntOrNull() ?: 932)
+                      put("dpr", s("sh_dpr", "3").trim().toDoubleOrNull() ?: 3.0)
+                      put("gv", s("sh_gv", "Apple Inc."))
+                      put("gr", s("sh_gr", "Apple GPU"))
+                      put("hasUad", ua.contains("Chrome/") && platName.isNotEmpty())
+                      put("uadPlat", platName)
+                      put("cv", cv)
+                      put("osv", osv)
+                      put("mobile", mobile)
+                      put("touch", if (mobile) 5 else 0)
+                  }
+                  return SH_JS.replace("__CFG__", cfg.toString())
+              }
               private fun injSlowhide(wv: WebView?) {
                   wv ?: return
-                  val model = prefs.getString("sh_model", "iPhone 14 Pro Max")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "iPhone 14 Pro Max"
-                  val ua = prefs.getString("sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: ""
-                  val plat = prefs.getString("sh_platform", "iPhone")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "iPhone"
-                  val vend = prefs.getString("sh_vendor", "Apple Computer, Inc.")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "Apple Computer, Inc."
-                  val lat = prefs.getString("sh_lat", "28.6139") ?: "28.6139"
-                  val lng = prefs.getString("sh_lng", "77.2090") ?: "77.2090"
-                  val isp = prefs.getString("sh_isp", "Airtel")?.replace("\\", "\\\\")?.replace("'", "\\'")?.replace("\"", "\\\"") ?: "Airtel"
-                  val mac = prefs.getString("sh_mac", "02:00:00:00:00:00") ?: "02:00:00:00:00:00"
-                  val fakeIp = prefs.getString("sh_ip", "103.15.22.1") ?: "103.15.22.1"
+                  wv.evaluateJavascript(slowhideJs(), null)
+              }
+              private fun applyUa(wv: WebView) {
+                  val s = wv.settings
+                  if (baseUa == null) baseUa = s.userAgentString
+                  s.userAgentString = when {
+                      prefs.getBoolean("slowhide", false) -> (prefs.getString("sh_ua", SH_UA_DEFAULT) ?: SH_UA_DEFAULT)
+                      desktopMode -> DESKTOP_UA
+                      else -> (baseUa ?: "") + " NexusBrowser/4.0"
+                  }
+              }
+              private fun refreshSlowhide(t: Tab, wv: WebView) {
+                  try { t.shHandler?.remove() } catch (e: Throwable) {}
+                  t.shHandler = null
+                  applyUa(wv)
+                  if (prefs.getBoolean("slowhide", false) && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                      try { t.shHandler = WebViewCompat.addDocumentStartJavaScript(wv, slowhideJs(), setOf("*")) } catch (e: Throwable) {}
+                  }
+              }
+              private fun refreshAllSlowhide() {
+                  tabs.forEach { tb -> tb.wv?.let { refreshSlowhide(tb, it) } }
+              }
 
-                  val js = """
-                      (function(){
-                          if(window.__xSlowhide)return; window.__xSlowhide=1;
-                          var sUa='$ua'; var sPlat='$plat'; var sVend='$vend';
-                          var sLat=parseFloat('$lat')||0; var sLng=parseFloat('$lng')||0;
-                          try{Object.defineProperty(navigator,'userAgent',{get:function(){return sUa;}});}catch(e){}
-                          try{Object.defineProperty(navigator,'appVersion',{get:function(){return sUa.replace('Mozilla/','');}});}catch(e){}
-                          try{Object.defineProperty(navigator,'platform',{get:function(){return sPlat;}});}catch(e){}
-                          try{Object.defineProperty(navigator,'vendor',{get:function(){return sVend;}});}catch(e){}
-                          try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 8;}});}catch(e){}
-                          try{Object.defineProperty(navigator,'deviceMemory',{get:function(){return 8;}});}catch(e){}
-                          if(navigator.geolocation){
-                              navigator.geolocation.getCurrentPosition=function(s){
-                                  s({coords:{latitude:sLat,longitude:sLng,accuracy:10,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()});
-                              };
-                              navigator.geolocation.watchPosition=navigator.geolocation.getCurrentPosition;
-                          }
-                          try{window.RTCPeerConnection=function(){return {createDataChannel:function(){return {close:function(){}};},createOffer:function(){return Promise.resolve({type:'offer',sdp:''});},setLocalDescription:function(){return Promise.resolve();},close:function(){}};};}catch(e){}
-                      })();
-                  """.trimIndent().replace("\n", " ")
-                  wv.evaluateJavascript(js, null)
+              private val ipLookupHosts = setOf("api.ipify.org","api64.ipify.org","api6.ipify.org","ipify.org","ipapi.co","ip-api.com",
+                  "ipinfo.io","ipwho.is","freeipapi.com","geolocation-db.com","icanhazip.com","ipv4.icanhazip.com","checkip.amazonaws.com",
+                  "ifconfig.me","ifconfig.co","ident.me","wtfismyip.com","api.myip.com","myip.com","ipecho.net","get.geojs.io",
+                  "geoplugin.net","json.geoiplookup.io","api.ipgeolocation.io","ipgeolocation.io","ipregistry.co","api.db-ip.com","ipapi.is")
+              private val ipJsonHosts = setOf("ipapi.co","ip-api.com","ipinfo.io","ipwho.is","freeipapi.com","geolocation-db.com",
+                  "api.myip.com","get.geojs.io","geoplugin.net","json.geoiplookup.io","api.ipgeolocation.io","ipregistry.co","api.db-ip.com","ipapi.is")
+              private fun fakeIpResponse(url: String, mainFrame: Boolean): WebResourceResponse? {
+                  if (mainFrame) return null
+                  val host = try { Uri.parse(url).host?.lowercase() ?: "" } catch (e: Exception) { "" }
+                  if (host.isEmpty() || ipLookupHosts.none { host == it || host.endsWith(".$it") }) return null
+                  val ip = prefs.getString("sh_ip", "103.15.22.1") ?: "103.15.22.1"
+                  val isp = prefs.getString("sh_isp", "Airtel") ?: "Airtel"
+                  val city = prefs.getString("sh_city", "New Delhi") ?: "New Delhi"
+                  val country = prefs.getString("sh_country", "India") ?: "India"
+                  val tz = prefs.getString("sh_tz", "Asia/Kolkata") ?: "Asia/Kolkata"
+                  val lat = prefs.getString("sh_lat", "28.6139")?.trim()?.toDoubleOrNull() ?: 28.6139
+                  val lng = prefs.getString("sh_lng", "77.2090")?.trim()?.toDoubleOrNull() ?: 77.2090
+                  val lu = url.lowercase()
+                  val json = lu.contains("json") || ipJsonHosts.any { host == it || host.endsWith(".$it") }
+                  val body = if (json) {
+                      JSONObject().apply {
+                          put("ip", ip); put("query", ip); put("ip_address", ip); put("ipAddress", ip)
+                          put("success", true); put("status", "success")
+                          put("city", city); put("region", city); put("regionName", city)
+                          put("country", country); put("country_name", country); put("countryName", country)
+                          put("timezone", tz); put("time_zone", tz)
+                          put("org", isp); put("isp", isp); put("as", isp); put("asn", isp)
+                          put("latitude", lat); put("longitude", lng); put("lat", lat); put("lon", lng); put("lng", lng)
+                          put("loc", "$lat,$lng")
+                      }.toString()
+                  } else ip + "\n"
+                  val hdr = mapOf("Access-Control-Allow-Origin" to "*", "Cache-Control" to "no-store")
+                  return WebResourceResponse(if (json) "application/json" else "text/plain", "utf-8", 200, "OK", hdr,
+                      ByteArrayInputStream(body.toByteArray(Charsets.UTF_8)))
               }
           KOTEOF
       - name: Main Part4
@@ -1775,7 +1905,7 @@ jobs:
                   desktopMode = !desktopMode
                   val ua = if (desktopMode) "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                   else "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                  tabs.forEach { it.wv?.settings?.userAgentString = ua }
+                  tabs.forEach { tb -> tb.wv?.let { applyUa(it) } }
                   cur?.wv?.reload()
                   Toast.makeText(this, if (desktopMode) "Desktop" else "Mobile", Toast.LENGTH_SHORT).show()
               }
@@ -1838,30 +1968,75 @@ jobs:
                       }
                   }.show()
               }
+              private data class ShPreset(val name: String, val model: String, val ua: String, val plat: String, val vend: String,
+                                          val sw: Int, val sh: Int, val dpr: String, val gv: String, val gr: String)
+              private val shPresets = listOf(
+                  ShPreset("iPhone 14 Pro Max", "iPhone 14 Pro Max",
+                      "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+                      "iPhone", "Apple Computer, Inc.", 430, 932, "3", "Apple Inc.", "Apple GPU"),
+                  ShPreset("iPhone 15 Pro", "iPhone 15 Pro",
+                      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+                      "iPhone", "Apple Computer, Inc.", 393, 852, "3", "Apple Inc.", "Apple GPU"),
+                  ShPreset("Samsung Galaxy S23 Ultra", "SM-S918B",
+                      "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                      "Linux armv81", "Google Inc.", 412, 915, "3.5", "Qualcomm", "Adreno (TM) 740"),
+                  ShPreset("Samsung Galaxy A54", "SM-A546E",
+                      "Mozilla/5.0 (Linux; Android 13; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                      "Linux armv81", "Google Inc.", 412, 915, "2.625", "ARM", "Mali-G68"),
+                  ShPreset("Google Pixel 8 Pro", "Pixel 8 Pro",
+                      "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                      "Linux armv81", "Google Inc.", 448, 998, "2.625", "ARM", "Mali-G715-Immortalis MC10"),
+                  ShPreset("OnePlus 11", "CPH2449",
+                      "Mozilla/5.0 (Linux; Android 13; CPH2449) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                      "Linux armv81", "Google Inc.", 412, 919, "3.5", "Qualcomm", "Adreno (TM) 740"),
+                  ShPreset("Windows PC (Chrome)", "Windows PC",
+                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                      "Win32", "Google Inc.", 1920, 1080, "1", "Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)")
+              )
+
               private fun showSlowhideDialog() {
                   val scroll = ScrollView(this)
                   val layout = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(dp(20), dp(20), dp(20), dp(20))
                   }
-
                   fun addField(label: String, key: String, default: String): EditText {
-                      val tv = TextView(this).apply { text = label; setTextColor(Color.BLACK); setPadding(0, dp(8), 0, dp(4)) }
+                      val tv = TextView(this).apply { text = label; setTextColor(Color.GRAY); setPadding(0, dp(8), 0, dp(4)) }
                       val et = EditText(this).apply { setText(prefs.getString(key, default)) }
                       layout.addView(tv)
                       layout.addView(et)
                       return et
                   }
+                  val presetBtn = android.widget.Button(this).apply { text = "📱 Choose device preset" }
+                  layout.addView(presetBtn)
 
                   val modelEt = addField("Device Model", "sh_model", "iPhone 14 Pro Max")
-                  val uaEt = addField("User Agent", "sh_ua", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1")
+                  val uaEt = addField("User Agent", "sh_ua", SH_UA_DEFAULT)
                   val platEt = addField("Platform", "sh_platform", "iPhone")
                   val vendEt = addField("Vendor", "sh_vendor", "Apple Computer, Inc.")
+                  val swEt = addField("Screen Width (CSS px)", "sh_sw", "430")
+                  val shEt = addField("Screen Height (CSS px)", "sh_sh", "932")
+                  val dprEt = addField("Pixel Ratio", "sh_dpr", "3")
+                  val gvEt = addField("GPU Vendor", "sh_gv", "Apple Inc.")
+                  val grEt = addField("GPU Renderer", "sh_gr", "Apple GPU")
+                  val langEt = addField("Language", "sh_lang", "en-IN")
                   val latEt = addField("Latitude", "sh_lat", "28.6139")
                   val lngEt = addField("Longitude", "sh_lng", "77.2090")
-                  val ispEt = addField("ISP Provider", "sh_isp", "Airtel")
-                  val macEt = addField("MAC Address", "sh_mac", "02:00:00:00:00:00")
-                  val ipEt = addField("Fake IP", "sh_ip", "103.15.22.1")
+                  val cityEt = addField("City", "sh_city", "New Delhi")
+                  val countryEt = addField("Country", "sh_country", "India")
+                  val tzEt = addField("Timezone", "sh_tz", "Asia/Kolkata")
+                  val ispEt = addField("ISP Provider (IP-check APIs)", "sh_isp", "Airtel")
+                  val ipEt = addField("Fake IP (IP-check APIs)", "sh_ip", "103.15.22.1")
+
+                  presetBtn.setOnClickListener {
+                      AlertDialog.Builder(this).setTitle("Device preset")
+                          .setItems(shPresets.map { it.name }.toTypedArray()) { _, i ->
+                              val p = shPresets[i]
+                              modelEt.setText(p.model); uaEt.setText(p.ua); platEt.setText(p.plat); vendEt.setText(p.vend)
+                              swEt.setText(p.sw.toString()); shEt.setText(p.sh.toString()); dprEt.setText(p.dpr)
+                              gvEt.setText(p.gv); grEt.setText(p.gr)
+                          }.setNegativeButton("Cancel", null).show()
+                  }
 
                   scroll.addView(layout)
 
@@ -1874,19 +2049,30 @@ jobs:
                               .putString("sh_ua", uaEt.text.toString())
                               .putString("sh_platform", platEt.text.toString())
                               .putString("sh_vendor", vendEt.text.toString())
+                              .putString("sh_sw", swEt.text.toString())
+                              .putString("sh_sh", shEt.text.toString())
+                              .putString("sh_dpr", dprEt.text.toString())
+                              .putString("sh_gv", gvEt.text.toString())
+                              .putString("sh_gr", grEt.text.toString())
+                              .putString("sh_lang", langEt.text.toString())
                               .putString("sh_lat", latEt.text.toString())
                               .putString("sh_lng", lngEt.text.toString())
+                              .putString("sh_city", cityEt.text.toString())
+                              .putString("sh_country", countryEt.text.toString())
+                              .putString("sh_tz", tzEt.text.toString())
                               .putString("sh_isp", ispEt.text.toString())
-                              .putString("sh_mac", macEt.text.toString())
                               .putString("sh_ip", ipEt.text.toString())
                               .putBoolean("slowhide", true)
                               .apply()
-                          Toast.makeText(this, "Slowhide Saved & Enabled", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Slowhide Saved & Enabled (VPN auto-connect)", Toast.LENGTH_SHORT).show()
+                          refreshAllSlowhide()
+                          if (!isVpnUp()) startVpn()
                           cur?.wv?.reload()
                       }
                       .setNeutralButton("Disable") { _, _ ->
                           prefs.edit().putBoolean("slowhide", false).apply()
                           Toast.makeText(this, "Slowhide Disabled", Toast.LENGTH_SHORT).show()
+                          refreshAllSlowhide()
                           cur?.wv?.reload()
                       }
                       .setNegativeButton("Cancel", null)
@@ -1944,6 +2130,7 @@ jobs:
                               if (s == Tunnel.State.UP) {
                                   wgTunnel = t; prefs.edit().putBoolean("vpn_enabled", true).apply(); updVpn()
                                   Toast.makeText(this, "🛡 VPN Connected", Toast.LENGTH_SHORT).show()
+                                  if (prefs.getBoolean("slowhide", false)) cur?.wv?.reload()
                               } else Toast.makeText(this, "State: $s", Toast.LENGTH_LONG).show()
                           }
                       } catch (e: Throwable) { handler.post { Toast.makeText(this, "Fail: ${e.message}", Toast.LENGTH_LONG).show() } }
